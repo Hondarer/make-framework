@@ -400,10 +400,19 @@ ifndef NO_LINK
 # テストの実行
 # Run tests
 test: $(TESTSH) $(TARGETDIR)/$(TARGET)
-	@status=0; \
-	export TEST_SRCS="$(TEST_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(NKF)) 2> >($(NKF) >&2) || status=$$?; \
-	$(MAKE) clean-cov; \
-	exit $$status
+    ifneq ($(OS),Windows_NT)
+        # Linux
+		@status=0; \
+		export TEST_SRCS="$(TEST_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(NKF)) 2> >($(NKF) >&2) || status=$$?; \
+		$(MAKE) clean-cov; \
+		exit $$status
+    else
+        # Windows
+        # Windows のカバレッジ対応は現状未実装
+		@status=0; \
+		export TEST_SRCS="$(TEST_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(NKF)) 2> >($(NKF) >&2) || status=$$?; \
+		exit $$status
+    endif
 else
 # 何もしない
 # Do nothing
