@@ -7,7 +7,7 @@ LIBSFILES := $(shell for dir in $(LIBSDIR); do [ -d $$dir ] && find $$dir -maxde
 # Set test libraries
 # LINK_TEST が 1 の場合にのみ設定する
 ifeq ($(LINK_TEST), 1)
-    TEST_LIBS := gtest_main gtest gmock
+    TEST_LIBS := test_com gtest_main gtest gmock
     ifneq ($(OS),Windows_NT)
         # Linux
         TEST_LIBS += pthread gcov
