@@ -43,7 +43,7 @@ endif
 # TARGETDIR := . の場合、カレントディレクトリにアーカイブを生成する
 # If TARGETDIR := ., the archive is created in the current directory
 ifeq ($(TARGETDIR),)
-    TARGETDIR := $(WORKSPACE_FOLDER)/test/lib
+	TARGETDIR := .
 endif
 # ディレクトリ名をアーカイブ名にする
 # Use directory name as archive name if TARGET is not specified
