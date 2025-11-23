@@ -11,6 +11,14 @@ ifeq ($(LINK_TEST), 1)
     ifneq ($(OS),Windows_NT)
         # Linux
         TEST_LIBS += pthread gcov
+        # ステップ実行/カバレッジに支障となるオプションを除去
+        #   -flto: リンク時最適化 (GCC の LTO)
+        LDFLAGS := $(filter-out -flto,$(LDFLAGS))
+    else
+        # Windows
+        # ステップ実行/カバレッジに支障となるオプションを除去
+        #   /LTCG: リンク時コード生成 (プログラム全体最適化)
+        LDFLAGS := $(filter-out /LTCG,$(LDFLAGS))
     endif
     # FIXME: 決め打ちにしているので CONFIG で切替要
     #        Linux 側もここで指定する必要がある
@@ -44,6 +52,75 @@ CXXFLAGS += $(addprefix -D,$(DEFINES))
 # For test targets
 CFLAGS_TEST := $(CFLAGS) -I$(WORKSPACE_FOLDER)/testfw/include_override -I$(WORKSPACE_FOLDER)/test/include_override $(addprefix -I, $(INCDIR))
 CXXFLAGS_TEST := $(CXXFLAGS) -I$(WORKSPACE_FOLDER)/testfw/include_override -I$(WORKSPACE_FOLDER)/test/include_override $(addprefix -I, $(INCDIR))
+ifneq ($(OS),Windows_NT)
+    # Linux
+    # ステップ実行/カバレッジに支障となるオプションを除去
+    #   -O1, -O2, -O3, -Os, -Ofast: 最適化レベル
+    #   -finline-functions: インライン展開
+    #   -fomit-frame-pointer: フレームポインタ省略
+    CFLAGS_TEST := $(filter-out -O1 -O2 -O3 -Os -Ofast -finline-functions -fomit-frame-pointer,$(CFLAGS_TEST))
+    CXXFLAGS_TEST := $(filter-out -O1 -O2 -O3 -Os -Ofast -finline-functions -fomit-frame-pointer,$(CXXFLAGS_TEST))
+    # ステップ実行/カバレッジに必要なオプションを追加 (未定義の場合のみ)
+    #   -O0: 最適化無効
+    #   -g: デバッグ情報生成
+    ifeq ($(findstring -O0,$(CFLAGS_TEST)),)
+        CFLAGS_TEST += -O0
+    endif
+    ifeq ($(findstring -g,$(CFLAGS_TEST)),)
+        CFLAGS_TEST += -g
+    endif
+    ifeq ($(findstring -O0,$(CXXFLAGS_TEST)),)
+        CXXFLAGS_TEST += -O0
+    endif
+    ifeq ($(findstring -g,$(CXXFLAGS_TEST)),)
+        CXXFLAGS_TEST += -g
+    endif
+    # カバレッジ計測用オプション
+    #   -coverage: gcov/lcov 用のインストルメンテーション
+    CFLAGS_TEST += -coverage
+    CXXFLAGS_TEST += -coverage
+else
+    # Windows
+    # ステップ実行/カバレッジに支障となるオプションを除去
+    #   /O1, /O2: 最適化 (コード再配置・省略が発生)
+    #   /Ob1, /Ob2: インライン展開 (関数呼び出しが消える)
+    #   /Oi: 組み込み関数 (標準関数がインライン化)
+    #   /Oy: フレームポインタ省略 (スタックトレース不正確)
+    #   /GL: リンク時最適化 (LTCG)
+    #   /Gw: グローバルデータ最適化
+    CFLAGS_TEST := $(filter-out /O1 /O2 /Ob1 /Ob2 /Oi /Oy /GL /Gw,$(CFLAGS_TEST))
+    CXXFLAGS_TEST := $(filter-out /O1 /O2 /Ob1 /Ob2 /Oi /Oy /GL /Gw,$(CXXFLAGS_TEST))
+    # ステップ実行/カバレッジに必要なオプションを追加 (未定義の場合のみ)
+    #   /Od: 最適化無効 (コードが元のまま保持)
+    #   /Ob0: インライン展開無効 (全関数呼び出しを保持)
+    #   /Zi: デバッグ情報生成 (PDB ファイル)
+    #   /EHsc: C++ 例外処理
+    ifeq ($(findstring /Od,$(CFLAGS_TEST)),)
+        CFLAGS_TEST += /Od
+    endif
+    ifeq ($(findstring /Ob0,$(CFLAGS_TEST)),)
+        CFLAGS_TEST += /Ob0
+    endif
+    ifeq ($(findstring /Zi,$(CFLAGS_TEST)),)
+        CFLAGS_TEST += /Zi
+    endif
+    ifeq ($(findstring /EHsc,$(CFLAGS_TEST)),)
+        CFLAGS_TEST += /EHsc
+    endif
+    ifeq ($(findstring /Od,$(CXXFLAGS_TEST)),)
+        CXXFLAGS_TEST += /Od
+    endif
+    ifeq ($(findstring /Ob0,$(CXXFLAGS_TEST)),)
+        CXXFLAGS_TEST += /Ob0
+    endif
+    ifeq ($(findstring /Zi,$(CXXFLAGS_TEST)),)
+        CXXFLAGS_TEST += /Zi
+    endif
+    ifeq ($(findstring /EHsc,$(CXXFLAGS_TEST)),)
+        CXXFLAGS_TEST += /EHsc
+    endif
+endif
+
 # テスト対象以外
 # For non-test targets
 CFLAGS   += $(addprefix -I, $(INCDIR))
@@ -126,8 +203,8 @@ ifneq ($$(OS),Windows_NT)
     # Linux
 $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR)
 		@set -o pipefail; if echo $$(TEST_SRCS) | grep -q $$(notdir $$<); then \
-			echo LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -coverage -D_IN_TEST_SRC_ -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
-			LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -coverage -D_IN_TEST_SRC_ -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
+			echo LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC_ -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
+			LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC_ -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
 		else \
 			echo LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
 			LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
@@ -400,19 +477,9 @@ ifndef NO_LINK
 # テストの実行
 # Run tests
 test: $(TESTSH) $(TARGETDIR)/$(TARGET)
-    ifneq ($(OS),Windows_NT)
-        # Linux
-		@status=0; \
-		export TEST_SRCS="$(TEST_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(NKF)) 2> >($(NKF) >&2) || status=$$?; \
-		$(MAKE) clean-cov; \
-		exit $$status
-    else
-        # Windows
-        # Windows のカバレッジ対応は現状未実装
-		@status=0; \
-		export TEST_SRCS="$(TEST_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(NKF)) 2> >($(NKF) >&2) || status=$$?; \
-		exit $$status
-    endif
+	@status=0; \
+	export TEST_SRCS="$(TEST_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(NKF)) 2> >($(NKF) >&2) || status=$$?; \
+	exit $$status
 else
 # 何もしない
 # Do nothing
