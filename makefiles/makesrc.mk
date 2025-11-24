@@ -379,19 +379,12 @@ clean:
 	done
     ifneq ($(OS),Windows_NT)
         # Linux
-		-rm -f core
+		-rm -rf core $(OBJDIR)/*.gcda $(OBJDIR)/*.info $(LCOVDIR)
     else
         # Windows
 		-rm -f $(patsubst %.exe,%.pdb,$(TARGETDIR)/$(TARGET))
     endif
-    # coverage
-	-rm -rf $(GCOVDIR) $(COVERAGEDIR)
-    ifneq ($(OS),Windows_NT)
-        # Linux
-		-rm -rf $(OBJDIR)/*.gcda $(OBJDIR)/*.info $(LCOVDIR)
-    endif
-    # test
-	-rm -rf results
+	-rm -rf $(GCOVDIR) $(COVERAGEDIR) results
 
 .PHONY: test
 ifeq ($(call should_skip,$(SKIP_TEST)),true)
