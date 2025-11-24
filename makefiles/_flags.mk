@@ -28,6 +28,9 @@ endef
 ifneq ($(OS),Windows_NT)
     # Linux
     C_STDFLAG := $(call _c_std_gnu,$(C_STANDARD))
+    ifeq ($(STRICT),ON)
+        C_STDFLAG += -Wpedantic
+    endif
 else
     # Windows
     C_STDFLAG := $(call _c_std_msvc,$(C_STANDARD)) /Zc:preprocessor
@@ -100,26 +103,44 @@ ifeq ($(OS),Windows_NT)
 endif
 
 # runtime
-ifeq ($(OS),Windows_NT)
-    # Windows
-    # 共通フラグ
-    CFLAGS   += /EHsc /Zi /MP
-    CXXFLAGS += /EHsc /Zi /MP
+ifneq ($(OS),Windows_NT)
+    # Linux
     # 構成別フラグ
     ifeq ($(CONFIG),Debug)
-      CPPDEFS  += /D_DEBUG
-      CFLAGS   += /MDd /Od /RTC1 /GS
-      CXXFLAGS += /MDd /Od /RTC1 /GS
+      CPPFLAGS += -D_DEBUG
+      CFLAGS   += -O0 -g
+      CXXFLAGS += -O0 -g
+    else ifeq ($(CONFIG),Release)
+      CPPFLAGS += -DNDEBUG
+      CFLAGS   += -O2 -g
+      CXXFLAGS += -O2 -g
+    else ifeq ($(CONFIG),RelWithDebInfo)
+      CPPFLAGS += -DNDEBUG
+      CFLAGS   += -O2 -g
+      CXXFLAGS += -O2 -g
+    else
+      $(error CONFIG は Debug, Release, RelWithDebInfo のいずれか)
+    endif
+else
+    # Windows
+    # 共通フラグ
+    CFLAGS   += /EHsc /MP
+    CXXFLAGS += /EHsc /MP
+    # 構成別フラグ
+    ifeq ($(CONFIG),Debug)
+      CPPFLAGS += /D_DEBUG
+      CFLAGS   += /MDd /Od /RTC1 /GS /Zi
+      CXXFLAGS += /MDd /Od /RTC1 /GS /Zi
       LDFLAGS  += /DEBUG /INCREMENTAL
     else ifeq ($(CONFIG),Release)
-      CPPDEFS  += /DNDEBUG
-      CFLAGS   += /MD /O2 /Ob2 /Oy
-      CXXFLAGS += /MD /O2 /Ob2 /Oy
-      LDFLAGS  += /INCREMENTAL:NO
+      CPPFLAGS += /DNDEBUG
+      CFLAGS   += /MD /O2 /Ob2 /Oy /Zi
+      CXXFLAGS += /MD /O2 /Ob2 /Oy /Zi
+      LDFLAGS  += /DEBUG /INCREMENTAL:NO
     else ifeq ($(CONFIG),RelWithDebInfo)
-      CPPDEFS  += /DNDEBUG
-      CFLAGS   += /MD /O2 /Ob2
-      CXXFLAGS += /MD /O2 /Ob2
+      CPPFLAGS += /DNDEBUG
+      CFLAGS   += /MD /O2 /Ob2 /Zi
+      CXXFLAGS += /MD /O2 /Ob2 /Zi
       # 速度重視なら /DEBUG:FASTLINK、サイズ重視なら /DEBUG
       LDFLAGS  += /DEBUG /INCREMENTAL:NO
     else
@@ -127,21 +148,13 @@ ifeq ($(OS),Windows_NT)
     endif
 endif
 
+# CPPFLAGS を CFLAGS/CXXFLAGS に適用
+CFLAGS   += $(CPPFLAGS)
+CXXFLAGS += $(CPPFLAGS)
+
 # ビルド設定は基本的に固定のため、OBJDIR も obj に固定する
 #OBJDIR  := obj/$(CONFIG)
 OBJDIR  := obj
-
-# -g オプションが含まれていない場合に追加
-# Add -g option if not already included
-ifneq ($(OS),Windows_NT)
-    # Linux
-    ifeq ($(findstring -g,$(CFLAGS)),)
-		CFLAGS += -g
-    endif
-    ifeq ($(findstring -g,$(CXXFLAGS)),)
-		CXXFLAGS += -g
-    endif
-endif
 
 # wrap-main
 ifeq ($(USE_WRAP_MAIN),1)

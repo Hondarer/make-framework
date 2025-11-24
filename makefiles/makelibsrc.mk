@@ -1,38 +1,6 @@
 include $(WORKSPACE_FOLDER)/makefw/makefiles/_collect_srcs.mk
 include $(WORKSPACE_FOLDER)/makefw/makefiles/_flags.mk
-
-# スキップ判定用のヘルパー関数
-# Helper function for skip detection
-#
-# 使用法 / Usage:
-#   $(call should_skip,$(SKIP_BUILD))
-#   $(call should_skip,$(SKIP_TEST))
-#
-# 戻り値 / Return value:
-#   "true" - スキップする / skip
-#   ""     - スキップしない / do not skip
-#
-# 引数の指定方法 / Argument values:
-#   1, BOTH, both, Both       -> 常にスキップ / always skip
-#   WINDOWS, windows, Windows -> Windows のみスキップ / skip on Windows only
-#   LINUX, linux, Linux       -> Linux のみスキップ / skip on Linux only
-#   未定義(空) / undefined    -> スキップしない / not skip
-#   その他 / other            -> スキップしない / not skip
-#
-# 例 / Examples:
-#   make SKIP_BUILD=1          # 常にビルドをスキップ
-#   make SKIP_BUILD=LINUX      # Linux でのみビルドをスキップ
-#   make SKIP_TEST=WINDOWS     # Windows でのみテストをスキップ
-#   make SKIP_BUILD=BOTH SKIP_TEST=BOTH  # 両方スキップ
-#
-define should_skip
-$(strip \
-    $(if $(filter 1 BOTH both Both,$(1)),true,\
-        $(if $(filter WINDOWS windows Windows,$(1)),\
-            $(if $(filter Windows_NT,$(OS)),true,),\
-            $(if $(filter LINUX linux Linux,$(1)),\
-                $(if $(filter Windows_NT,$(OS)),,true),))))
-endef
+include $(WORKSPACE_FOLDER)/makefw/makefiles/_should_skip.mk
 
 # -fPIC オプションが含まれていない場合に追加
 # Add -fPIC option if not already included
@@ -237,10 +205,10 @@ endef
 # ただし、from, to が同じになる場合 (一般的には Makefile の定義ミス) はスキップ
 # Dynamically define file-by-file dependencies
 $(foreach link_src,$(LINK_SRCS), \
-  $(if \
-    $(filter-out $(notdir $(link_src)),$(link_src)), \
-    $(eval $(call generate_link_src_rule,$(notdir $(link_src)),$(link_src))) \
-  ) \
+    $(if \
+        $(filter-out $(notdir $(link_src)),$(link_src)), \
+        $(eval $(call generate_link_src_rule,$(notdir $(link_src)),$(link_src))) \
+    ) \
 )
 
 # コピー対象のソースファイルをコピーして
@@ -296,37 +264,35 @@ $(TARGETDIR):
 $(OBJDIR):
 	mkdir -p $@
 
+# 削除対象の定義
+# Define files/directories to clean
+CLEAN_COMMON := $(TARGETDIR)/$(TARGET) $(OBJDIR) $(notdir $(CP_SRCS) $(LINK_SRCS))
+ifeq ($(OS),Windows_NT)
+    # Windows
+    CLEAN_OS := $(TARGETDIR)/$(patsubst %.dll,%.pdb,$(TARGET))
+    ifeq ($(LIB_TYPE),shared)
+        CLEAN_OS += $(TARGETDIR)/$(patsubst %.dll,%.lib,$(TARGET))
+    endif
+endif
+ifeq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
+    CLEAN_COMMON += .gitignore
+endif
+
 .PHONY: clean
 clean:
-	-rm -f $(TARGETDIR)/$(TARGET)
-#	@if [ -f $(TARGETDIR)/$(TARGET) ]; then \
-#		for obj in $(OBJS); do \
-#			echo ar d $(TARGETDIR)/$(TARGET) $$(basename $$obj); \
-#			ar d $(TARGETDIR)/$(TARGET) $$(basename $$obj); \
-#		done; \
-#	fi
-#   シンボリックリンクされたソース、コピー対象のソースを削除する
-#   Remove symbolic-linked or copied source files
-	-@if [ -n "$(wildcard $(notdir $(CP_SRCS) $(LINK_SRCS)))" ]; then \
-		echo rm -f $(notdir $(CP_SRCS) $(LINK_SRCS)); \
-		rm -f $(notdir $(CP_SRCS) $(LINK_SRCS)); \
-	fi
-#	.gitignore の再生成 (コミット差分が出ないように)
-#	Regenerate .gitignore (avoid commit diffs)
-	-rm -f .gitignore
-	@for ignorefile in $(notdir $(CP_SRCS) $(LINK_SRCS)); \
-		do echo $$ignorefile >> .gitignore; \
-		tempfile=$$(mktemp) && \
-		sort .gitignore | uniq > $$tempfile && \
-		mv $$tempfile .gitignore; \
-	done
-	-rm -rf $(OBJDIR)
-    ifeq ($(OS),Windows_NT)
-		rm -f $(TARGETDIR)/$(patsubst %.dll,%.pdb,$(TARGET))
-        ifeq ($(LIB_TYPE),shared)
-			rm -f $(TARGETDIR)/$(patsubst %.dll,%.lib,$(TARGET))
-        endif
+    # .gitignore の再生成 (コミット差分が出ないように)
+    # Regenerate .gitignore (avoid commit diffs)
+    ifneq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
+		@tempfile=$$(mktemp) && \
+		tempfile2=$$(mktemp) && \
+		for ignorefile in $(notdir $(CP_SRCS) $(LINK_SRCS)); \
+			do echo $$ignorefile >> $$tempfile; \
+		done && \
+		sort $$tempfile | uniq > $$tempfile2 && \
+		mv $$tempfile2 .gitignore && \
+		rm -f $$tempfile
     endif
+	-rm -rf $(CLEAN_COMMON) $(CLEAN_OS)
 
 .PHONY: test
 ifeq ($(call should_skip,$(SKIP_TEST)),true)
