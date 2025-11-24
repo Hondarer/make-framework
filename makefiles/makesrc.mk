@@ -221,8 +221,8 @@ ifneq ($$(OS),Windows_NT)
     # Linux
 $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR)
 		@set -o pipefail; if echo $$(TEST_SRCS) | grep -q $$(notdir $$<); then \
-			echo LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC_ -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
-			LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC_ -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
+			echo LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
+			LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
 		else \
 			echo LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
 			LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
@@ -231,8 +231,8 @@ else
     # Windows
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR)
 		@set -o pipefail; if echo $$(TEST_SRCS) | grep -q $$(notdir $$<); then \
-			echo MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC_ /c /Fo$$@ $$< 2>&1 '|' sh $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.sh $$@ $$< $$(OBJDIR)/$$*.d '|' $$(NKF); \
-			MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) /FdD:$$(patsubst %.obj,%.pdb,$$@) -D_IN_TEST_SRC_ /c /Fo$$@ $$< 2>&1 | sh $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.sh $$@ $$< $$(OBJDIR)/$$*.d | $$(NKF); \
+			echo MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC /c /Fo$$@ $$< 2>&1 '|' sh $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.sh $$@ $$< $$(OBJDIR)/$$*.d '|' $$(NKF); \
+			MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) /FdD:$$(patsubst %.obj,%.pdb,$$@) -D_IN_TEST_SRC /c /Fo$$@ $$< 2>&1 | sh $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.sh $$@ $$< $$(OBJDIR)/$$*.d | $$(NKF); \
 		else \
 			echo MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) /c /Fo$$@ $$< 2>&1 '|' sh $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.sh $$@ $$< $$(OBJDIR)/$$*.d '|' $$(NKF); \
 			MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) /FdD:$$(patsubst %.obj,%.pdb,$$@) /c /Fo$$@ $$< 2>&1 | sh $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.sh $$@ $$< $$(OBJDIR)/$$*.d | $$(NKF); \
@@ -298,12 +298,12 @@ $(1): $(2) $(wildcard $(1).filter.sh) $(wildcard $(basename $(1)).inject$(suffix
 		echo "" >> $(1); \
 		echo "echo \"/* Inject from test framework */\" >> $(1)"; \
 		echo "/* Inject from test framework */" >> $(1); \
-		echo "echo \"#ifdef _IN_TEST_SRC_\" >> $(1)"; \
-		echo "#ifdef _IN_TEST_SRC_" >> $(1); \
+		echo "echo \"#ifdef _IN_TEST_SRC\" >> $(1)"; \
+		echo "#ifdef _IN_TEST_SRC" >> $(1); \
 		echo "echo \"#include \"$(basename $(1)).inject$(suffix $(1))\"\" >> $(1)"; \
 		echo "#include \"$(basename $(1)).inject$(suffix $(1))\"" >> $(1); \
-		echo "echo \"#endif // _IN_TEST_SRC_\" >> $(1)"; \
-		echo "#endif // _IN_TEST_SRC_" >> $(1); \
+		echo "echo \"#endif // _IN_TEST_SRC\" >> $(1)"; \
+		echo "#endif // _IN_TEST_SRC" >> $(1); \
 	fi
 #	.gitignore に対象ファイルを追加
 #	Add the file to .gitignore
@@ -373,6 +373,7 @@ test:
 test: $(TARGETDIR)/$(TARGET)
 				@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
         else
+            # コンパイルのみ
 test: $(OBJS)
 				@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
         endif
@@ -392,7 +393,7 @@ test: $(TESTSH) $(TARGETDIR)/$(TARGET)
 				export TEST_SRCS="$(TEST_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(NKF)) 2> >($(NKF) >&2) || status=$$?; \
 				exit $$status
         else
-            # リンクのみ
+            # コンパイルのみ
 test: $(OBJS)
         endif
     endif

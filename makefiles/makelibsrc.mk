@@ -234,12 +234,12 @@ $(1): $(2) $(wildcard $(1).filter.sh) $(wildcard $(basename $(1)).inject$(suffix
 		echo "" >> $(1); \
 		echo "echo \"/* Inject from test framework */\" >> $(1)"; \
 		echo "/* Inject from test framework */" >> $(1); \
-		echo "echo \"#ifdef _IN_TEST_SRC_\" >> $(1)"; \
-		echo "#ifdef _IN_TEST_SRC_" >> $(1); \
+		echo "echo \"#ifdef _IN_TEST_SRC\" >> $(1)"; \
+		echo "#ifdef _IN_TEST_SRC" >> $(1); \
 		echo "echo \"#include \"$(basename $(1)).inject$(suffix $(1))\"\" >> $(1)"; \
 		echo "#include \"$(basename $(1)).inject$(suffix $(1))\"" >> $(1); \
-		echo "echo \"#endif // _IN_TEST_SRC_\" >> $(1)"; \
-		echo "#endif // _IN_TEST_SRC_" >> $(1); \
+		echo "echo \"#endif // _IN_TEST_SRC\" >> $(1)"; \
+		echo "#endif // _IN_TEST_SRC" >> $(1); \
 	fi
 #	.gitignore に対象ファイルを追加
 #	Add the file to .gitignore
