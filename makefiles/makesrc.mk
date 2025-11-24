@@ -70,7 +70,7 @@ TESTSH := $(WORKSPACE_FOLDER)/testfw/cmnd/exec_test.sh
 
 GCOVDIR := gcov
 LCOVDIR := lcov
-OPENCPPCOVERAGEDIR := opencppcoverage
+COVERAGEDIR := coverage
 
 # c_cpp_properties.json の defines にある値を -D として追加する
 # DEFINES は prepare.mk で設定されている
@@ -385,13 +385,10 @@ clean:
 		-rm -f $(patsubst %.exe,%.pdb,$(TARGETDIR)/$(TARGET))
     endif
     # coverage
-	-rm -rf $(GCOVDIR)
+	-rm -rf $(GCOVDIR) $(COVERAGEDIR)
     ifneq ($(OS),Windows_NT)
         # Linux
 		-rm -rf $(OBJDIR)/*.gcda $(OBJDIR)/*.info $(LCOVDIR)
-    else
-        # Windows
-		-rm -rf $(OPENCPPCOVERAGEDIR)
     endif
     # test
 	-rm -rf results
