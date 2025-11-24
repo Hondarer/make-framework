@@ -1,6 +1,39 @@
 include $(WORKSPACE_FOLDER)/makefw/makefiles/_collect_srcs.mk
 include $(WORKSPACE_FOLDER)/makefw/makefiles/_flags.mk
 
+# スキップ判定用のヘルパー関数
+# Helper function for skip detection
+#
+# 使用法 / Usage:
+#   $(call should_skip,$(SKIP_BUILD))
+#   $(call should_skip,$(SKIP_TEST))
+#
+# 戻り値 / Return value:
+#   "true" - スキップする / skip
+#   ""     - スキップしない / do not skip
+#
+# 引数の指定方法 / Argument values:
+#   1, BOTH, both, Both       -> 常にスキップ / always skip
+#   WINDOWS, windows, Windows -> Windows のみスキップ / skip on Windows only
+#   LINUX, linux, Linux       -> Linux のみスキップ / skip on Linux only
+#   未定義(空) / undefined    -> スキップしない / not skip
+#   その他 / other            -> スキップしない / not skip
+#
+# 例 / Examples:
+#   make SKIP_BUILD=1          # 常にビルドをスキップ
+#   make SKIP_BUILD=LINUX      # Linux でのみビルドをスキップ
+#   make SKIP_TEST=WINDOWS     # Windows でのみテストをスキップ
+#   make SKIP_BUILD=BOTH SKIP_TEST=BOTH  # 両方スキップ
+#
+define should_skip
+$(strip \
+    $(if $(filter 1 BOTH both Both,$(1)),true,\
+        $(if $(filter WINDOWS windows Windows,$(1)),\
+            $(if $(filter Windows_NT,$(OS)),true,),\
+            $(if $(filter LINUX linux Linux,$(1)),\
+                $(if $(filter Windows_NT,$(OS)),,true),))))
+endef
+
 LIBSFILES := $(shell for dir in $(LIBSDIR); do [ -d $$dir ] && find $$dir -maxdepth 1 -type f; done)
 
 # テストライブラリの設定
@@ -174,6 +207,22 @@ ifeq ($(OS),Windows_NT)
     TARGET := $(TARGET).exe
 endif
 
+# デフォルトターゲットの設定
+# Default target setting
+ifeq ($(call should_skip,$(SKIP_BUILD)),true)
+    .DEFAULT_GOAL := skip_build
+else
+    ifndef NO_LINK
+        .DEFAULT_GOAL := $(TARGETDIR)/$(TARGET)
+    else
+        .DEFAULT_GOAL := $(OBJS) $(LIBSFILES)
+    endif
+endif
+
+.PHONY: skip_build
+skip_build:
+	@echo "Build skipped (SKIP_BUILD=$(SKIP_BUILD))"
+
 ifndef NO_LINK
     # 実行体の生成
     # Build the executable
@@ -311,17 +360,6 @@ $(TARGETDIR):
 $(OBJDIR):
 	mkdir -p $@
 
-.PHONY: all
-ifndef NO_LINK
-    # 実行体の生成
-    # Build the executable
-    all: $(TARGETDIR)/$(TARGET)
-else
-    # コンパイルのみ
-    # Compile only
-    all: $(OBJS) $(LIBSFILES)
-endif
-
 .PHONY: clean
 clean:
 	-rm -rf $(TARGETDIR)/$(TARGET) $(OBJDIR) .gitignore
@@ -359,15 +397,22 @@ clean:
 	-rm -rf results
 
 .PHONY: test
-ifndef NO_LINK
-# テストの実行
-# Run tests
-test: $(TESTSH) $(TARGETDIR)/$(TARGET)
-	@status=0; \
-	export TEST_SRCS="$(TEST_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(NKF)) 2> >($(NKF) >&2) || status=$$?; \
-	exit $$status
+ifeq ($(call should_skip,$(SKIP_TEST)),true)
+    # テストのスキップ
+    # Skip tests
+test:
+		@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
 else
-# 何もしない
-# Do nothing
+    ifndef NO_LINK
+        # テストの実行
+        # Run tests
+test: $(TESTSH) $(TARGETDIR)/$(TARGET)
+			@status=0; \
+			export TEST_SRCS="$(TEST_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(NKF)) 2> >($(NKF) >&2) || status=$$?; \
+			exit $$status
+    else
+        # 何もしない
+        # Do nothing
 test: ;
+    endif
 endif

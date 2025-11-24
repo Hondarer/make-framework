@@ -1,6 +1,39 @@
 include $(WORKSPACE_FOLDER)/makefw/makefiles/_collect_srcs.mk
 include $(WORKSPACE_FOLDER)/makefw/makefiles/_flags.mk
 
+# スキップ判定用のヘルパー関数
+# Helper function for skip detection
+#
+# 使用法 / Usage:
+#   $(call should_skip,$(SKIP_BUILD))
+#   $(call should_skip,$(SKIP_TEST))
+#
+# 戻り値 / Return value:
+#   "true" - スキップする / skip
+#   ""     - スキップしない / do not skip
+#
+# 引数の指定方法 / Argument values:
+#   1, BOTH, both, Both       -> 常にスキップ / always skip
+#   WINDOWS, windows, Windows -> Windows のみスキップ / skip on Windows only
+#   LINUX, linux, Linux       -> Linux のみスキップ / skip on Linux only
+#   未定義(空) / undefined    -> スキップしない / not skip
+#   その他 / other            -> スキップしない / not skip
+#
+# 例 / Examples:
+#   make SKIP_BUILD=1          # 常にビルドをスキップ
+#   make SKIP_BUILD=LINUX      # Linux でのみビルドをスキップ
+#   make SKIP_TEST=WINDOWS     # Windows でのみテストをスキップ
+#   make SKIP_BUILD=BOTH SKIP_TEST=BOTH  # 両方スキップ
+#
+define should_skip
+$(strip \
+    $(if $(filter 1 BOTH both Both,$(1)),true,\
+        $(if $(filter WINDOWS windows Windows,$(1)),\
+            $(if $(filter Windows_NT,$(OS)),true,),\
+            $(if $(filter LINUX linux Linux,$(1)),\
+                $(if $(filter Windows_NT,$(OS)),,true),))))
+endef
+
 # -fPIC オプションが含まれていない場合に追加
 # Add -fPIC option if not already included
 ifneq ($(OS),Windows_NT)
@@ -65,6 +98,18 @@ else
         TARGET := $(TARGET).lib
     endif
 endif
+
+# デフォルトターゲットの設定
+# Default target setting
+ifeq ($(call should_skip,$(SKIP_BUILD)),true)
+    .DEFAULT_GOAL := skip_build
+else
+    .DEFAULT_GOAL := $(TARGETDIR)/$(TARGET)
+endif
+
+.PHONY: skip_build
+skip_build:
+	@echo "Build skipped (SKIP_BUILD=$(SKIP_BUILD))"
 
 # ライブラリファイルの解決（LIB_TYPE=shared かつ LIBS が定義されている場合のみ）
 # Resolve library files (only when LIB_TYPE=shared and LIBS is defined)
@@ -251,9 +296,6 @@ $(TARGETDIR):
 $(OBJDIR):
 	mkdir -p $@
 
-.PHONY: all
-all: $(TARGETDIR)/$(TARGET)
-
 .PHONY: clean
 clean:
 	-rm -f $(TARGETDIR)/$(TARGET)
@@ -287,4 +329,9 @@ clean:
     endif
 
 .PHONY: test
+ifeq ($(call should_skip,$(SKIP_TEST)),true)
+test:
+		@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
+else
 test: $(TARGETDIR)/$(TARGET)
+endif
