@@ -330,8 +330,25 @@ clean:
 
 .PHONY: test
 ifeq ($(call should_skip,$(SKIP_TEST)),true)
+    # テストのスキップ
+    # Skip tests
+    # test スキップ時は、ビルドスキップもチェックする
+    ifeq ($(call should_skip,$(SKIP_BUILD)),true)
+        # test もビルドもスキップ
 test:
-		@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
-else
+			@echo "Build & Test skipped (SKIP_BUILD=$(SKIP_BUILD), SKIP_TEST=$(SKIP_TEST))"
+    else
+        # test はスキップするがビルドはする
 test: $(TARGETDIR)/$(TARGET)
+			@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
+    endif
+else
+    ifeq ($(call should_skip,$(SKIP_BUILD)),true)
+        # そもそもビルドがスキップ
+test:
+			@echo "Test skipped because it is not included in the build (SKIP_BUILD=$(SKIP_BUILD))"
+    else
+        # スキップしない
+test: $(TARGETDIR)/$(TARGET)
+    endif
 endif

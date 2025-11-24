@@ -400,19 +400,38 @@ clean:
 ifeq ($(call should_skip,$(SKIP_TEST)),true)
     # テストのスキップ
     # Skip tests
+    # test スキップ時は、ビルドスキップもチェックする
+    ifeq ($(call should_skip,$(SKIP_BUILD)),true)
+        # test もビルドもスキップ
 test:
-		@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
-else
-    ifndef NO_LINK
-        # テストの実行
-        # Run tests
-test: $(TESTSH) $(TARGETDIR)/$(TARGET)
-			@status=0; \
-			export TEST_SRCS="$(TEST_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(NKF)) 2> >($(NKF) >&2) || status=$$?; \
-			exit $$status
+			@echo "Build & Test skipped (SKIP_BUILD=$(SKIP_BUILD), SKIP_TEST=$(SKIP_TEST))"
     else
-        # 何もしない
-        # Do nothing
-test: ;
+        # test はスキップするがビルドはする
+        ifndef NO_LINK
+test: $(TARGETDIR)/$(TARGET)
+				@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
+        else
+test: $(OBJS)
+				@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
+        endif
+    endif
+else
+    ifeq ($(call should_skip,$(SKIP_BUILD)),true)
+        # そもそもビルドがスキップ
+test:
+			@echo "Test skipped because it is not included in the build (SKIP_BUILD=$(SKIP_BUILD))"
+    else
+        # スキップしない
+        ifndef NO_LINK
+            # テストの実行
+            # Run tests
+test: $(TESTSH) $(TARGETDIR)/$(TARGET)
+				@status=0; \
+				export TEST_SRCS="$(TEST_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(NKF)) 2> >($(NKF) >&2) || status=$$?; \
+				exit $$status
+        else
+            # リンクのみ
+test: $(OBJS)
+        endif
     endif
 endif
