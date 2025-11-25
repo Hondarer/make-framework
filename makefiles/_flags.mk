@@ -167,10 +167,8 @@ ifeq ($(USE_WRAP_MAIN),1)
         # Windows
         # /Dmain=__real_main により、元々のエントリポイントを __real_main() に変更 (エントリポイントは main のまま)
         DEFINES += main=__real_main
-    endif
-    LIBS += wrapmain
-    ifneq ($(NO_GTEST_MAIN), 1)
-        LIBS += gtest_wrapmain
+        # wrapmain.lib により、main() から __wrap_main() をコール
+        LIBS += wrapmain
     endif
 endif
 
