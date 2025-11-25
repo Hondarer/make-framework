@@ -8,31 +8,40 @@ LIBSFILES := $(shell for dir in $(LIBSDIR); do [ -d $$dir ] && find $$dir -maxde
 # Set test libraries
 # LINK_TEST が 1 の場合にのみ設定する
 ifeq ($(LINK_TEST), 1)
-    TEST_LIBS := test_com gtest_main gtest gmock
+    LIBS += test_com gtest gmock
+
     ifneq ($(OS),Windows_NT)
         # Linux
-        TEST_LIBS += pthread gcov
+        LIBS += pthread gcov
         # ステップ実行/カバレッジに支障となるオプションを除去
         #   -flto: リンク時最適化 (GCC の LTO)
         LDFLAGS := $(filter-out -flto,$(LDFLAGS))
+        # FIXME: 決め打ちにしているので CONFIG で切替要
+        LIBSDIR += $(WORKSPACE_FOLDER)/testfw/gtest/lib/linux/x86_64/gcc/release
     else
         # Windows
         # ステップ実行/カバレッジに支障となるオプションを除去
         #   /LTCG: リンク時コード生成 (プログラム全体最適化)
         LDFLAGS := $(filter-out /LTCG,$(LDFLAGS))
+        # FIXME: 決め打ちにしているので CONFIG で切替要
+        LIBSDIR += $(WORKSPACE_FOLDER)/testfw/gtest/lib/msvc/v144/x64/md/release
     endif
-    # FIXME: 決め打ちにしているので CONFIG で切替要
-    #        Linux 側もここで指定する必要がある
-	LIBSDIR += $(WORKSPACE_FOLDER)/testfw/gtest/lib/msvc/v144/x64/md/release
-    ifeq ($(NO_GTEST_MAIN), 1)
-        TEST_LIBS := $(filter-out gtest_main, $(TEST_LIBS))
-    endif
-    ifeq ($(USE_WRAP_MAIN), 1)
-        TEST_LIBS := $(filter-out gtest_main, $(TEST_LIBS))
+
+    ifneq ($(NO_GTEST_MAIN), 1)
+        # gtest_main 有効
+        ifeq ($(USE_WRAP_MAIN), 1)
+            # gtest_main 有効 && wrap_main 有効
+            LIBS += gtest_wrapmain
+        else
+            # gtest_main 有効 && wrap_main 無効
+            LIBS += gtest_main
+        endif
     endif
 endif
+
 #$(info NO_GTEST_MAIN: $(NO_GTEST_MAIN))
-#$(info TEST_LIBS: $(TEST_LIBS))
+#$(info USE_WRAP_MAIN: $(USE_WRAP_MAIN))
+#$(info LIBS: $(LIBS))
 
 TESTSH := $(WORKSPACE_FOLDER)/testfw/cmnd/exec_test.sh
 
@@ -131,11 +140,9 @@ CXXFLAGS += $(addprefix -I, $(INCDIR))
 # リンクライブラリファイル名の解決
 ifneq ($(OS),Windows_NT)
     # Linux
-    TEST_LIBS := $(addprefix -l, $(TEST_LIBS))
     LIBS := $(addprefix -l, $(LIBS))
 else
     # Windows
-    TEST_LIBS := $(addsuffix .lib,$(TEST_LIBS))
     LIBS := $(addsuffix .lib,$(LIBS))
 endif
 
@@ -197,11 +204,11 @@ ifndef NO_LINK
     ifneq ($(OS),Windows_NT)
         # Linux
 $(TARGETDIR)/$(TARGET): $(OBJS) $(LIBSFILES) | $(TARGETDIR)
-			set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $(OBJS) $(LIBS) $(TEST_LIBS) -fdiagnostics-color=always 2>&1 | $(NKF)
+			set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $(OBJS) $(LIBS) -fdiagnostics-color=always 2>&1 | $(NKF)
     else
         # Windows
 $(TARGETDIR)/$(TARGET): $(OBJS) $(LIBSFILES) | $(TARGETDIR)
-			set -o pipefail; MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(LD) $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ $(OBJS) $(LIBS) $(TEST_LIBS) 2>&1 | $(NKF)
+			set -o pipefail; MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(LD) $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ $(OBJS) $(LIBS) 2>&1 | $(NKF)
     endif
 else
 # コンパイルのみ
