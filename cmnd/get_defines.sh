@@ -9,6 +9,11 @@ WORKSPACE_FOLDER=$SCRIPT_DIR/../../
 # c_cpp_properties.json のパス
 c_cpp_properties="$WORKSPACE_FOLDER/.vscode/c_cpp_properties.json"
 
+# ファイルが存在しない場合は何も出力せず終了
+if [ ! -f "$c_cpp_properties" ]; then
+    exit 0
+fi
+
 # OS 判定
 # MinGW/MSYS の場合は "Win32"、それ以外は "Linux"
 OS_NAME=$(uname)
