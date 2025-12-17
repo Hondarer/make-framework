@@ -34,16 +34,16 @@ CONFIG ?= RelWithDebInfo
 
 ifneq ($(OS),Windows_NT)
     # Linux
-    CC  := gcc
-    CXX := g++
-    LD  := g++
-    AR  := ar
+    CC  ?= gcc
+    CXX ?= g++
+    LD  ?= g++
+    AR  ?= ar
 else
     # Windows
-    CC  := cl
-    CXX := cl
-    LD  := link
-    AR  := lib
+    CC  ?= cl
+    CXX ?= cl
+    LD  ?= link
+    AR  ?= lib
 endif
 
 C_STANDARD   := 17
