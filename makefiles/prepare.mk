@@ -32,18 +32,41 @@ endif
 # "make CONFIG=Debug" のように引数で指定するか、この先の Makefile で置換する
 CONFIG ?= RelWithDebInfo
 
+# origin 関数は変数がどこから来たかを返します。
+# - default: Makeの組み込みデフォルト値
+# - environment: 環境変数から
+# - file: Makefileで定義
+# - command line: コマンドライン引数から
+# 以下は、make のデフォルト値の場合のみ、値を置き換えます。
+# 環境変数やコマンドライン引数で指定された場合はそちらが優先されます。
 ifneq ($(OS),Windows_NT)
     # Linux
-    CC  ?= gcc
-    CXX ?= g++
-    LD  ?= g++
-    AR  ?= ar
+    ifeq ($(origin CC),default)
+        CC = gcc
+    endif
+    ifeq ($(origin CXX),default)
+        CXX = g++
+    endif
+    ifeq ($(origin LD),default)
+        LD = g++
+    endif
+    ifeq ($(origin AR),default)
+        AR = ar
+    endif
 else
     # Windows
-    CC  ?= cl
-    CXX ?= cl
-    LD  ?= link
-    AR  ?= lib
+    ifeq ($(origin CC),default)
+        CC = cl
+    endif
+    ifeq ($(origin CXX),default)
+        CXX = cl
+    endif
+    ifeq ($(origin LD),default)
+        LD = link
+    endif
+    ifeq ($(origin AR),default)
+        AR = lib
+    endif
 endif
 
 C_STANDARD   := 17
