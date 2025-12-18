@@ -80,12 +80,12 @@ endif
 C_STANDARD   := 17
 CXX_STANDARD := 17
 
-$(info ----)
+#$(info ----)
 #$(info CONFIG: $(CONFIG))
 #$(info OS: $(OS))
 #$(info CC: $(CC))
 #$(info CXX: $(CXX))
-$(info LD: $(LD))
+#$(info LD: $(LD))
 #$(info AR: $(AR))
 #$(info C_STANDARD: $(C_STANDARD))
 #$(info CXX_STANDARD: $(CXX_STANDARD))
