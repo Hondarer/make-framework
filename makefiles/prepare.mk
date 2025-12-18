@@ -63,9 +63,9 @@ else
     endif
     ifeq ($(origin LD),default)
         # cygwin の link ではなく MSVC の link を確実に選択させる
-        # 1. cl のパスを得る
+        # 1. cl のパスを得る (where の出力は複数行の可能性があるため head -1 で最初の行のみ取得)
         # 2. cl を link に置換する
-        CL_PATH := $(firstword $(shell where cl 2>nul))
+        CL_PATH := $(shell where cl 2>nul | head -1)
         ifneq ($(CL_PATH),)
             LD = $(subst cl.exe,link.exe,$(CL_PATH))
         else

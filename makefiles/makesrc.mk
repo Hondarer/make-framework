@@ -204,11 +204,11 @@ ifndef NO_LINK
     ifneq ($(OS),Windows_NT)
         # Linux
 $(TARGETDIR)/$(TARGET): $(OBJS) $(LIBSFILES) | $(TARGETDIR)
-			set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $(OBJS) $(LIBS) -fdiagnostics-color=always 2>&1 | $(NKF)
+			set -o pipefail; LANG=$(FILES_LANG) "$(LD)" $(LDFLAGS) -o $@ $(OBJS) $(LIBS) -fdiagnostics-color=always 2>&1 | $(NKF)
     else
         # Windows
 $(TARGETDIR)/$(TARGET): $(OBJS) $(LIBSFILES) | $(TARGETDIR)
-			set -o pipefail; MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(LD) $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ $(OBJS) $(LIBS) 2>&1 | $(NKF)
+			set -o pipefail; MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) "$(LD)" $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ $(OBJS) $(LIBS) 2>&1 | $(NKF)
     endif
 else
 # コンパイルのみ
@@ -228,21 +228,21 @@ ifneq ($$(OS),Windows_NT)
     # Linux
 $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR)
 		@set -o pipefail; if echo $$(TEST_SRCS) | grep -q $$(notdir $$<); then \
-			echo LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
-			LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
+			echo LANG=$$(FILES_LANG) "$$($(2))" $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
+			LANG=$$(FILES_LANG) "$$($(2))" $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
 		else \
-			echo LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
-			LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
+			echo LANG=$$(FILES_LANG) "$$($(2))" $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
+			LANG=$$(FILES_LANG) "$$($(2))" $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF); \
 		fi
 else
     # Windows
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR)
 		@set -o pipefail; if echo $$(TEST_SRCS) | grep -q $$(notdir $$<); then \
-			echo MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC /c /Fo$$@ $$< 2>&1 '|' sh $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.sh $$@ $$< $$(OBJDIR)/$$*.d '|' $$(NKF); \
-			MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) /FdD:$$(patsubst %.obj,%.pdb,$$@) -D_IN_TEST_SRC /c /Fo$$@ $$< 2>&1 | sh $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.sh $$@ $$< $$(OBJDIR)/$$*.d | $$(NKF); \
+			echo MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) "$$($(2))" $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC /c /Fo$$@ $$< 2>&1 '|' sh $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.sh $$@ $$< $$(OBJDIR)/$$*.d '|' $$(NKF); \
+			MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) "$$($(2))" $$(DEPFLAGS) $$($(3)_TEST) /FdD:$$(patsubst %.obj,%.pdb,$$@) -D_IN_TEST_SRC /c /Fo$$@ $$< 2>&1 | sh $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.sh $$@ $$< $$(OBJDIR)/$$*.d | $$(NKF); \
 		else \
-			echo MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) /c /Fo$$@ $$< 2>&1 '|' sh $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.sh $$@ $$< $$(OBJDIR)/$$*.d '|' $$(NKF); \
-			MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) /FdD:$$(patsubst %.obj,%.pdb,$$@) /c /Fo$$@ $$< 2>&1 | sh $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.sh $$@ $$< $$(OBJDIR)/$$*.d | $$(NKF); \
+			echo MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) "$$($(2))" $$(DEPFLAGS) $$($(3)) /c /Fo$$@ $$< 2>&1 '|' sh $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.sh $$@ $$< $$(OBJDIR)/$$*.d '|' $$(NKF); \
+			MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) "$$($(2))" $$(DEPFLAGS) $$($(3)) /FdD:$$(patsubst %.obj,%.pdb,$$@) /c /Fo$$@ $$< 2>&1 | sh $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.sh $$@ $$< $$(OBJDIR)/$$*.d | $$(NKF); \
 		fi
 endif
 endef
