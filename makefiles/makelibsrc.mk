@@ -138,22 +138,22 @@ ifeq ($(LIB_TYPE),shared)
     ifneq ($(OS),Windows_NT)
         # Linux
 $(TARGETDIR)/$(TARGET): $(OBJS) $(STATIC_LIBS) | $(TARGETDIR)
-			"$(CC)" -shared -o $@ $(OBJS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)
+			$(CC) -shared -o $@ $(OBJS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)
     else
         # Windows
 $(TARGETDIR)/$(TARGET): $(OBJS) $(STATIC_LIBS) | $(TARGETDIR)
-		"$(LD)" /DLL /OUT:$@ $(OBJS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)
+		$(LD) /DLL /OUT:$@ $(OBJS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)
 		@if [ -f "$(TARGETDIR)/$(patsubst %.dll,%.exp,$(TARGET))" ]; then mv "$(TARGETDIR)/$(patsubst %.dll,%.exp,$(TARGET))" "$(OBJDIR)/"; fi
     endif
 else
     ifneq ($(OS),Windows_NT)
         # Linux
 $(TARGETDIR)/$(TARGET): $(OBJS) | $(TARGETDIR)
-			"$(AR)" rvs $@ $(OBJS)
+			$(AR) rvs $@ $(OBJS)
     else
         # Windows
 $(TARGETDIR)/$(TARGET): $(OBJS) | $(TARGETDIR)
-			"$(AR)" /NOLOGO /OUT:$@ $(OBJS)
+			$(AR) /NOLOGO /OUT:$@ $(OBJS)
     endif
 endif
 
@@ -168,11 +168,11 @@ define compile_rule_template
 ifneq ($$(OS),Windows_NT)
     # Linux
 $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(TARGETDIR)
-		set -o pipefail; LANG=$$(FILES_LANG) "$$($(2))" $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF)
+		set -o pipefail; LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF)
 else
     # Windows
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(TARGETDIR)
-		set -o pipefail; MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) "$$($(2))" $$(DEPFLAGS) $$($(3)) /FdD:$$(patsubst %.obj,%.pdb,$$@) /c /Fo:$$@ $$< 2>&1 | sh $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.sh $$@ $$< $$(OBJDIR)/$$*.d | $$(NKF)
+		set -o pipefail; MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) /FdD:$$(patsubst %.obj,%.pdb,$$@) /c /Fo:$$@ $$< 2>&1 | sh $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.sh $$@ $$< $$(OBJDIR)/$$*.d | $$(NKF)
 endif
 endef
 
