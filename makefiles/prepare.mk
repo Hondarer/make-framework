@@ -40,7 +40,7 @@ CONFIG ?= RelWithDebInfo
 # 以下は、make のデフォルト値の場合のみ、値を置き換えます。
 # 環境変数やコマンドライン引数で指定された場合はそちらが優先されます。
 ifneq ($(OS),Windows_NT)
-    # Linux
+    # Linux (gcc/g++)
     ifeq ($(origin CC),default)
         CC = gcc
     endif
@@ -54,7 +54,7 @@ ifneq ($(OS),Windows_NT)
         AR = ar
     endif
 else
-    # Windows
+    # Windows (MSVC)
     ifeq ($(origin CC),default)
         CC = cl
     endif
@@ -62,7 +62,15 @@ else
         CXX = cl
     endif
     ifeq ($(origin LD),default)
-        LD = link
+        # cygwin の link ではなく MSVC の link を確実に選択させる
+        # 1. cl のパスを得る
+        # 2. cl を link に置換する
+        CL_PATH := $(firstword $(shell where cl 2>nul))
+        ifneq ($(CL_PATH),)
+            LD = $(subst cl.exe,link.exe,$(CL_PATH))
+        else
+            LD = link
+        endif
     endif
     ifeq ($(origin AR),default)
         AR = lib
@@ -72,12 +80,12 @@ endif
 C_STANDARD   := 17
 CXX_STANDARD := 17
 
-#$(info ----)
+$(info ----)
 #$(info CONFIG: $(CONFIG))
 #$(info OS: $(OS))
 #$(info CC: $(CC))
 #$(info CXX: $(CXX))
-#$(info LD: $(LD))
+$(info LD: $(LD))
 #$(info AR: $(AR))
 #$(info C_STANDARD: $(C_STANDARD))
 #$(info CXX_STANDARD: $(CXX_STANDARD))
