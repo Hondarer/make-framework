@@ -66,9 +66,10 @@ else
         # 1. cl のパスを得る (where の出力は複数行の可能性があるため head -1 で最初の行のみ取得)
         # 2. cl を link に置換する
         # 3. 8.3 形式に変換 (スペースを含まないパスに変換)
+        # 4. Unix パス形式に変換 (bash でバックスラッシュが消えるのを防ぐ)
         CL_PATH := $(shell where cl 2>nul | head -1)
         ifneq ($(CL_PATH),)
-            LD = $(shell cygpath -d "$(subst cl.exe,link.exe,$(CL_PATH))")
+            LD = $(shell cygpath -u "$$(cygpath -d "$(subst cl.exe,link.exe,$(CL_PATH))")")
         else
             LD = link
         endif
