@@ -2,7 +2,7 @@
 # 1. c_cpp_properties.json から defines を設定する
 # 2. ソースファイルのエンコード指定から LANG を得る
 # 3. コンパイルコマンド関連を設定する
-# 4. 親階層から Makefile の存在する階層までに存在する makeflags.mk を
+# 4. 親階層から Makefile の存在する階層までに存在する makepart.mk を
 #    親階層から Makefile の存在する階層に向かって順次 include する
 
 SHELL := /bin/bash
@@ -94,15 +94,15 @@ CXX_STANDARD := 17
 
 # デフォルト設定 END ################################################################
 
-# makeflags.mk の検索
-MAKEFLAGS_MK := $(shell \
+# makepart.mk の検索
+MAKEPART_MK := $(shell \
 	dir=`pwd`; \
 	while [ "$$dir" != "/" ]; do \
-		if [ -f "$$dir/makeflags.mk" ]; then \
+		if [ -f "$$dir/makepart.mk" ]; then \
 			if command -v cygpath > /dev/null 2>&1; then \
-				cygpath -w "$$dir/makeflags.mk"; \
+				cygpath -w "$$dir/makepart.mk"; \
 			else \
-				echo "$$dir/makeflags.mk"; \
+				echo "$$dir/makepart.mk"; \
 			fi; \
 		fi; \
 		if [ -f "$$dir/.workspaceRoot" ]; then \
@@ -113,7 +113,7 @@ MAKEFLAGS_MK := $(shell \
 )
 
 # 逆順にする
-MAKEFLAGS_MK := $(foreach mkfile, $(shell seq $(words $(MAKEFLAGS_MK)) -1 1), $(word $(mkfile), $(MAKEFLAGS_MK)))
+MAKEPART_MK := $(foreach mkfile, $(shell seq $(words $(MAKEPART_MK)) -1 1), $(word $(mkfile), $(MAKEPART_MK)))
 
-# makeflags.mk が存在すればインクルード
-$(foreach makeflags, $(MAKEFLAGS_MK), $(eval include $(makeflags)))
+# makepart.mk が存在すればインクルード
+$(foreach makepart, $(MAKEPART_MK), $(eval include $(makepart)))
