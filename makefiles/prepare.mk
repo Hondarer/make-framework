@@ -32,10 +32,6 @@ endif
 # "make CONFIG=Debug" のように引数で指定するか、この先の Makefile で置換する
 CONFIG ?= RelWithDebInfo
 
-# 成果物のディレクトリ名
-# OUTPUT_DIR := . の場合、カレントディレクトリに成果物を生成する
-OUTPUT_DIR ?= .
-
 # origin 関数は変数がどこから来たかを返します。
 # - default: Makeの組み込みデフォルト値
 # - environment: 環境変数から

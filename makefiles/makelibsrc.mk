@@ -40,6 +40,10 @@ ifeq ($(LIB_TYPE),)
 	LIB_TYPE := static
 endif
 
+# 成果物のディレクトリ名
+# 未指定の場合、カレントディレクトリ/lib に成果物を生成する
+OUTPUT_DIR ?= $(CURDIR)/lib
+
 # ディレクトリ名をアーカイブ名にする
 # Use directory name as archive name if TARGET is not specified
 ifeq ($(TARGET),)

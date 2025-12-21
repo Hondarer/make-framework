@@ -166,6 +166,10 @@ ifeq ($(OS),Windows_NT)
     OBJS := $(patsubst %.o, %.obj, $(OBJS))
 endif
 
+# 成果物のディレクトリ名
+# 未指定の場合、カレントディレクトリ/bin に成果物を生成する
+OUTPUT_DIR ?= $(CURDIR)/bin
+
 # ディレクトリ名を実行体名にする
 # Use directory name as executable name if TARGET is not specified
 ifeq ($(TARGET),)
