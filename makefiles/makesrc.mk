@@ -166,12 +166,6 @@ ifeq ($(OS),Windows_NT)
     OBJS := $(patsubst %.o, %.obj, $(OBJS))
 endif
 
-# 実行体のディレクトリ名と実行体名
-# TARGETDIR := . の場合、カレントディレクトリに実行体を生成する
-# If TARGETDIR := ., the executable is created in the current directory
-ifeq ($(TARGETDIR),)
-	TARGETDIR := .
-endif
 # ディレクトリ名を実行体名にする
 # Use directory name as executable name if TARGET is not specified
 ifeq ($(TARGET),)
@@ -188,7 +182,7 @@ ifeq ($(call should_skip,$(SKIP_BUILD)),true)
     .DEFAULT_GOAL := skip_build
 else
     ifndef NO_LINK
-        .DEFAULT_GOAL := $(TARGETDIR)/$(TARGET)
+        .DEFAULT_GOAL := $(OUTPUT_DIR)/$(TARGET)
     else
         .DEFAULT_GOAL := $(OBJS) $(LIBSFILES)
     endif
@@ -203,11 +197,11 @@ ifndef NO_LINK
     # Build the executable
     ifneq ($(OS),Windows_NT)
         # Linux
-$(TARGETDIR)/$(TARGET): $(OBJS) $(LIBSFILES) | $(TARGETDIR)
+$(OUTPUT_DIR)/$(TARGET): $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
 			set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $(OBJS) $(LIBS) -fdiagnostics-color=always 2>&1 | $(NKF)
     else
         # Windows
-$(TARGETDIR)/$(TARGET): $(OBJS) $(LIBSFILES) | $(TARGETDIR)
+$(OUTPUT_DIR)/$(TARGET): $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
 			set -o pipefail; MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(LD) $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ $(OBJS) $(LIBS) 2>&1 | $(NKF)
     endif
 else
@@ -329,7 +323,7 @@ $(DEPS):
 
 include $(wildcard $(DEPS))
 
-$(TARGETDIR):
+$(OUTPUT_DIR):
 	mkdir -p $@
 
 $(OBJDIR):
@@ -337,13 +331,13 @@ $(OBJDIR):
 
 # 削除対象の定義
 # Define files/directories to clean
-CLEAN_COMMON := $(TARGETDIR)/$(TARGET) $(OBJDIR) $(GCOVDIR) $(COVERAGEDIR) $(notdir $(CP_SRCS) $(LINK_SRCS)) results
+CLEAN_COMMON := $(OUTPUT_DIR)/$(TARGET) $(OBJDIR) $(GCOVDIR) $(COVERAGEDIR) $(notdir $(CP_SRCS) $(LINK_SRCS)) results
 ifneq ($(OS),Windows_NT)
     # Linux
     CLEAN_OS := core $(LCOVDIR)
 else
     # Windows
-    CLEAN_OS := $(patsubst %.exe,%.pdb,$(TARGETDIR)/$(TARGET))
+    CLEAN_OS := $(patsubst %.exe,%.pdb,$(OUTPUT_DIR)/$(TARGET))
 endif
 ifeq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
     CLEAN_COMMON += .gitignore
@@ -377,7 +371,7 @@ test:
     else
         # test はスキップするがビルドはする
         ifndef NO_LINK
-test: $(TARGETDIR)/$(TARGET)
+test: $(OUTPUT_DIR)/$(TARGET)
 				@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
         else
             # コンパイルのみ
@@ -395,7 +389,7 @@ test:
         ifndef NO_LINK
             # テストの実行
             # Run tests
-test: $(TESTSH) $(TARGETDIR)/$(TARGET)
+test: $(TESTSH) $(OUTPUT_DIR)/$(TARGET)
 				@status=0; \
 				export TEST_SRCS="$(TEST_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(NKF)) 2> >($(NKF) >&2) || status=$$?; \
 				exit $$status

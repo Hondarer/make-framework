@@ -40,12 +40,6 @@ ifeq ($(LIB_TYPE),)
 	LIB_TYPE := static
 endif
 
-# アーカイブのディレクトリ名とアーカイブ名
-# TARGETDIR := . の場合、カレントディレクトリにアーカイブを生成する
-# If TARGETDIR := ., the archive is created in the current directory
-ifeq ($(TARGETDIR),)
-	TARGETDIR := .
-endif
 # ディレクトリ名をアーカイブ名にする
 # Use directory name as archive name if TARGET is not specified
 ifeq ($(TARGET),)
@@ -72,7 +66,7 @@ endif
 ifeq ($(call should_skip,$(SKIP_BUILD)),true)
     .DEFAULT_GOAL := skip_build
 else
-    .DEFAULT_GOAL := $(TARGETDIR)/$(TARGET)
+    .DEFAULT_GOAL := $(OUTPUT_DIR)/$(TARGET)
 endif
 
 .PHONY: skip_build
@@ -137,22 +131,22 @@ endif
 ifeq ($(LIB_TYPE),shared)
     ifneq ($(OS),Windows_NT)
         # Linux
-$(TARGETDIR)/$(TARGET): $(OBJS) $(STATIC_LIBS) | $(TARGETDIR)
+$(OUTPUT_DIR)/$(TARGET): $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
 			$(CC) -shared -o $@ $(OBJS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)
     else
         # Windows
-$(TARGETDIR)/$(TARGET): $(OBJS) $(STATIC_LIBS) | $(TARGETDIR)
+$(OUTPUT_DIR)/$(TARGET): $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
 		MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) $(LD) /DLL /OUT:$@ $(OBJS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)
-		@if [ -f "$(TARGETDIR)/$(patsubst %.dll,%.exp,$(TARGET))" ]; then mv "$(TARGETDIR)/$(patsubst %.dll,%.exp,$(TARGET))" "$(OBJDIR)/"; fi
+		@if [ -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" ]; then mv "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" "$(OBJDIR)/"; fi
     endif
 else
     ifneq ($(OS),Windows_NT)
         # Linux
-$(TARGETDIR)/$(TARGET): $(OBJS) | $(TARGETDIR)
+$(OUTPUT_DIR)/$(TARGET): $(OBJS) | $(OUTPUT_DIR)
 			$(AR) rvs $@ $(OBJS)
     else
         # Windows
-$(TARGETDIR)/$(TARGET): $(OBJS) | $(TARGETDIR)
+$(OUTPUT_DIR)/$(TARGET): $(OBJS) | $(OUTPUT_DIR)
 			MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) $(AR) /NOLOGO /OUT:$@ $(OBJS)
     endif
 endif
@@ -167,11 +161,11 @@ endif
 define compile_rule_template
 ifneq ($$(OS),Windows_NT)
     # Linux
-$$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(TARGETDIR)
+$$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
 		set -o pipefail; LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF)
 else
     # Windows
-$$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(TARGETDIR)
+$$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
 		set -o pipefail; MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) /FdD:$$(patsubst %.obj,%.pdb,$$@) /c /Fo:$$@ $$< 2>&1 | sh $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.sh $$@ $$< $$(OBJDIR)/$$*.d | $$(NKF)
 endif
 endef
@@ -258,7 +252,7 @@ $(DEPS):
 
 include $(wildcard $(DEPS))
 
-$(TARGETDIR):
+$(OUTPUT_DIR):
 	mkdir -p $@
 
 $(OBJDIR):
@@ -266,12 +260,12 @@ $(OBJDIR):
 
 # 削除対象の定義
 # Define files/directories to clean
-CLEAN_COMMON := $(TARGETDIR)/$(TARGET) $(OBJDIR) $(notdir $(CP_SRCS) $(LINK_SRCS))
+CLEAN_COMMON := $(OUTPUT_DIR)/$(TARGET) $(OBJDIR) $(notdir $(CP_SRCS) $(LINK_SRCS))
 ifeq ($(OS),Windows_NT)
     # Windows
-    CLEAN_OS := $(TARGETDIR)/$(patsubst %.dll,%.pdb,$(TARGET))
+    CLEAN_OS := $(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET))
     ifeq ($(LIB_TYPE),shared)
-        CLEAN_OS += $(TARGETDIR)/$(patsubst %.dll,%.lib,$(TARGET))
+        CLEAN_OS += $(OUTPUT_DIR)/$(patsubst %.dll,%.lib,$(TARGET))
     endif
 endif
 ifeq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
@@ -305,7 +299,7 @@ test:
 			@echo "Build & Test skipped (SKIP_BUILD=$(SKIP_BUILD), SKIP_TEST=$(SKIP_TEST))"
     else
         # test はスキップするがビルドはする
-test: $(TARGETDIR)/$(TARGET)
+test: $(OUTPUT_DIR)/$(TARGET)
 			@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
     endif
 else
@@ -315,6 +309,6 @@ test:
 			@echo "Test skipped because it is not included in the build (SKIP_BUILD=$(SKIP_BUILD))"
     else
         # スキップしない
-test: $(TARGETDIR)/$(TARGET)
+test: $(OUTPUT_DIR)/$(TARGET)
     endif
 endif

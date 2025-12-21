@@ -95,7 +95,7 @@ C ランタイムライブラリのコードは実行ファイルには埋め込
 **ビルド設定例**
 
 ```{.makefile caption="デバッグ構成の例（静的）"}
-CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MTd /Fd$(TARGETDIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_FOLDER)/prod/calc/include
+CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MTd /Fd$(OUTPUT_DIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_FOLDER)/prod/calc/include
 ```
 
 ### /MDd (動的・デバッグ CRT)
@@ -122,7 +122,7 @@ CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MTd /Fd$(TARGETDIR)/$(TARGET_BASE).pdb
 **ビルド設定例**
 
 ```{.makefile caption="デバッグ構成の例（動的）"}
-CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MDd /Fd$(TARGETDIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_FOLDER)/prod/calc/include
+CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MDd /Fd$(OUTPUT_DIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_FOLDER)/prod/calc/include
 ```
 
 ### デバッグ CRT 利用時の注意
@@ -248,13 +248,13 @@ DLL が整数や値型のみを受け渡し、ポインタの受け渡しやメ�
 ### 静的ライブラリ (calcbase.lib)
 
 ```{.makefile caption="prod/calc/libsrc/makelibsrc-windows-poc.mk"}
-CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MD /Fd$(TARGETDIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_FOLDER)/prod/calc/include
+CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MD /Fd$(OUTPUT_DIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_FOLDER)/prod/calc/include
 ```
 
 ### 動的リンクライブラリ (calc.dll)
 
 ```{.makefile caption="prod/calc/libsrc/makelibsrc-windows-poc.mk"}
-CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MD /LD /Fd$(TARGETDIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_FOLDER)/prod/calc/include
+CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MD /LD /Fd$(OUTPUT_DIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_FOLDER)/prod/calc/include
 ```
 
 ### 実行ファイル (add.exe)
