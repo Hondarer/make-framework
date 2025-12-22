@@ -43,7 +43,7 @@ endif
 #$(info USE_WRAP_MAIN: $(USE_WRAP_MAIN))
 #$(info LIBS: $(LIBS))
 
-TESTSH := $(WORKSPACE_FOLDER)/testfw/cmnd/exec_test.sh
+TESTSH := $(WORKSPACE_FOLDER)/testfw/cmnd/exec_test_c_cpp.sh
 
 GCOVDIR := gcov
 LCOVDIR := lcov
