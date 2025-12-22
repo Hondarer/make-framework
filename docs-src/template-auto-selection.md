@@ -77,7 +77,7 @@ endif
 ```makefile
 # Makefile テンプレート
 # すべての最終階層 Makefile で使用する標準テンプレート
-# 本ファイルの編集は行わない。必要な差分は、makepart.mk に記載する。
+# 本ファイルの編集は禁止する。makepart.mk を作成して拡張・カスタマイズすること。
 
 # ワークスペースのディレクトリ
 find-up = \
@@ -329,7 +329,7 @@ include $(WORKSPACE_FOLDER)/makefw/makefiles/makelibsrc.mk
 ```makefile
 # Makefile テンプレート
 # すべての最終階層 Makefile で使用する標準テンプレート
-# 本ファイルの編集は行わない。必要な差分は、makepart.mk に記載する。
+# 本ファイルの編集は禁止する。makepart.mk を作成して拡張・カスタマイズすること。
 
 # ワークスペースのディレクトリ
 find-up = ...
