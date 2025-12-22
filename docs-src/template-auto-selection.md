@@ -169,10 +169,10 @@ endif
 ### .NET ライブラリ
 
 ```text
-ディレクトリ: prod/calc/libsrc/CalcDotNetLib/
+ディレクトリ: prod/calc.net/libsrc/CalcLib/
 ファイル構成:
   - Makefile (__template.mk の内容)
-  - CalcDotNetLib.csproj
+  - CalcLib.csproj
   - Calculator.cs
   - makepart.mk (固有設定、必要な場合のみ)
 
@@ -200,10 +200,10 @@ endif
 ### .NET 実行体
 
 ```text
-ディレクトリ: prod/calc/src/CalcDotNetApp/
+ディレクトリ: prod/calc.net/src/CalcApp/
 ファイル構成:
   - Makefile (__template.mk の内容)
-  - CalcDotNetApp.csproj
+  - CalcApp.csproj
   - Program.cs
   - makepart.mk (固有設定、必要な場合のみ)
 
