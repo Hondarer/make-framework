@@ -1,8 +1,11 @@
-# .NET 実行体作成用 Makefile
+include $(WORKSPACE_FOLDER)/makefw/makefiles/_flags.mk
 
 # 成果物のディレクトリ名
 # 未指定の場合、カレントディレクトリ/bin に成果物を生成する
 OUTPUT_DIR ?= $(CURDIR)/bin
+
+# テストスクリプトのパス
+TESTSH := $(WORKSPACE_FOLDER)/testfw/cmnd/exec_test_dotnet.sh
 
 # プロジェクト名 (カレントディレクトリ名から取得)
 PROJECT_NAME := $(notdir $(patsubst %/,%,$(CURDIR)))
@@ -38,8 +41,10 @@ show-exepath:
 	@echo $(OUTPUT_DIR)/$(TARGET)
 
 .PHONY: test
-test: build
-	dotnet test -c $(CONFIG) --no-build -o $(OUTPUT_DIR) --verbosity normal
+test: $(TESTSH) build
+	@status=0; \
+	export OUTPUT_DIR="$(OUTPUT_DIR)" && export CONFIG="$(CONFIG)" && "$(SHELL)" "$(TESTSH)" > >($(NKF)) 2> >($(NKF) >&2) || status=$$?; \
+	exit $$status
 
 .PHONY: run
 run: build
