@@ -193,7 +193,7 @@ $(1):
 	ln -s $(2) $(1)
 #	.gitignore に対象ファイルを追加
 #	Add the file to .gitignore
-	echo $(1) >> .gitignore
+	echo /$(1) >> .gitignore
 	@tempfile=$$(mktemp) && \
 	sort .gitignore | uniq > $$tempfile && \
 	mv $$tempfile .gitignore
@@ -241,7 +241,7 @@ $(1): $(2) $(wildcard $(1).filter.sh) $(wildcard $(basename $(1)).inject$(suffix
 	fi
 #	.gitignore に対象ファイルを追加
 #	Add the file to .gitignore
-	echo $(1) >> .gitignore
+	echo /$(1) >> .gitignore
 	@tempfile=$$(mktemp) && \
 	sort .gitignore | uniq > $$tempfile && \
 	mv $$tempfile .gitignore
@@ -284,7 +284,7 @@ clean:
 		@tempfile=$$(mktemp) && \
 		tempfile2=$$(mktemp) && \
 		for ignorefile in $(notdir $(CP_SRCS) $(LINK_SRCS)); \
-			do echo $$ignorefile >> $$tempfile; \
+			do echo /$$ignorefile >> $$tempfile; \
 		done && \
 		sort $$tempfile | uniq > $$tempfile2 && \
 		mv $$tempfile2 .gitignore && \
