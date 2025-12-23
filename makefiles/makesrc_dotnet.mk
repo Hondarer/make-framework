@@ -33,13 +33,17 @@ $(OUTPUT_ASSEMBLY): $(SOURCES) $(PROJECT_FILE)
 .PHONY: build
 build: $(OUTPUT_ASSEMBLY)
 
+.PHONY: show-exepath
+show-exepath:
+	@echo $(OUTPUT_DIR)/$(TARGET)
+
 .PHONY: test
 test: build
 	dotnet test -c $(CONFIG) --no-build -o $(OUTPUT_DIR) --verbosity normal
 
 .PHONY: run
 run: build
-	./$(TARGET)
+	$(OUTPUT_DIR)/$(TARGET)
 
 .PHONY: clean
 clean:

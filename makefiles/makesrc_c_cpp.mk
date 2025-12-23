@@ -214,6 +214,10 @@ else
 $(OBJS): $(LIBSFILES)
 endif
 
+.PHONY: show-exepath
+show-exepath:
+	@echo $(OUTPUT_DIR)/$(TARGET)
+
 # コンパイル時の依存関係に $(notdir $(LINK_SRCS)) $(notdir $(CP_SRCS)) を定義しているのは
 # ヘッダ類などを引き込んでおく必要がある場合に、先に処理を行っておきたいため
 # We define $(notdir $(LINK_SRCS)) $(notdir $(CP_SRCS)) as compile-time dependencies to ensure all headers are processed first
