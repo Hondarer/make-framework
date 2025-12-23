@@ -339,7 +339,7 @@ $(OBJDIR):
 
 # 削除対象の定義
 # Define files/directories to clean
-CLEAN_COMMON := $(OUTPUT_DIR)/$(TARGET) $(OBJDIR) $(GCOVDIR) $(COVERAGEDIR) $(notdir $(CP_SRCS) $(LINK_SRCS)) results
+CLEAN_COMMON := "$(OUTPUT_DIR)/$(TARGET)" $(OBJDIR) $(GCOVDIR) $(COVERAGEDIR) $(notdir $(CP_SRCS) $(LINK_SRCS)) results
 ifneq ($(OS),Windows_NT)
     # Linux
     CLEAN_OS := core $(LCOVDIR)
@@ -366,6 +366,9 @@ clean:
 		rm -f $$tempfile
     endif
 	-rm -rf $(CLEAN_COMMON) $(CLEAN_OS)
+    # $(OUTPUT_DIR) に配下がなければ、$(OUTPUT_DIR) を削除する
+    # Remove $(OUTPUT_DIR) if it's empty
+	-rmdir "$(OUTPUT_DIR)" 2>/dev/null || true
 
 .PHONY: test
 ifeq ($(call should_skip,$(SKIP_TEST)),true)
