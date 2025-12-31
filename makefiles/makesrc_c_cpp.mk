@@ -16,15 +16,17 @@ ifeq ($(LINK_TEST), 1)
         # ステップ実行/カバレッジに支障となるオプションを除去
         #   -flto: リンク時最適化 (GCC の LTO)
         LDFLAGS := $(filter-out -flto,$(LDFLAGS))
-        # FIXME: 決め打ちにしているので CONFIG で切替要
-        LIBSDIR += $(WORKSPACE_FOLDER)/testfw/gtest/lib/linux/x86_64/gcc/release
+        # TARGET_ARCH を使用してプラットフォーム固有のパスを指定
+        # Use TARGET_ARCH for platform-specific path (e.g., linux-el8-x64)
+        LIBSDIR += $(WORKSPACE_FOLDER)/testfw/gtest/lib/$(TARGET_ARCH)
     else
         # Windows
         # ステップ実行/カバレッジに支障となるオプションを除去
         #   /LTCG: リンク時コード生成 (プログラム全体最適化)
         LDFLAGS := $(filter-out /LTCG,$(LDFLAGS))
-        # FIXME: 決め打ちにしているので CONFIG で切替要
-        LIBSDIR += $(WORKSPACE_FOLDER)/testfw/gtest/lib/msvc/v144/x64/md/release
+        # TARGET_ARCH を使用してプラットフォーム固有のパスを指定
+        # Use TARGET_ARCH for platform-specific path (e.g., windows-x64)
+        LIBSDIR += $(WORKSPACE_FOLDER)/testfw/gtest/lib/$(TARGET_ARCH)
     endif
 
     ifneq ($(NO_GTEST_MAIN), 1)
