@@ -302,6 +302,11 @@ clean:
 		rm -f $$tempfile
     endif
 	-rm -rf $(CLEAN_COMMON) $(CLEAN_OS)
+    # Windows の場合、obj に配下がなければ、obj を削除する
+    # Remove obj if it's empty (Windows only)
+ifeq ($(OS),Windows_NT)
+	-rmdir obj 2>/dev/null || true
+endif
 
 .PHONY: test
 ifeq ($(call should_skip,$(SKIP_TEST)),true)
