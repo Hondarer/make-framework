@@ -111,7 +111,15 @@ INCDIR += $(shell sh $(WORKSPACE_FOLDER)/makefw/cmnd/get_include_paths.sh)
 # Remove duplicate directories from INCDIR
 # 絶対パスに正規化してから重複削除
 # Normalize to absolute paths before removing duplicates
-INCDIR := $(sort $(foreach dir,$(INCDIR),$(shell realpath -m "$(dir)" 2>/dev/null || echo "$(dir)")))
+ifneq ($(OS),Windows_NT)
+    # Linux
+    INCDIR := $(sort $(foreach dir,$(INCDIR),$(shell realpath -m "$(dir)" 2>/dev/null || echo "$(dir)")))
+else
+    # Windows
+    # cygpath -m を使って MSYS2 形式から Windows 形式に変換
+    # Convert from MSYS2 format to Windows format using cygpath -m
+    INCDIR := $(sort $(foreach dir,$(INCDIR),$(shell cygpath -m "$$(realpath -m "$(dir)" 2>/dev/null || echo "$(dir)")" 2>/dev/null || echo "$(dir)")))
+endif
 
 # デバッグ出力
 #$(info ----)
