@@ -152,7 +152,6 @@ $(OUTPUT_DIR)/$(TARGET): $(OBJS) | $(OUTPUT_DIR)
         # Windows
 $(OUTPUT_DIR)/$(TARGET): $(OBJS) | $(OUTPUT_DIR)
 			MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(AR) /NOLOGO /OUT:$@ $(OBJS)
-			if [ -d "$(OBJDIR)" ]; then find "$(OBJDIR)" -name "*.pdb" -exec cp {} "$(OUTPUT_DIR)/" \; 2>/dev/null || true; fi
     endif
 endif
 
@@ -170,8 +169,15 @@ $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_S
 		set -o pipefail; LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(NKF)
 else
     # Windows
+    # 静的ライブラリの場合は OUTPUT_DIR に統合 PDB を生成、動的ライブラリの場合は個別 PDB を生成
+    # For static libraries, generate a unified PDB in OUTPUT_DIR; for shared libraries, generate individual PDBs
+    ifeq ($$(LIB_TYPE),shared)
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
 		set -o pipefail; MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) /FdD:$$(patsubst %.obj,%.pdb,$$@) /c /Fo:$$@ $$< 2>&1 | sh $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.sh $$@ $$< $$(OBJDIR)/$$*.d | $$(NKF)
+    else
+$$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
+		set -o pipefail; MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd$$(OUTPUT_DIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$< 2>&1 | sh $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.sh $$@ $$< $$(OBJDIR)/$$*.d | $$(NKF)
+    endif
 endif
 endef
 
@@ -268,13 +274,13 @@ $(OBJDIR):
 CLEAN_COMMON := $(OUTPUT_DIR)/$(TARGET) $(OBJDIR) $(notdir $(CP_SRCS) $(LINK_SRCS))
 ifeq ($(OS),Windows_NT)
     # Windows
-    CLEAN_OS := $(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET))
     ifeq ($(LIB_TYPE),shared)
+        CLEAN_OS := $(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET))
         CLEAN_OS += $(OUTPUT_DIR)/$(patsubst %.dll,%.lib,$(TARGET))
     else
-        # 静的ライブラリの場合は、オブジェクトファイルに対応する PDB ファイルを削除対象に追加
-        # For static libraries, add PDB files corresponding to object files
-        CLEAN_OS += $(patsubst $(OBJDIR)/%.obj,$(OUTPUT_DIR)/%.pdb,$(OBJS))
+        # 静的ライブラリの場合は、統合 PDB ファイルを削除対象に追加
+        # For static libraries, add the unified PDB file to clean target
+        CLEAN_OS := $(OUTPUT_DIR)/$(basename $(TARGET)).pdb
     endif
 endif
 ifeq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
