@@ -55,6 +55,26 @@ ifneq ($(OS),Windows_NT)
     endif
 else
     # Windows (MSVC)
+
+    # Windows 環境のインターロックチェック
+    # 1. bash の存在確認と MinGW (MSYS) bash の検証
+    BASH_PATH := $(shell where bash 2>/dev/null | head -1)
+    ifeq ($(BASH_PATH),)
+        $(error bash へのパスが通っていません。MinGW (MSYS) へのパスを設定してください。)
+    endif
+    ifneq ($(findstring System32,$(BASH_PATH)),)
+        $(error System32 の bash.exe が検出されました。MinGW (MSYS) の bash を優先してください。)
+    endif
+    ifneq ($(findstring WindowsApps,$(BASH_PATH)),)
+        $(error WindowsApps の bash.exe が検出されました。MinGW (MSYS) の bash を優先してください。)
+    endif
+
+    # 2. cl.exe の存在確認
+    CL_CHECK := $(shell where cl 2>/dev/null | head -1)
+    ifeq ($(CL_CHECK),)
+        $(error cl.exe へのパスが通っていません。Visual Studio Build Tools へのパスを設定してください。)
+    endif
+
     ifeq ($(origin CC),default)
         CC = cl
     endif
