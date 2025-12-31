@@ -30,7 +30,16 @@ endif
 # Determine target architecture
 ifneq ($(OS),Windows_NT)
     # Linux
-    ARCH := $(shell uname -m)
+    # uname -m を使用してアーキテクチャを判定
+    # Use uname -m to determine architecture
+    UNAME_ARCH := $(shell uname -m)
+    # x86_64 を x64 に変換
+    # Convert x86_64 to x64
+    ifeq ($(UNAME_ARCH),x86_64)
+        ARCH := x64
+    else
+        ARCH := $(UNAME_ARCH)
+    endif
     # Oracle Linux 8 の場合
     # For Oracle Linux 8
     ifeq ($(shell [ -f /etc/oracle-release ] && echo 1),1)
