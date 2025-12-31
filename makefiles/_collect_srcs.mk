@@ -77,18 +77,17 @@ ifeq ($(OS),Windows_NT)
     CP_SRCS += $(LINK_SRCS)
     LINK_SRCS :=
     # Windows ではコピーを行うことにより、inject ファイル および フィルタファイルがないにもかかわらず実体が存在するため、DIRECT_SRCS と判定されることへの対策として、
-    # DIRECT_SRCS と判定されたファイルが .gitignore に定義されている場合、DIRECT_SRCS から CP_SRCS に移動する
-    GITIGNORED_SRCS := $(shell for f in $(DIRECT_SRCS); do \
-        gitignore_file=".gitignore"; \
-        if [ -f "$$gitignore_file" ]; then \
-            base_f=$$(basename $$f); \
-            if grep -qxF "$$base_f" "$$gitignore_file"; then \
+    # 外部ファイル (実パスがカレントディレクトリと異なるファイル) を DIRECT_SRCS から CP_SRCS に移動する
+    EXTERNAL_SRCS := $(shell \
+        for f in $(DIRECT_SRCS); do \
+            real_f=$$(cd "$$(dirname "$$f")" 2>/dev/null && pwd)/$$(basename "$$f"); \
+            current_f=$$(pwd)/$$(basename "$$f"); \
+            if [ "$$real_f" != "$$current_f" ]; then \
                 echo $$f; \
             fi; \
-        fi; \
-    done)
-    CP_SRCS += $(GITIGNORED_SRCS)
-    DIRECT_SRCS := $(filter-out $(GITIGNORED_SRCS),$(DIRECT_SRCS))
+        done)
+    CP_SRCS += $(EXTERNAL_SRCS)
+    DIRECT_SRCS := $(filter-out $(EXTERNAL_SRCS),$(DIRECT_SRCS))
 endif
 
 # gcovr のフィルタを作成
