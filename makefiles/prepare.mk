@@ -40,10 +40,13 @@ ifneq ($(OS),Windows_NT)
     else
         ARCH := $(UNAME_ARCH)
     endif
-    # Oracle Linux 8 の場合
-    # For Oracle Linux 8
-    ifeq ($(shell [ -f /etc/oracle-release ] && echo 1),1)
-        OS_ID := el8
+    # RHEL系 (Oracle Linux, RHEL, CentOS, Rocky Linux など) の場合
+    # For RHEL-based distributions (Oracle Linux, RHEL, CentOS, Rocky Linux, etc.)
+    ifeq ($(shell [ -f /etc/redhat-release ] && echo 1),1)
+        # バージョン番号を取得 (例: 8.10 -> 8)
+        # Extract major version number (e.g., 8.10 -> 8)
+        RHEL_VERSION := $(shell sed -n 's/.*release \([0-9]\+\).*/\1/p' /etc/redhat-release)
+        OS_ID := el$(RHEL_VERSION)
     else
         # その他の Linux ディストリビューション
         # Other Linux distributions
