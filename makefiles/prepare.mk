@@ -29,7 +29,7 @@ endif
 # アーキテクチャ判定
 # Determine target architecture
 ifneq ($(OS),Windows_NT)
-    # Linux
+    # Linux (ex: linux-el8-x64)
     # uname -m を使用してアーキテクチャを判定
     # Use uname -m to determine architecture
     UNAME_ARCH := $(shell uname -m)
@@ -51,7 +51,7 @@ ifneq ($(OS),Windows_NT)
     endif
     TARGET_ARCH := linux-$(OS_ID)-$(ARCH)
 else
-    # Windows
+    # Windows (ex: windows-x64)
     # uname -m を使用してアーキテクチャを判定 (MSYS/MinGW bash が提供)
     # Use uname -m to determine architecture (provided by MSYS/MinGW bash)
     UNAME_ARCH := $(shell uname -m)
