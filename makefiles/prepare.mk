@@ -177,5 +177,39 @@ MAKEPART_MK := $(shell \
 # 逆順にする
 MAKEPART_MK := $(foreach mkfile, $(shell seq $(words $(MAKEPART_MK)) -1 1), $(word $(mkfile), $(MAKEPART_MK)))
 
+# Windows の場合、MSVC C ランタイムライブラリの設定
+# Set MSVC C runtime library configuration for Windows
+ifeq ($(OS),Windows_NT)
+    # MSVC C ランタイムライブラリの種類 (shared または static)
+    # MSVC C runtime library type (shared or static)
+    # shared: Multi-threaded DLL (/MD, /MDd)
+    # static: Multi-threaded Static (/MT, /MTd)
+    MSVC_CRT ?= shared
+
+    # MSVC C ランタイムライブラリのサブディレクトリを CONFIG と MSVC_CRT から計算
+    # Calculate MSVC C runtime library subdirectory from CONFIG and MSVC_CRT
+    ifeq ($(CONFIG),Debug)
+        ifeq ($(MSVC_CRT),shared)
+            MSVC_CRT_SUBDIR := mdd
+        else
+            MSVC_CRT_SUBDIR := mtd
+        endif
+    else ifeq ($(CONFIG),Release)
+        ifeq ($(MSVC_CRT),shared)
+            MSVC_CRT_SUBDIR := md
+        else
+            MSVC_CRT_SUBDIR := mt
+        endif
+    else ifeq ($(CONFIG),RelWithDebInfo)
+        ifeq ($(MSVC_CRT),shared)
+            MSVC_CRT_SUBDIR := md
+        else
+            MSVC_CRT_SUBDIR := mt
+        endif
+    else
+        $(error CONFIG は Debug, Release, RelWithDebInfo のいずれか)
+    endif
+endif
+
 # makepart.mk が存在すればインクルード
 $(foreach makepart, $(MAKEPART_MK), $(eval include $(makepart)))

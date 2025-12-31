@@ -126,21 +126,36 @@ else
     # 共通フラグ
     CFLAGS   += /EHsc /MP
     CXXFLAGS += /EHsc /MP
+
+    # ランタイムライブラリフラグの設定
+    # Set runtime library flags based on MSVC_CRT (defined in prepare.mk)
+    ifeq ($(MSVC_CRT),shared)
+        # Multi-threaded DLL (/MD, /MDd)
+        RT_FLAG_DEBUG   := /MDd
+        RT_FLAG_RELEASE := /MD
+    else ifeq ($(MSVC_CRT),static)
+        # Multi-threaded Static (/MT, /MTd)
+        RT_FLAG_DEBUG   := /MTd
+        RT_FLAG_RELEASE := /MT
+    else
+        $(error MSVC_CRT は shared または static のいずれか)
+    endif
+
     # 構成別フラグ
     ifeq ($(CONFIG),Debug)
       CPPFLAGS += /D_DEBUG
-      CFLAGS   += /MDd /Od /RTC1 /GS /Zi
-      CXXFLAGS += /MDd /Od /RTC1 /GS /Zi
+      CFLAGS   += $(RT_FLAG_DEBUG) /Od /RTC1 /GS /Zi
+      CXXFLAGS += $(RT_FLAG_DEBUG) /Od /RTC1 /GS /Zi
       LDFLAGS  += /DEBUG /INCREMENTAL
     else ifeq ($(CONFIG),Release)
       CPPFLAGS += /DNDEBUG
-      CFLAGS   += /MD /O2 /Ob2 /Oy /Zi
-      CXXFLAGS += /MD /O2 /Ob2 /Oy /Zi
+      CFLAGS   += $(RT_FLAG_RELEASE) /O2 /Ob2 /Oy /Zi
+      CXXFLAGS += $(RT_FLAG_RELEASE) /O2 /Ob2 /Oy /Zi
       LDFLAGS  += /DEBUG /INCREMENTAL:NO
     else ifeq ($(CONFIG),RelWithDebInfo)
       CPPFLAGS += /DNDEBUG
-      CFLAGS   += /MD /O2 /Ob2 /Zi
-      CXXFLAGS += /MD /O2 /Ob2 /Zi
+      CFLAGS   += $(RT_FLAG_RELEASE) /O2 /Ob2 /Zi
+      CXXFLAGS += $(RT_FLAG_RELEASE) /O2 /Ob2 /Zi
       # 速度重視なら /DEBUG:FASTLINK、サイズ重視なら /DEBUG
       LDFLAGS  += /DEBUG /INCREMENTAL:NO
     else

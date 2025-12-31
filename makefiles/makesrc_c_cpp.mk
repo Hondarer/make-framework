@@ -24,9 +24,11 @@ ifeq ($(LINK_TEST), 1)
         # ステップ実行/カバレッジに支障となるオプションを除去
         #   /LTCG: リンク時コード生成 (プログラム全体最適化)
         LDFLAGS := $(filter-out /LTCG,$(LDFLAGS))
+        # MSVC_CRT_SUBDIR は prepare.mk で CONFIG と MSVC_CRT から計算される
+        # MSVC_CRT_SUBDIR is calculated in prepare.mk from CONFIG and MSVC_CRT
         # TARGET_ARCH を使用してプラットフォーム固有のパスを指定
-        # Use TARGET_ARCH for platform-specific path (e.g., windows-x64)
-        LIBSDIR += $(WORKSPACE_FOLDER)/testfw/gtest/lib/$(TARGET_ARCH)
+        # Use TARGET_ARCH for platform-specific path (e.g., windows-x64/md)
+        LIBSDIR += $(WORKSPACE_FOLDER)/testfw/gtest/lib/$(TARGET_ARCH)/$(MSVC_CRT_SUBDIR)
     endif
 
     ifneq ($(NO_GTEST_MAIN), 1)
