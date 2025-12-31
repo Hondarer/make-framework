@@ -107,6 +107,12 @@ SRCS_CPP := $(sort $(wildcard *.cc) $(wildcard *.cpp) $(notdir $(filter %.cc,$(C
 # Get include directories from c_cpp_properties.json
 INCDIR += $(shell sh $(WORKSPACE_FOLDER)/makefw/cmnd/get_include_paths.sh)
 
+# INCDIR が指すディレクトリが同じであれば、間引く
+# Remove duplicate directories from INCDIR
+# 絶対パスに正規化してから重複削除
+# Normalize to absolute paths before removing duplicates
+INCDIR := $(sort $(foreach dir,$(INCDIR),$(shell realpath -m "$(dir)" 2>/dev/null || echo "$(dir)")))
+
 # デバッグ出力
 #$(info ----)
 #$(info TEST_SRCS: $(TEST_SRCS))
