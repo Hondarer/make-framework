@@ -140,7 +140,7 @@ $(OUTPUT_DIR)/$(TARGET): $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
     else
         # Windows
 $(OUTPUT_DIR)/$(TARGET): $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
-		MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) $(LD) /DLL /OUT:$@ $(OBJS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)
+		MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(LD) /DLL /OUT:$@ $(OBJS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)
 		@if [ -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" ]; then mv "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" "$(OBJDIR)/"; fi
     endif
 else
@@ -151,7 +151,7 @@ $(OUTPUT_DIR)/$(TARGET): $(OBJS) | $(OUTPUT_DIR)
     else
         # Windows
 $(OUTPUT_DIR)/$(TARGET): $(OBJS) | $(OUTPUT_DIR)
-			MSYS_NO_PATHCONV=1 LANG=$$(FILES_LANG) $(AR) /NOLOGO /OUT:$@ $(OBJS)
+			MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(AR) /NOLOGO /OUT:$@ $(OBJS)
     endif
 endif
 
