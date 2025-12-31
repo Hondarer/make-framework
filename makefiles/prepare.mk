@@ -26,6 +26,36 @@ else
     NKF := nkf
 endif
 
+# アーキテクチャ判定
+# Determine target architecture
+ifneq ($(OS),Windows_NT)
+    # Linux
+    ARCH := $(shell uname -m)
+    # Oracle Linux 8 の場合
+    # For Oracle Linux 8
+    ifeq ($(shell [ -f /etc/oracle-release ] && echo 1),1)
+        OS_ID := el8
+    else
+        # その他の Linux ディストリビューション
+        # Other Linux distributions
+        OS_ID := $(shell . /etc/os-release 2>/dev/null && echo $$ID || echo linux)
+    endif
+    TARGET_ARCH := linux-$(OS_ID)-$(ARCH)
+else
+    # Windows
+    # uname -m を使用してアーキテクチャを判定 (MSYS/MinGW bash が提供)
+    # Use uname -m to determine architecture (provided by MSYS/MinGW bash)
+    UNAME_ARCH := $(shell uname -m)
+    # x86_64 を x64 に変換
+    # Convert x86_64 to x64
+    ifeq ($(UNAME_ARCH),x86_64)
+        ARCH := x64
+    else
+        ARCH := $(UNAME_ARCH)
+    endif
+    TARGET_ARCH := windows-$(ARCH)
+endif
+
 # デフォルト設定 START ##############################################################
 
 # コンフィグ設定 (RelWithDebInfo, Debug, Release)
