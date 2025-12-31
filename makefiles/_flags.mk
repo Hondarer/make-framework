@@ -169,7 +169,14 @@ CXXFLAGS += $(CPPFLAGS)
 
 # ビルド設定は基本的に固定のため、OBJDIR も obj に固定する
 #OBJDIR  := obj/$(CONFIG)
-OBJDIR  := obj
+ifneq ($(OS),Windows_NT)
+    # Linux
+    OBJDIR  := obj
+else
+    # Windows: ランタイムライブラリごとにサブディレクトリを分ける
+    # Windows: Separate subdirectories for each runtime library to avoid mixing object files
+    OBJDIR  := obj/$(MSVC_CRT_SUBDIR)
+endif
 
 # wrap-main
 ifeq ($(USE_WRAP_MAIN),1)
