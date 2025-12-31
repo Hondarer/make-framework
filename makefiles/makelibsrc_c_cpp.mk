@@ -152,6 +152,7 @@ $(OUTPUT_DIR)/$(TARGET): $(OBJS) | $(OUTPUT_DIR)
         # Windows
 $(OUTPUT_DIR)/$(TARGET): $(OBJS) | $(OUTPUT_DIR)
 			MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(AR) /NOLOGO /OUT:$@ $(OBJS)
+			if [ -d "$(OBJDIR)" ]; then find "$(OBJDIR)" -name "*.pdb" -exec cp {} "$(OUTPUT_DIR)/" \; 2>/dev/null || true; fi
     endif
 endif
 
@@ -270,6 +271,10 @@ ifeq ($(OS),Windows_NT)
     CLEAN_OS := $(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET))
     ifeq ($(LIB_TYPE),shared)
         CLEAN_OS += $(OUTPUT_DIR)/$(patsubst %.dll,%.lib,$(TARGET))
+    else
+        # 静的ライブラリの場合は、オブジェクトファイルに対応する PDB ファイルを削除対象に追加
+        # For static libraries, add PDB files corresponding to object files
+        CLEAN_OS += $(patsubst $(OBJDIR)/%.obj,$(OUTPUT_DIR)/%.pdb,$(OBJS))
     endif
 endif
 ifeq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
