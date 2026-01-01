@@ -52,7 +52,7 @@ run: build
 
 .PHONY: clean
 clean:
-	rm -f $(OUTPUT_DIR)/$(TARGET)
+	rm -f $(OUTPUT_DIR)/$(PROJECT_NAME).*
 	rm -rf bin obj results
 
 .PHONY: restore
