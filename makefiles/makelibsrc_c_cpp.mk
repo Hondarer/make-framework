@@ -70,7 +70,11 @@ endif
 ifeq ($(call should_skip,$(SKIP_BUILD)),true)
     .DEFAULT_GOAL := skip_build
 else
-    .DEFAULT_GOAL := $(OUTPUT_DIR)/$(TARGET)
+    ifndef NO_LINK
+        .DEFAULT_GOAL := $(OUTPUT_DIR)/$(TARGET)
+    else
+        .DEFAULT_GOAL := $(OBJS)
+    endif
 endif
 
 .PHONY: skip_build
@@ -130,28 +134,30 @@ endif
 #$(info NOT_FOUND_LIBS: $(NOT_FOUND_LIBS))
 #$(info DYNAMIC_LIBS: $(DYNAMIC_LIBS))
 
-# 最終的なリンクコマンド
-# Final link command: static libs are embedded, dynamic libs remain as -l
-ifeq ($(LIB_TYPE),shared)
-    ifneq ($(OS),Windows_NT)
-        # Linux
+ifndef NO_LINK
+    # 最終的なリンクコマンド
+    # Final link command: static libs are embedded, dynamic libs remain as -l
+    ifeq ($(LIB_TYPE),shared)
+        ifneq ($(OS),Windows_NT)
+            # Linux
 $(OUTPUT_DIR)/$(TARGET): $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
-			$(CC) -shared -o $@ $(OBJS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)
-    else
-        # Windows
+				$(CC) -shared -o $@ $(OBJS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)
+        else
+            # Windows
 $(OUTPUT_DIR)/$(TARGET): $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
-		MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(LD) /DLL /OUT:$@ $(OBJS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)
-		@if [ -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" ]; then mv "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" "$(OBJDIR)/"; fi
-    endif
-else
-    ifneq ($(OS),Windows_NT)
-        # Linux
-$(OUTPUT_DIR)/$(TARGET): $(OBJS) | $(OUTPUT_DIR)
-			$(AR) rvs $@ $(OBJS)
+			MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(LD) /DLL /OUT:$@ $(OBJS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)
+			@if [ -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" ]; then mv "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" "$(OBJDIR)/"; fi
+        endif
     else
-        # Windows
+        ifneq ($(OS),Windows_NT)
+            # Linux
 $(OUTPUT_DIR)/$(TARGET): $(OBJS) | $(OUTPUT_DIR)
-			MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(AR) /NOLOGO /OUT:$@ $(OBJS)
+				$(AR) rvs $@ $(OBJS)
+        else
+            # Windows
+$(OUTPUT_DIR)/$(TARGET): $(OBJS) | $(OUTPUT_DIR)
+				MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(AR) /NOLOGO /OUT:$@ $(OBJS)
+        endif
     endif
 endif
 
@@ -319,8 +325,14 @@ test:
 			@echo "Build & Test skipped (SKIP_BUILD=$(SKIP_BUILD), SKIP_TEST=$(SKIP_TEST))"
     else
         # test はスキップするがビルドはする
+        ifndef NO_LINK
 test: $(OUTPUT_DIR)/$(TARGET)
-			@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
+				@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
+        else
+            # コンパイルのみ
+test: $(OBJS)
+				@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
+        endif
     endif
 else
     ifeq ($(call should_skip,$(SKIP_BUILD)),true)
@@ -329,6 +341,11 @@ test:
 			@echo "Test skipped because it is not included in the build (SKIP_BUILD=$(SKIP_BUILD))"
     else
         # スキップしない
+        ifndef NO_LINK
 test: $(OUTPUT_DIR)/$(TARGET)
+        else
+            # コンパイルのみ
+test: $(OBJS)
+        endif
     endif
 endif
