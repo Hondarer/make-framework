@@ -35,71 +35,14 @@ endif
 # サブディレクトリの再帰的make処理
 # Recursive make for subdirectories
 ifneq ($(SUBDIRS),)
-    .PHONY: subdirs-default subdirs-build subdirs-clean subdirs-test subdirs-run subdirs-restore subdirs-rebuild
+    # サブディレクトリ自体をターゲット化し、指定されたターゲットを伝播
+    # Make subdirectories as targets and propagate the specified goal
+    .PHONY: $(SUBDIRS)
+    $(SUBDIRS):
+	@echo "Making $(MAKECMDGOALS) in $@"
+	@$(MAKE) -C $@ $(MAKECMDGOALS)
 
-    # デフォルトターゲットをサブディレクトリで実行
-    # Execute default target in subdirectories
-    subdirs-default:
-	@for dir in $(SUBDIRS); do \
-		echo "Making default in $$dir"; \
-		$(MAKE) -C $$dir || exit 1; \
-	done
-
-    # buildターゲットをサブディレクトリで実行
-    # Execute build target in subdirectories
-    subdirs-build:
-	@for dir in $(SUBDIRS); do \
-		echo "Making build in $$dir"; \
-		$(MAKE) -C $$dir build || exit 1; \
-	done
-
-    # cleanターゲットをサブディレクトリで実行
-    # Execute clean target in subdirectories
-    subdirs-clean:
-	@for dir in $(SUBDIRS); do \
-		echo "Making clean in $$dir"; \
-		$(MAKE) -C $$dir clean || exit 1; \
-	done
-
-    # testターゲットをサブディレクトリで実行
-    # Execute test target in subdirectories
-    subdirs-test:
-	@for dir in $(SUBDIRS); do \
-		echo "Making test in $$dir"; \
-		$(MAKE) -C $$dir test || exit 1; \
-	done
-
-    # runターゲットをサブディレクトリで実行
-    # Execute run target in subdirectories
-    subdirs-run:
-	@for dir in $(SUBDIRS); do \
-		echo "Making run in $$dir"; \
-		$(MAKE) -C $$dir run || exit 1; \
-	done
-
-    # restoreターゲットをサブディレクトリで実行
-    # Execute restore target in subdirectories
-    subdirs-restore:
-	@for dir in $(SUBDIRS); do \
-		echo "Making restore in $$dir"; \
-		$(MAKE) -C $$dir restore || exit 1; \
-	done
-
-    # rebuildターゲットをサブディレクトリで実行
-    # Execute rebuild target in subdirectories
-    subdirs-rebuild:
-	@for dir in $(SUBDIRS); do \
-		echo "Making rebuild in $$dir"; \
-		$(MAKE) -C $$dir rebuild || exit 1; \
-	done
-
-    # 既存のターゲットに依存関係を追加（サブディレクトリを先に処理）
-    # Add dependencies to existing targets (process subdirectories first)
-    default: subdirs-default
-    build: subdirs-build
-    clean: subdirs-clean
-    test: subdirs-test
-    run: subdirs-run
-    restore: subdirs-restore
-    rebuild: subdirs-rebuild
+    # 主要なターゲットにサブディレクトリ依存を追加（サブディレクトリを先に処理）
+    # Add subdirectory dependencies to main targets (process subdirectories first)
+    default build clean test run restore rebuild: $(SUBDIRS)
 endif
