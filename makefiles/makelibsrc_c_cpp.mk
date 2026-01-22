@@ -23,6 +23,8 @@ CFLAGS   += $(addprefix -I, $(INCDIR))
 CXXFLAGS += $(addprefix -I, $(INCDIR))
 
 # OBJS
+# 直下のobjディレクトリのオブジェクトファイル
+# Object files in the current obj directory
 OBJS := $(filter-out $(OBJDIR)/%.inject.o, \
 	$(sort $(addprefix $(OBJDIR)/, \
 	$(notdir $(patsubst %.c, %.o, $(patsubst %.cc, %.o, $(patsubst %.cpp, %.o, $(SRCS_C) $(SRCS_CPP))))))))
@@ -32,6 +34,17 @@ ifeq ($(OS),Windows_NT)
     # Windows の場合は .o を .obj に置換
     OBJS := $(patsubst %.o, %.obj, $(OBJS))
 endif
+
+# サブディレクトリのobjディレクトリを再帰的に検索してオブジェクトファイルを収集
+# Recursively collect object files from subdirectories' obj directories
+ifeq ($(OS),Windows_NT)
+    # Windows: .obj ファイルを検索
+    SUBDIR_OBJS := $(shell find . -type d -name obj -not -path "./obj" -exec find {} -maxdepth 1 -type f -name "*.obj" \; 2>/dev/null)
+else
+    # Linux: .o ファイルを検索
+    SUBDIR_OBJS := $(shell find . -type d -name obj -not -path "./obj" -exec find {} -maxdepth 1 -type f -name "*.o" \; 2>/dev/null)
+endif
+OBJS += $(SUBDIR_OBJS)
 
 # LIB_TYPE の設定 (デフォルトは static)
 # LIB_TYPE setting (default is static)
