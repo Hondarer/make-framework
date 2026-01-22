@@ -203,9 +203,9 @@ ifeq ($(call should_skip,$(SKIP_BUILD)),true)
     .DEFAULT_GOAL := skip_build
 else
     ifndef NO_LINK
-        .DEFAULT_GOAL := $(OUTPUT_DIR)/$(TARGET)
+        .DEFAULT_GOAL := default
     else
-        .DEFAULT_GOAL := $(OBJS) $(LIBSFILES)
+        .DEFAULT_GOAL := default
     endif
 endif
 
@@ -213,17 +213,48 @@ endif
 skip_build:
 	@echo "Build skipped (SKIP_BUILD=$(SKIP_BUILD))"
 
+# default および build ターゲットの定義
+# makemain.mk で default: $(SUBDIRS) および build: $(SUBDIRS) が定義されるため、
+# ここでは実際のビルドターゲットへの依存関係のみを追加
+# Define default and build targets
+.PHONY: default build
+ifeq ($(call should_skip,$(SKIP_BUILD)),true)
+default build: skip_build
+else
+    ifndef NO_LINK
+default build: $(OUTPUT_DIR)/$(TARGET)
+    else
+default build: $(OBJS) $(LIBSFILES)
+    endif
+endif
+
 ifndef NO_LINK
     # 実行体の生成
     # Build the executable
     ifneq ($(OS),Windows_NT)
         # Linux
-$(OUTPUT_DIR)/$(TARGET): $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
-			set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $(OBJS) $(LIBS) -fdiagnostics-color=always 2>&1 | $(NKF)
+$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
+			@all_objs="$(OBJS)"; \
+			sub_objs=$$(find . -name "*.o" -not -path "./obj/*"); \
+			if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
+			all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | tr '\n' ' '); \
+			newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
+			if [ "$$newest" != "$@" ]; then \
+				echo "set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $$all_objs $(LIBS) -fdiagnostics-color=always 2>&1 | $(NKF)"; \
+				set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $$all_objs $(LIBS) -fdiagnostics-color=always 2>&1 | $(NKF); \
+			fi
     else
         # Windows
-$(OUTPUT_DIR)/$(TARGET): $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
-			set -o pipefail; MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(LD) $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ $(OBJS) $(LIBS) 2>&1 | $(NKF)
+$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
+			@all_objs="$(OBJS)"; \
+			sub_objs=$$(find . -name "*.obj" -not -path "./obj/*"); \
+			if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
+			all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | tr '\n' ' '); \
+			newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
+			if [ "$$newest" != "$@" ]; then \
+				echo "set -o pipefail; MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(LD) $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ $$all_objs $(LIBS) 2>&1 | $(NKF)"; \
+				set -o pipefail; MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(LD) $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ $$all_objs $(LIBS) 2>&1 | $(NKF); \
+			fi
     endif
 else
 # コンパイルのみ

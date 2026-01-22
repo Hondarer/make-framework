@@ -80,14 +80,12 @@ endif
 
 # デフォルトターゲットの設定
 # Default target setting
+# makemain.mk で定義される default ターゲットを使用
+# Use the default target defined in makemain.mk
 ifeq ($(call should_skip,$(SKIP_BUILD)),true)
     .DEFAULT_GOAL := skip_build
 else
-    ifndef NO_LINK
-        .DEFAULT_GOAL := $(OUTPUT_DIR)/$(TARGET)
-    else
-        .DEFAULT_GOAL := $(OBJS)
-    endif
+    .DEFAULT_GOAL := default
 endif
 
 .PHONY: skip_build
@@ -95,6 +93,21 @@ skip_build:
 	@echo "Build skipped (SKIP_BUILD=$(SKIP_BUILD))"
 
 # ライブラリファイルの解決（LIB_TYPE=shared かつ LIBS が定義されている場合のみ）
+
+# default および build ターゲットの定義
+# makemain.mk で default: $(SUBDIRS) および build: $(SUBDIRS) が定義されるため、
+# ここでは実際のビルドターゲットへの依存関係のみを追加
+# Define default and build targets
+.PHONY: default build
+ifeq ($(call should_skip,$(SKIP_BUILD)),true)
+default build: skip_build
+else
+    ifndef NO_LINK
+default build: $(OUTPUT_DIR)/$(TARGET)
+    else
+default build: $(OBJS)
+    endif
+endif
 # Resolve library files (only when LIB_TYPE=shared and LIBS is defined)
 ifeq ($(LIB_TYPE),shared)
     ifneq ($(LIBS),)
@@ -153,23 +166,55 @@ ifndef NO_LINK
     ifeq ($(LIB_TYPE),shared)
         ifneq ($(OS),Windows_NT)
             # Linux
-$(OUTPUT_DIR)/$(TARGET): $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
-				$(CC) -shared -o $@ $(OBJS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)
+$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
+				@all_objs="$(OBJS)"; \
+				sub_objs=$$(find . -name "*.o" -not -path "./obj/*"); \
+				if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
+				all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | tr '\n' ' '); \
+				newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
+				if [ "$$newest" != "$@" ]; then \
+					echo "$(CC) -shared -o $@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)"; \
+					$(CC) -shared -o $@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS); \
+				fi
         else
             # Windows
-$(OUTPUT_DIR)/$(TARGET): $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
-			MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(LD) /DLL /OUT:$@ $(OBJS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)
+$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
+			@all_objs="$(OBJS)"; \
+			sub_objs=$$(find . -name "*.obj" -not -path "./obj/*"); \
+			if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
+			all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | tr '\n' ' '); \
+			newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
+			if [ "$$newest" != "$@" ]; then \
+				echo "MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(LD) /DLL /OUT:$@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)"; \
+				MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(LD) /DLL /OUT:$@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS); \
+			fi
 			@if [ -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" ]; then mv "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" "$(OBJDIR)/"; fi
         endif
     else
         ifneq ($(OS),Windows_NT)
             # Linux
-$(OUTPUT_DIR)/$(TARGET): $(OBJS) | $(OUTPUT_DIR)
-				$(AR) rvs $@ $(OBJS)
+$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
+				@all_objs="$(OBJS)"; \
+				sub_objs=$$(find . -name "*.o" -not -path "./obj/*"); \
+				if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
+				all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | tr '\n' ' '); \
+				newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
+				if [ "$$newest" != "$@" ]; then \
+					echo "$(AR) rvs $@ $$all_objs"; \
+					$(AR) rvs $@ $$all_objs; \
+				fi
         else
             # Windows
-$(OUTPUT_DIR)/$(TARGET): $(OBJS) | $(OUTPUT_DIR)
-				MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(AR) /NOLOGO /OUT:$@ $(OBJS)
+$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
+				@all_objs="$(OBJS)"; \
+				sub_objs=$$(find . -name "*.obj" -not -path "./obj/*"); \
+				if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
+				all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | tr '\n' ' '); \
+				newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
+				if [ "$$newest" != "$@" ]; then \
+					echo "MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(AR) /NOLOGO /OUT:$@ $$all_objs"; \
+					MSYS_NO_PATHCONV=1 LANG=$(FILES_LANG) $(AR) /NOLOGO /OUT:$@ $$all_objs; \
+				fi
         endif
     endif
 endif
