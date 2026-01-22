@@ -1,6 +1,6 @@
-# サブディレクトリの検出（Makefileを含むディレクトリのみ）
-# Detect subdirectories containing Makefile
-SUBDIRS := $(dir $(wildcard */Makefile))
+# サブディレクトリの検出（GNUmakefile/makefile/Makefileを含むディレクトリのみ）
+# Detect subdirectories containing GNUmakefile/makefile/Makefile
+SUBDIRS := $(sort $(dir $(wildcard */GNUmakefile */makefile */Makefile)))
 
 # カレントディレクトリのパス判定による自動テンプレート選択
 #
