@@ -23,7 +23,7 @@ CFLAGS   += $(addprefix -I, $(INCDIR))
 CXXFLAGS += $(addprefix -I, $(INCDIR))
 
 # OBJS
-# 直下のobjディレクトリのオブジェクトファイル
+# 直下の obj ディレクトリのオブジェクトファイル
 # Object files in the current obj directory
 OBJS := $(filter-out $(OBJDIR)/%.inject.o, \
 	$(sort $(addprefix $(OBJDIR)/, \
@@ -35,7 +35,7 @@ ifeq ($(OS),Windows_NT)
     OBJS := $(patsubst %.o, %.obj, $(OBJS))
 endif
 
-# サブディレクトリのobjディレクトリを再帰的に検索してオブジェクトファイルを収集
+# サブディレクトリの obj ディレクトリを再帰的に検索して、オブジェクトファイルを収集
 # Recursively collect object files from subdirectories' obj directories
 ifeq ($(OS),Windows_NT)
     # Windows: .obj ファイルを検索

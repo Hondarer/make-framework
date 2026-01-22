@@ -39,7 +39,7 @@ ifneq ($(SUBDIRS),)
     # Make subdirectories as targets and propagate the specified goal
     .PHONY: $(SUBDIRS)
     $(SUBDIRS):
-	@echo "Making $(MAKECMDGOALS) in $@"
+    #@echo "Making $(MAKECMDGOALS) in $@"
 	@$(MAKE) -C $@ $(MAKECMDGOALS)
 
     # 主要なターゲットにサブディレクトリ依存を追加（サブディレクトリを先に処理）
