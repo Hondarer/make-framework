@@ -1,3 +1,7 @@
+# サブディレクトリの検出（GNUmakefile/makefile/Makefileを含むディレクトリのみ）
+# Detect subdirectories containing GNUmakefile/makefile/Makefile
+SUBDIRS := $(sort $(dir $(wildcard */GNUmakefile */makefile */Makefile)))
+
 # カレントディレクトリのパス判定による自動テンプレート選択
 #
 # ディレクトリパターン:
@@ -26,4 +30,19 @@ else ifneq (,$(findstring /src/,$(CURDIR)))
     endif
 else
     $(error Cannot auto-select Makefile template. Current path must contain /libsrc/ or /src/: $(CURDIR))
+endif
+
+# サブディレクトリの再帰的make処理
+# Recursive make for subdirectories
+ifneq ($(SUBDIRS),)
+    # サブディレクトリ自体をターゲット化し、指定されたターゲットを伝播
+    # Make subdirectories as targets and propagate the specified goal
+    .PHONY: $(SUBDIRS)
+    $(SUBDIRS):
+	@echo "Making $(MAKECMDGOALS) in $@"
+	@$(MAKE) -C $@ $(MAKECMDGOALS)
+
+    # 主要なターゲットにサブディレクトリ依存を追加（サブディレクトリを先に処理）
+    # Add subdirectory dependencies to main targets (process subdirectories first)
+    default build clean test run restore rebuild: $(SUBDIRS)
 endif
