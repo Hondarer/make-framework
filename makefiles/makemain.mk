@@ -1,4 +1,4 @@
-# サブディレクトリの検出（GNUmakefile/makefile/Makefileを含むディレクトリのみ）
+# サブディレクトリの検出 (GNUmakefile/makefile/Makefileを含むディレクトリのみ)
 # Detect subdirectories containing GNUmakefile/makefile/Makefile
 SUBDIRS := $(sort $(dir $(wildcard */GNUmakefile */makefile */Makefile)))
 
@@ -42,7 +42,7 @@ ifneq ($(SUBDIRS),)
     #@echo "Making $(MAKECMDGOALS) in $@"
 	@$(MAKE) -C $@ $(MAKECMDGOALS)
 
-    # 主要なターゲットにサブディレクトリ依存を追加（サブディレクトリを先に処理）
+    # 主要なターゲットにサブディレクトリ依存を追加 (サブディレクトリを先に処理)
     # Add subdirectory dependencies to main targets (process subdirectories first)
     default build clean test run restore rebuild: $(SUBDIRS)
 endif
