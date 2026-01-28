@@ -4,6 +4,7 @@
 # 3. コンパイルコマンド関連を設定する
 # 4. 親階層から Makefile の存在する階層までに存在する makepart.mk を
 #    親階層から Makefile の存在する階層に向かって順次 include する
+# 5. カレントディレクトリの makelocal.mk を include する
 
 SHELL := /bin/bash
 
@@ -19,7 +20,7 @@ FILES_LANG := $(shell sh $(WORKSPACE_FOLDER)/makefw/cmnd/get_files_lang.sh)
 
 #$(info FILES_LANG: $(FILES_LANG));
 
-# FILES_LANG が UTF-8 の場合は nkf を省略 (cat で代用)
+# FILES_LANG が UTF-8 の場合は nkf を省略 (cat に置換)
 ifneq (,$(filter %.utf8 %.UTF-8 %.utf-8 %.UTF8,$(FILES_LANG)))
     NKF := cat
 else
@@ -213,3 +214,8 @@ endif
 
 # makepart.mk が存在すればインクルード
 $(foreach makepart, $(MAKEPART_MK), $(eval include $(makepart)))
+
+# makelocal.mk の読み込み (カレントディレクトリのみ)
+# prepare.mk は各ディレクトリの Makefile から include されるため、
+# ここでカレントディレクトリの makelocal.mk を読み込めばよい
+-include $(CURDIR)/makelocal.mk
