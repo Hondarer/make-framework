@@ -1,6 +1,7 @@
 include $(WORKSPACE_FOLDER)/makefw/makefiles/_collect_srcs.mk
 include $(WORKSPACE_FOLDER)/makefw/makefiles/_flags.mk
 include $(WORKSPACE_FOLDER)/makefw/makefiles/_should_skip.mk
+include $(WORKSPACE_FOLDER)/makefw/makefiles/_hooks.mk
 
 LIBSFILES := $(shell for dir in $(LIBSDIR); do [ -d $$dir ] && find $$dir -maxdepth 1 -type f; done)
 
@@ -217,14 +218,26 @@ skip_build:
 # makemain.mk で default: $(SUBDIRS) および build: $(SUBDIRS) が定義されるため、
 # ここでは実際のビルドターゲットへの依存関係のみを追加
 # Define default and build targets
-.PHONY: default build
+.PHONY: default
+default: build
+
+.PHONY: build _build_main
 ifeq ($(call should_skip,$(SKIP_BUILD)),true)
-default build: skip_build
+build: skip_build
+else
+build: _pre_build_hook _build_main _post_build_hook
+endif
+
+# 実際のビルド処理
+# Actual build process
+ifeq ($(call should_skip,$(SKIP_BUILD)),true)
+_build_main:
+	@:
 else
     ifndef NO_LINK
-default build: $(OUTPUT_DIR)/$(TARGET)
+_build_main: $(OUTPUT_DIR)/$(TARGET)
     else
-default build: $(OBJS) $(LIBSFILES)
+_build_main: $(OBJS) $(LIBSFILES)
     endif
 endif
 
@@ -399,8 +412,12 @@ ifeq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
     CLEAN_COMMON += .gitignore
 endif
 
-.PHONY: clean
-clean:
+.PHONY: clean _clean_main
+clean: _pre_clean_hook _clean_main _post_clean_hook
+
+# 実際のクリーン処理
+# Actual clean process
+_clean_main:
     # .gitignore の再生成 (コミット差分が出ないように)
     # Regenerate .gitignore (avoid commit diffs)
     ifneq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
@@ -423,7 +440,7 @@ ifeq ($(OS),Windows_NT)
 	-rmdir obj 2>/dev/null || true
 endif
 
-.PHONY: test
+.PHONY: test _test_main
 ifeq ($(call should_skip,$(SKIP_TEST)),true)
     # テストのスキップ
     # Skip tests
@@ -432,14 +449,17 @@ ifeq ($(call should_skip,$(SKIP_TEST)),true)
         # test もビルドもスキップ
 test:
 			@echo "Build & Test skipped (SKIP_BUILD=$(SKIP_BUILD), SKIP_TEST=$(SKIP_TEST))"
+_test_main:
+			@:
     else
         # test はスキップするがビルドはする
+test: _pre_test_hook _test_main _post_test_hook
         ifndef NO_LINK
-test: $(OUTPUT_DIR)/$(TARGET)
+_test_main: $(OUTPUT_DIR)/$(TARGET)
 				@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
         else
             # コンパイルのみ
-test: $(OBJS)
+_test_main: $(OBJS)
 				@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
         endif
     endif
@@ -448,18 +468,21 @@ else
         # そもそもビルドがスキップ
 test:
 			@echo "Test skipped because it is not included in the build (SKIP_BUILD=$(SKIP_BUILD))"
+_test_main:
+			@:
     else
         # スキップしない
+test: _pre_test_hook _test_main _post_test_hook
         ifndef NO_LINK
             # テストの実行
             # Run tests
-test: $(TESTSH) $(OUTPUT_DIR)/$(TARGET)
+_test_main: $(TESTSH) $(OUTPUT_DIR)/$(TARGET)
 				@status=0; \
 				export TEST_SRCS="$(TEST_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(NKF)) 2> >($(NKF) >&2) || status=$$?; \
 				exit $$status
         else
             # コンパイルのみ
-test: $(OBJS)
+_test_main: $(OBJS)
         endif
     endif
 endif

@@ -1,5 +1,7 @@
 # .NET ライブラリ作成用 Makefile
 
+include $(WORKSPACE_FOLDER)/makefw/makefiles/_hooks.mk
+
 # 成果物のディレクトリ名
 # 未指定の場合、カレントディレクトリ/lib に成果物を生成する
 OUTPUT_DIR ?= $(CURDIR)/lib
@@ -27,11 +29,19 @@ default: build
 $(OUTPUT_ASSEMBLY): $(SOURCES) $(PROJECT_FILE)
 	dotnet build -c $(CONFIG) -o $(OUTPUT_DIR)
 
-.PHONY: build
-build: $(OUTPUT_ASSEMBLY)
+.PHONY: build _build_main
+build: _pre_build_hook _build_main _post_build_hook
 
-.PHONY: clean
-clean:
+# 実際のビルド処理
+# Actual build process
+_build_main: $(OUTPUT_ASSEMBLY)
+
+.PHONY: clean _clean_main
+clean: _pre_clean_hook _clean_main _post_clean_hook
+
+# 実際のクリーン処理
+# Actual clean process
+_clean_main:
 	rm -f $(OUTPUT_DIR)/$(PROJECT_NAME).*
 	rm -rf bin obj
 

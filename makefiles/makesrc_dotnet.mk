@@ -1,4 +1,5 @@
 include $(WORKSPACE_FOLDER)/makefw/makefiles/_flags.mk
+include $(WORKSPACE_FOLDER)/makefw/makefiles/_hooks.mk
 
 # 成果物のディレクトリ名
 # 未指定の場合、カレントディレクトリ/bin に成果物を生成する
@@ -33,15 +34,23 @@ default: build
 $(OUTPUT_ASSEMBLY): $(SOURCES) $(PROJECT_FILE)
 	dotnet build -c $(CONFIG) -o $(OUTPUT_DIR)
 
-.PHONY: build
-build: $(OUTPUT_ASSEMBLY)
+.PHONY: build _build_main
+build: _pre_build_hook _build_main _post_build_hook
+
+# 実際のビルド処理
+# Actual build process
+_build_main: $(OUTPUT_ASSEMBLY)
 
 .PHONY: show-exepath
 show-exepath:
 	@echo $(OUTPUT_DIR)/$(TARGET)
 
-.PHONY: test
-test: $(TESTSH) build
+.PHONY: test _test_main
+test: _pre_test_hook _test_main _post_test_hook
+
+# 実際のテスト処理
+# Actual test process
+_test_main: $(TESTSH) build
 	@status=0; \
 	export OUTPUT_DIR="$(OUTPUT_DIR)" && export CONFIG="$(CONFIG)" && "$(SHELL)" "$(TESTSH)" > >($(NKF)) 2> >($(NKF) >&2) || status=$$?; \
 	exit $$status
@@ -50,8 +59,12 @@ test: $(TESTSH) build
 run: build
 	$(OUTPUT_DIR)/$(TARGET)
 
-.PHONY: clean
-clean:
+.PHONY: clean _clean_main
+clean: _pre_clean_hook _clean_main _post_clean_hook
+
+# 実際のクリーン処理
+# Actual clean process
+_clean_main:
 	rm -f $(OUTPUT_DIR)/$(PROJECT_NAME).*
 	rm -rf bin obj results
 
