@@ -67,6 +67,9 @@ clean: _pre_clean_hook _clean_main _post_clean_hook
 _clean_main:
 	rm -f $(OUTPUT_DIR)/$(PROJECT_NAME).*
 	rm -rf bin obj results
+    # $(OUTPUT_DIR) に配下がなければ、$(OUTPUT_DIR) を削除する
+    # Remove $(OUTPUT_DIR) if it's empty
+	@if [ -d "$(OUTPUT_DIR)" ] && [ -z "$$(ls -A "$(OUTPUT_DIR)")" ]; then echo "rmdir \"$(OUTPUT_DIR)\""; rmdir "$(OUTPUT_DIR)"; fi
 
 .PHONY: restore
 restore:

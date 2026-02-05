@@ -383,10 +383,13 @@ _clean_main:
 		rm -f $$tempfile
     endif
 	-rm -rf $(CLEAN_COMMON) $(CLEAN_OS)
+    # $(OUTPUT_DIR) に配下がなければ、$(OUTPUT_DIR) を削除する
+    # Remove $(OUTPUT_DIR) if it's empty
+	@if [ -d "$(OUTPUT_DIR)" ] && [ -z "$$(ls -A "$(OUTPUT_DIR)")" ]; then echo "rmdir \"$(OUTPUT_DIR)\""; rmdir "$(OUTPUT_DIR)"; fi
     # Windows の場合、obj に配下がなければ、obj を削除する
     # Remove obj if it's empty (Windows only)
 ifeq ($(OS),Windows_NT)
-	-rmdir obj 2>/dev/null || true
+	@if [ -d obj ] && [ -z "$$(ls -A obj)" ]; then echo "rmdir obj"; rmdir obj; fi
 endif
 
 .PHONY: test _test_main
