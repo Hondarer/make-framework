@@ -241,30 +241,6 @@ DLL が整数や値型のみを受け渡し、ポインタの受け渡しやメ�
 
 標準的な Windows 開発の手法に従うことで、他の開発者やツールとの互換性を保ちます。
 
-## ビルド設定
-
-本プロジェクトでは、すべてのコンポーネントを `/MD` でビルドするよう設定しています。
-
-### 静的ライブラリ (calcbase.lib)
-
-```{.makefile caption="prod/calc/libsrc/makelibsrc-windows-poc.mk"}
-CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MD /Fd$(OUTPUT_DIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_FOLDER)/prod/calc/include
-```
-
-### 動的リンクライブラリ (calc.dll)
-
-```{.makefile caption="prod/calc/libsrc/makelibsrc-windows-poc.mk"}
-CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MD /LD /Fd$(OUTPUT_DIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_FOLDER)/prod/calc/include
-```
-
-### 実行ファイル (add.exe)
-
-```{.makefile caption="prod/calc/src/add/Makefile.Windows-poc"}
-CFLAGS := /W4 /Zi /TC /nologo /utf-8 /MD /Fd$(OBJDIR)/add.pdb /I$(WORKSPACE_FOLDER)/prod/calc/include
-```
-
-すべてのコンポーネントに `/MD` フラグが追加されており、動的ランタイムライブラリを使用します。
-
 ## 実行環境の準備
 
 `/MD` でビルドされたプログラムを実行するには、Visual C++ 再頒布可能パッケージのインストールが必要です。
