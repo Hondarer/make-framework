@@ -1,14 +1,14 @@
-# Makefile テンプレート自動選択機構
+# makefile テンプレート自動選択機構
 
-本ドキュメントでは、makefw フレームワークにおける Makefile テンプレートの自動選択機構について説明します。
+本ドキュメントでは、makefw フレームワークにおける makefile テンプレートの自動選択機構について説明します。
 
 ## 概要
 
-makefw では、すべての最終階層 Makefile を統一テンプレート (`__template.mk`) に統一し、ディレクトリパスと言語の自動判定により、適切なビルドテンプレートを自動的に選択します。
+makefw では、すべての最終階層 makefile を統一テンプレート (`__template.mk`) に統一し、ディレクトリパスと言語の自動判定により、適切なビルドテンプレートを自動的に選択します。
 
 これにより、以下のメリットが得られます：
 
-- **完全な統一**: すべての Makefile が同一内容になり、メンテナンスが容易
+- **完全な統一**: すべての makefile が同一内容になり、メンテナンスが容易
 - **自動判定**: ディレクトリパスと .csproj の有無で自動的に適切なテンプレートを選択
 - **柔軟性**: プロジェクト固有の設定は makepart.mk で管理
 
@@ -18,7 +18,7 @@ makefw では、すべての最終階層 Makefile を統一テンプレート (`
 
 ```text
 makefw/makefiles/
-+-- __template.mk           # 統一テンプレート（すべての最終階層 Makefile で使用）
++-- __template.mk           # 統一テンプレート（すべての最終階層 makefile で使用）
 +-- prepare.mk              # 準備処理（コンパイラ設定、makepart.mk 読み込み）
 +-- makemain.mk             # テンプレート自動選択ロジック
 +-- auto-select.mk          # パス判定による分岐（makemain.mk と同じ）
@@ -33,7 +33,7 @@ makefw/makefiles/
 ```plantuml
 @startuml
 start
-:最終階層 Makefile (__template.mk);
+:最終階層 makefile (__template.mk);
 :(1) ワークスペース検索 (find-up 関数);
 :(2) prepare.mk を include;
 note right
@@ -72,11 +72,11 @@ endif
 
 ## 統一テンプレート (__template.mk)
 
-すべての最終階層 Makefile で使用する標準テンプレートです。
+すべての最終階層 makefile で使用する標準テンプレートです。
 
 ```makefile
-# Makefile テンプレート
-# すべての最終階層 Makefile で使用する標準テンプレート
+# makefile テンプレート
+# すべての最終階層 makefile で使用する標準テンプレート
 # 本ファイルの編集は禁止する。makepart.mk を作成して拡張・カスタマイズすること。
 
 # ワークスペースのディレクトリ
@@ -99,7 +99,7 @@ include $(WORKSPACE_FOLDER)/makefw/makefiles/makemain.mk
 
 ### 重要なポイント
 
-1. **統一性**: すべての最終階層 Makefile が完全に同一
+1. **統一性**: すべての最終階層 makefile が完全に同一
 2. **編集禁止**: 固有の設定は makepart.mk に記述
 3. **処理順序**: prepare.mk → makepart.mk → makemain.mk
 
@@ -135,7 +135,7 @@ else ifneq (,$(findstring /src/,$(CURDIR)))
         include $(WORKSPACE_FOLDER)/makefw/makefiles/makesrc_c_cpp.mk
     endif
 else
-    $(error Cannot auto-select Makefile template. Current path must contain /libsrc/ or /src/: $(CURDIR))
+    $(error Cannot auto-select makefile template. Current path must contain /libsrc/ or /src/: $(CURDIR))
 endif
 ```
 
@@ -156,7 +156,7 @@ endif
 ```text
 ディレクトリ: prod/calc/libsrc/calcbase/
 ファイル構成:
-  - Makefile (__template.mk の内容)
+  - makefile (__template.mk の内容)
   - add.c, subtract.c, multiply.c, divide.c
   - makepart.mk (固有設定、必要な場合のみ)
 
@@ -171,7 +171,7 @@ endif
 ```text
 ディレクトリ: prod/calc.net/libsrc/CalcLib/
 ファイル構成:
-  - Makefile (__template.mk の内容)
+  - makefile (__template.mk の内容)
   - CalcLib.csproj
   - Calculator.cs
   - makepart.mk (固有設定、必要な場合のみ)
@@ -187,7 +187,7 @@ endif
 ```text
 ディレクトリ: prod/calc/src/add/
 ファイル構成:
-  - Makefile (__template.mk の内容)
+  - makefile (__template.mk の内容)
   - add.c
   - makepart.mk (固有設定、必要な場合のみ)
 
@@ -202,7 +202,7 @@ endif
 ```text
 ディレクトリ: prod/calc.net/src/CalcApp/
 ファイル構成:
-  - Makefile (__template.mk の内容)
+  - makefile (__template.mk の内容)
   - CalcApp.csproj
   - Program.cs
   - makepart.mk (固有設定、必要な場合のみ)
@@ -293,22 +293,22 @@ LIBSDIR += \
 
 ## 導入方法
 
-既存プロジェクトに Makefile テンプレート自動選択機構を導入する手順を説明します。
+既存プロジェクトに makefile テンプレート自動選択機構を導入する手順を説明します。
 
-### 1. 最終階層 Makefile の更新
+### 1. 最終階層 makefile の更新
 
-すべての最終階層 Makefile を `__template.mk` の内容で置き換えます。
+すべての最終階層 makefile を `__template.mk` の内容で置き換えます。
 
 ```bash
-# 例: prod/calc/libsrc/calcbase/Makefile を更新
-cp makefw/makefiles/__template.mk prod/calc/libsrc/calcbase/Makefile
+# 例: prod/calc/libsrc/calcbase/makefile を更新
+cp makefw/makefiles/__template.mk prod/calc/libsrc/calcbase/makefile
 ```
 
 ### 2. 固有設定の移行
 
-既存の Makefile に固有設定（LIBS, CFLAGS など）がある場合、`makepart.mk` に移行します。
+既存の makefile に固有設定（LIBS, CFLAGS など）がある場合、`makepart.mk` に移行します。
 
-**変更前 (Makefile):**
+**変更前 (makefile):**
 ```makefile
 # ワークスペースのディレクトリ
 find-up = ...
@@ -325,10 +325,10 @@ include $(WORKSPACE_FOLDER)/makefw/makefiles/makelibsrc.mk
 
 **変更後:**
 
-**Makefile (__template.mk の内容):**
+**makefile (__template.mk の内容):**
 ```makefile
-# Makefile テンプレート
-# すべての最終階層 Makefile で使用する標準テンプレート
+# makefile テンプレート
+# すべての最終階層 makefile で使用する標準テンプレート
 # 本ファイルの編集は禁止する。makepart.mk を作成して拡張・カスタマイズすること。
 
 # ワークスペースのディレクトリ
@@ -363,13 +363,13 @@ make
 
 ## トラブルシューティング
 
-### エラー: "Cannot auto-select Makefile template"
+### エラー: "Cannot auto-select makefile template"
 
 **原因**: ディレクトリパスに `/libsrc/` も `/src/` も含まれていない
 
 **解決策**:
 1. ディレクトリ構造を見直し、`libsrc` または `src` の下に配置する
-2. または、Makefile で直接テンプレートを指定する（自動選択を使わない）
+2. または、makefile で直接テンプレートを指定する（自動選択を使わない）
 
 ### ビルドが失敗する
 
@@ -385,9 +385,9 @@ make debug  # 変数の内容を表示
 
 ## まとめ
 
-Makefile テンプレート自動選択機構により、以下が実現されます：
+makefile テンプレート自動選択機構により、以下が実現されます：
 
-- **統一性**: すべての Makefile が同一内容
+- **統一性**: すべての makefile が同一内容
 - **自動化**: ディレクトリパスと言語の自動判定
 - **保守性**: 固有設定は makepart.mk で管理
 - **拡張性**: 新しい言語やビルドタイプの追加が容易

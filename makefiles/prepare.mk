@@ -1,9 +1,9 @@
-# 各 Makefile から呼び出され、
+# 各 makefile から呼び出され、
 # 1. c_cpp_properties.json から defines を設定する
 # 2. ソースファイルのエンコード指定から LANG を得る
 # 3. コンパイルコマンド関連を設定する
-# 4. 親階層から Makefile の存在する階層までに存在する makepart.mk を
-#    親階層から Makefile の存在する階層に向かって順次 include する
+# 4. 親階層から makefile の存在する階層までに存在する makepart.mk を
+#    親階層から makefile の存在する階層に向かって順次 include する
 # 5. カレントディレクトリの makelocal.mk を include する
 
 SHELL := /bin/bash
@@ -72,13 +72,13 @@ endif
 # デフォルト設定 START ##############################################################
 
 # コンフィグ設定 (RelWithDebInfo, Debug, Release)
-# "make CONFIG=Debug" のように引数で指定するか、この先の Makefile で置換する
+# "make CONFIG=Debug" のように引数で指定するか、この先の makefile で置換する
 CONFIG ?= RelWithDebInfo
 
 # origin 関数は変数がどこから来たかを返します。
 # - default: Makeの組み込みデフォルト値
 # - environment: 環境変数から
-# - file: Makefileで定義
+# - file: makefileで定義
 # - command line: コマンドライン引数から
 # 以下は、make のデフォルト値の場合のみ、値を置き換えます。
 # 環境変数やコマンドライン引数で指定された場合はそちらが優先されます。
@@ -216,6 +216,6 @@ endif
 $(foreach makepart, $(MAKEPART_MK), $(eval include $(makepart)))
 
 # makelocal.mk の読み込み (カレントディレクトリのみ)
-# prepare.mk は各ディレクトリの Makefile から include されるため、
+# prepare.mk は各ディレクトリの makefile から include されるため、
 # ここでカレントディレクトリの makelocal.mk を読み込めばよい
 -include $(CURDIR)/makelocal.mk

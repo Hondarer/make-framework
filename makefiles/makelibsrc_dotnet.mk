@@ -1,4 +1,4 @@
-# .NET ライブラリ作成用 Makefile
+# .NET ライブラリ作成用 makefile
 
 include $(WORKSPACE_FOLDER)/makefw/makefiles/_hooks.mk
 

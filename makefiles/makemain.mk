@@ -1,5 +1,5 @@
 # サブディレクトリの検出 (GNUmakefile/makefile/Makefileを含むディレクトリのみ)
-# Detect subdirectories containing GNUmakefile/makefile/Makefile
+# Detect subdirectories containing GNUmakefile/makefile
 SUBDIRS := $(sort $(dir $(wildcard */GNUmakefile */makefile */Makefile)))
 
 # カレントディレクトリのパス判定による自動テンプレート選択
@@ -29,7 +29,7 @@ else ifneq (,$(findstring /src/,$(CURDIR)))
         include $(WORKSPACE_FOLDER)/makefw/makefiles/makesrc_c_cpp.mk
     endif
 else
-    $(error Cannot auto-select Makefile template. Current path must contain /libsrc/ or /src/: $(CURDIR))
+    $(error Cannot auto-select makefile template. Current path must contain /libsrc/ or /src/: $(CURDIR))
 endif
 
 # サブディレクトリの再帰的make処理

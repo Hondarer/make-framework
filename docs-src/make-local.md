@@ -16,7 +16,7 @@ prod/
     +-- makepart.mk      # OUTPUT_DIR = ... (子階層すべてに継承)
     +-- libsrc/
         +-- mylib/
-            +-- Makefile # 上記すべての設定が有効
+            +-- makefile # 上記すべての設定が有効
 ```
 
 しかし、特定のディレクトリのみに適用したい設定 (フック、ローカルフラグなど) を `makepart.mk` に定義すると、そのディレクトリ以下のすべてのサブフォルダでも有効になってしまいます。  
@@ -40,7 +40,7 @@ prod/
    +-- テンプレート (makelibsrc_c_cpp.mk など)
 ```
 
-`prepare.mk` は各ディレクトリの Makefile から include されるため、`prepare.mk` の最後で `makelocal.mk` を読み込みます。
+`prepare.mk` は各ディレクトリの makefile から include されるため、`prepare.mk` の最後で `makelocal.mk` を読み込みます。
 
 ## 実装
 
@@ -50,7 +50,7 @@ prod/
 
 ```makefile
 # makelocal.mk の読み込み (カレントディレクトリのみ)
-# prepare.mk は各ディレクトリの Makefile から include されるため、
+# prepare.mk は各ディレクトリの makefile から include されるため、
 # ここでカレントディレクトリの makelocal.mk を読み込めばよい
 -include $(CURDIR)/makelocal.mk
 ```

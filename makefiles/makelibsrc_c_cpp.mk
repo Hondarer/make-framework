@@ -284,7 +284,7 @@ $(1):
 endef
 
 # ファイルごとの依存関係を動的に定義
-# ただし、from, to が同じになる場合 (一般的には Makefile の定義ミス) はスキップ
+# ただし、from, to が同じになる場合 (一般的には makefile の定義ミス) はスキップ
 # Dynamically define file-by-file dependencies
 $(foreach link_src,$(LINK_SRCS), \
     $(if \
