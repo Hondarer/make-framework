@@ -452,13 +452,13 @@ _clean_main:
 		@printf '%s\n' $(addprefix /,$(notdir $(CP_SRCS) $(LINK_SRCS))) | sort -u > .gitignore
     endif
 	-rm -rf $(CLEAN_COMMON) $(CLEAN_OS)
-    # $(OUTPUT_DIR) に配下がなければ、$(OUTPUT_DIR) を削除する
-    # Remove $(OUTPUT_DIR) if it's empty
-	@if [ -d "$(OUTPUT_DIR)" ] && [ -z "$$(ls -A "$(OUTPUT_DIR)")" ]; then echo "rmdir \"$(OUTPUT_DIR)\""; rmdir "$(OUTPUT_DIR)"; fi
+    # $(OUTPUT_DIR) に配下がなければ、$(OUTPUT_DIR) を削除する (rmdir は非空なら失敗するので直接試行)
+    # Remove $(OUTPUT_DIR) if it's empty (rmdir fails on non-empty, so just try it)
+	@rmdir "$(OUTPUT_DIR)" 2>/dev/null && echo "rmdir \"$(OUTPUT_DIR)\"" || true
     # Windows の場合、obj に配下がなければ、obj を削除する
     # Remove obj if it's empty (Windows only)
 ifeq ($(OS),Windows_NT)
-	@if [ -d obj ] && [ -z "$$(ls -A obj)" ]; then echo "rmdir obj"; rmdir obj; fi
+	@rmdir obj 2>/dev/null && echo "rmdir obj" || true
 endif
 
 .PHONY: test _test_main

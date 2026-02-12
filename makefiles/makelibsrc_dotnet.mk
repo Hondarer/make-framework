@@ -44,9 +44,9 @@ clean: _pre_clean_hook _clean_main _post_clean_hook
 _clean_main:
 	rm -f $(OUTPUT_DIR)/$(PROJECT_NAME).*
 	rm -rf bin obj
-    # $(OUTPUT_DIR) に配下がなければ、$(OUTPUT_DIR) を削除する
-    # Remove $(OUTPUT_DIR) if it's empty
-	@if [ -d "$(OUTPUT_DIR)" ] && [ -z "$$(ls -A "$(OUTPUT_DIR)")" ]; then echo "rmdir \"$(OUTPUT_DIR)\""; rmdir "$(OUTPUT_DIR)"; fi
+    # $(OUTPUT_DIR) に配下がなければ、$(OUTPUT_DIR) を削除する (rmdir は非空なら失敗するので直接試行)
+    # Remove $(OUTPUT_DIR) if it's empty (rmdir fails on non-empty, so just try it)
+	@rmdir "$(OUTPUT_DIR)" 2>/dev/null && echo "rmdir \"$(OUTPUT_DIR)\"" || true
 
 .PHONY: restore
 restore:
