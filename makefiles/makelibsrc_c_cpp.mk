@@ -106,11 +106,11 @@ skip_build:
 .PHONY: default
 default: build
 
-.PHONY: build _build_main _normalize_gitignore
+.PHONY: build _build_main
 ifeq ($(call should_skip,$(SKIP_BUILD)),true)
 build: skip_build
 else
-build: _pre_build_hook _build_main _normalize_gitignore _post_build_hook
+build: _pre_build_hook _build_main _post_build_hook
 endif
 
 # 実際のビルド処理
@@ -126,11 +126,18 @@ _build_main: $(OBJS)
     endif
 endif
 
-# ビルド完了後に .gitignore を1回だけソート/重複排除
-# Normalize .gitignore once after build (sort and deduplicate)
-_normalize_gitignore: _build_main
+# ビルド完了後に .gitignore を1回だけソート/重複排除 (スタンプファイルで不要な実行を回避)
+# Normalize .gitignore once after build (stamp file avoids unnecessary execution)
+# link/copy 対象ファイルが更新された場合のみ sort を実行し、それ以外ではプロセス生成ゼロ
+# Only runs sort when link/copy targets changed; zero process creation otherwise
 ifneq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
-	@if [ -f .gitignore ]; then sort -u -o .gitignore .gitignore; fi
+ifeq ($(call should_skip,$(SKIP_BUILD)),true)
+else
+build: $(OBJDIR)/.gitignore_sorted
+endif
+$(OBJDIR)/.gitignore_sorted: $(notdir $(CP_SRCS) $(LINK_SRCS)) | $(OBJDIR)
+	@sort -u -o .gitignore .gitignore
+	@touch $@
 endif
 # Resolve library files (only when LIB_TYPE=shared and LIBS is defined)
 ifeq ($(LIB_TYPE),shared)
