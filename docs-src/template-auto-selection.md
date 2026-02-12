@@ -240,12 +240,14 @@ MAKEPART_MK := $(shell \
         if [ -f "$$dir/.workspaceRoot" ]; then \
             break; \
         fi; \
-        dir=$$(dirname $$dir); \
+        dir=$${dir%/*}; \
+        if [ -z "$$dir" ]; then dir=/; fi; \
     done \
 )
 
-# 逆順にして親階層から順次 include
-MAKEPART_MK := $(foreach mkfile, $(shell seq $(words $(MAKEPART_MK)) -1 1), $(word $(mkfile), $(MAKEPART_MK)))
+# 逆順にして親階層から順次 include (Make 関数で実現)
+_reverse = $(if $(1),$(call _reverse,$(wordlist 2,$(words $(1)),$(1))) $(firstword $(1)))
+MAKEPART_MK := $(strip $(call _reverse,$(MAKEPART_MK)))
 $(foreach makepart, $(MAKEPART_MK), $(eval include $(makepart)))
 ```
 
