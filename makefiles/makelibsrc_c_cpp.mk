@@ -106,11 +106,11 @@ skip_build:
 .PHONY: default
 default: build
 
-.PHONY: build _build_main
+.PHONY: build _build_main _normalize_gitignore
 ifeq ($(call should_skip,$(SKIP_BUILD)),true)
 build: skip_build
 else
-build: _pre_build_hook _build_main _post_build_hook
+build: _pre_build_hook _build_main _normalize_gitignore _post_build_hook
 endif
 
 # 実際のビルド処理
@@ -124,6 +124,13 @@ _build_main: $(OUTPUT_DIR)/$(TARGET)
     else
 _build_main: $(OBJS)
     endif
+endif
+
+# ビルド完了後に .gitignore を1回だけソート/重複排除
+# Normalize .gitignore once after build (sort and deduplicate)
+_normalize_gitignore: _build_main
+ifneq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
+	@if [ -f .gitignore ]; then sort -u -o .gitignore .gitignore; fi
 endif
 # Resolve library files (only when LIB_TYPE=shared and LIBS is defined)
 ifeq ($(LIB_TYPE),shared)
