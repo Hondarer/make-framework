@@ -165,6 +165,7 @@ MAKEPART_MK := $(shell \
 			break; \
 		fi; \
 		dir=$${dir%/*}; \
+		if [ -z "$$dir" ]; then dir=/; fi; \
 	done \
 )
 
