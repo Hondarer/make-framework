@@ -15,16 +15,17 @@
 # Note: makelocal.mk is included in prepare.mk
 MAKELOCAL_MK := $(wildcard $(CURDIR)/makelocal.mk)
 
-# makelocal.mk 内のフックターゲット検出
-# Detect hook targets in makelocal.mk
+# makelocal.mk 内のフックターゲット検出 (1回の awk 呼び出しで全フック検出)
+# Detect hook targets in makelocal.mk (single awk invocation for all hooks)
 ifneq ($(MAKELOCAL_MK),)
-    HAS_PRE_BUILD := $(shell grep -qE '^pre-build[[:space:]]*:' $(MAKELOCAL_MK) 2>/dev/null && echo 1)
-    HAS_POST_BUILD := $(shell grep -qE '^post-build[[:space:]]*:' $(MAKELOCAL_MK) 2>/dev/null && echo 1)
-    HAS_PRE_CLEAN := $(shell grep -qE '^pre-clean[[:space:]]*:' $(MAKELOCAL_MK) 2>/dev/null && echo 1)
-    HAS_POST_CLEAN := $(shell grep -qE '^post-clean[[:space:]]*:' $(MAKELOCAL_MK) 2>/dev/null && echo 1)
-    HAS_PRE_TEST := $(shell grep -qE '^pre-test[[:space:]]*:' $(MAKELOCAL_MK) 2>/dev/null && echo 1)
-    HAS_POST_TEST := $(shell grep -qE '^post-test[[:space:]]*:' $(MAKELOCAL_MK) 2>/dev/null && echo 1)
-    HAS_INSTALL := $(shell grep -qE '^install[[:space:]]*:' $(MAKELOCAL_MK) 2>/dev/null && echo 1)
+    _HOOKS_DETECTED := $(shell awk '/^pre-build[[:space:]]*:/{printf "PRE_BUILD "} /^post-build[[:space:]]*:/{printf "POST_BUILD "} /^pre-clean[[:space:]]*:/{printf "PRE_CLEAN "} /^post-clean[[:space:]]*:/{printf "POST_CLEAN "} /^pre-test[[:space:]]*:/{printf "PRE_TEST "} /^post-test[[:space:]]*:/{printf "POST_TEST "} /^install[[:space:]]*:/{printf "INSTALL "}' $(MAKELOCAL_MK) 2>/dev/null)
+    HAS_PRE_BUILD  := $(if $(filter PRE_BUILD,$(_HOOKS_DETECTED)),1)
+    HAS_POST_BUILD := $(if $(filter POST_BUILD,$(_HOOKS_DETECTED)),1)
+    HAS_PRE_CLEAN  := $(if $(filter PRE_CLEAN,$(_HOOKS_DETECTED)),1)
+    HAS_POST_CLEAN := $(if $(filter POST_CLEAN,$(_HOOKS_DETECTED)),1)
+    HAS_PRE_TEST   := $(if $(filter PRE_TEST,$(_HOOKS_DETECTED)),1)
+    HAS_POST_TEST  := $(if $(filter POST_TEST,$(_HOOKS_DETECTED)),1)
+    HAS_INSTALL    := $(if $(filter INSTALL,$(_HOOKS_DETECTED)),1)
 endif
 
 #$(info HAS_PRE_BUILD: $(HAS_PRE_BUILD))

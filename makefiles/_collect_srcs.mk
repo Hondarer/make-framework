@@ -39,8 +39,12 @@ CP_SRCS := $(foreach src,$(TEST_SRCS) $(ADD_SRCS), \
 		$(wildcard $(notdir $(src)).filter.sh)), \
 		$(src)))
 
-DIRECT_SRCS := $(if $(filter-out $(CP_SRCS),$(TEST_SRCS) $(ADD_SRCS)),$(shell for f in $(filter-out $(CP_SRCS),$(TEST_SRCS) $(ADD_SRCS)); do \
-	if [ -f "./$$(basename $$f)" ] && [ ! -L "./$$(basename $$f)" ]; then \
+# DIRECT_SRCS の判定: Make 関数で basename を取得し、1回の shell 呼び出しでまとめて判定
+# Determine DIRECT_SRCS: get basenames via Make functions, batch file tests in single shell call
+_DIRECT_CANDIDATES := $(filter-out $(CP_SRCS),$(TEST_SRCS) $(ADD_SRCS))
+DIRECT_SRCS := $(if $(_DIRECT_CANDIDATES),$(shell for f in $(_DIRECT_CANDIDATES); do \
+	b=$${f##*/}; \
+	if [ -f "./$$b" ] && [ ! -L "./$$b" ]; then \
 		echo $$f; \
 	fi; \
 	done))
@@ -78,11 +82,13 @@ ifeq ($(OS),Windows_NT)
     LINK_SRCS :=
     # Windows ではコピーを行うことにより、inject ファイル および フィルタファイルがないにもかかわらず実体が存在するため、DIRECT_SRCS と判定されることへの対策として、
     # 外部ファイル (実パスがカレントディレクトリと異なるファイル) を DIRECT_SRCS から CP_SRCS に移動する
+    # dirname/basename の代わりにシェルパラメータ展開を使用してプロセス生成を削減
+    # Use shell parameter expansion instead of dirname/basename to reduce process creation
     EXTERNAL_SRCS := $(shell \
+        cur=$$(pwd); \
         for f in $(DIRECT_SRCS); do \
-            real_f=$$(cd "$$(dirname "$$f")" 2>/dev/null && pwd)/$$(basename "$$f"); \
-            current_f=$$(pwd)/$$(basename "$$f"); \
-            if [ "$$real_f" != "$$current_f" ]; then \
+            real_f=$$(cd "$${f%/*}" 2>/dev/null && pwd)/$${f##*/}; \
+            if [ "$$real_f" != "$$cur/$${f##*/}" ]; then \
                 echo $$f; \
             fi; \
         done)
@@ -103,22 +109,26 @@ GCOVR_SRCS := $(foreach src,$(TEST_SRCS), \
 SRCS_C := $(sort $(wildcard *.c) $(notdir $(filter %.c,$(CP_SRCS) $(LINK_SRCS))))
 SRCS_CPP := $(sort $(wildcard *.cc) $(wildcard *.cpp) $(notdir $(filter %.cc,$(CP_SRCS) $(LINK_SRCS)) $(filter %.cpp,$(CP_SRCS) $(LINK_SRCS))))
 
-# c_cpp_properties.json から include ディレクトリを得る
-# Get include directories from c_cpp_properties.json
-INCDIR += $(shell sh $(WORKSPACE_FOLDER)/makefw/cmnd/get_include_paths.sh)
+# c_cpp_properties.json から include ディレクトリを得る (get_config.sh に統合)
+# Get include directories from c_cpp_properties.json (consolidated into get_config.sh)
+INCDIR += $(shell sh $(WORKSPACE_FOLDER)/makefw/cmnd/get_config.sh include_paths)
 
 # INCDIR が指すディレクトリが同じであれば、間引く
 # Remove duplicate directories from INCDIR
 # 絶対パスに正規化してから重複削除
 # Normalize to absolute paths before removing duplicates
-ifneq ($(OS),Windows_NT)
-    # Linux
-    INCDIR := $(sort $(foreach dir,$(INCDIR),$(shell realpath -m "$(dir)" 2>/dev/null || echo "$(dir)")))
-else
-    # Windows
-    # cygpath -m を使って MSYS2 形式から Windows 形式に変換
-    # Convert from MSYS2 format to Windows format using cygpath -m
-    INCDIR := $(sort $(foreach dir,$(INCDIR),$(shell cygpath -m "$$(realpath -m "$(dir)" 2>/dev/null || echo "$(dir)")" 2>/dev/null || echo "$(dir)")))
+# foreach で個別に realpath/cygpath を呼ぶ代わりに、1回のシェルで一括処理
+# Batch realpath/cygpath in single shell instead of per-directory foreach
+ifneq ($(INCDIR),)
+    ifneq ($(OS),Windows_NT)
+        # Linux
+        INCDIR := $(sort $(shell for d in $(INCDIR); do realpath -m "$$d" 2>/dev/null || echo "$$d"; done))
+    else
+        # Windows
+        # cygpath -m を使って MSYS2 形式から Windows 形式に変換
+        # Convert from MSYS2 format to Windows format using cygpath -m
+        INCDIR := $(sort $(shell for d in $(INCDIR); do r=$$(realpath -m "$$d" 2>/dev/null || echo "$$d"); cygpath -m "$$r" 2>/dev/null || echo "$$r"; done))
+    endif
 endif
 
 # デバッグ出力
