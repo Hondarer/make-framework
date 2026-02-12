@@ -16,8 +16,14 @@ if [ -z "$target" ] || [ -z "$source" ] || [ -z "$depfile" ]; then
     exit 1
 fi
 
-# awk スクリプトを実行
-awk -v target="$target" -v source="$source" -v depfile="$depfile" '
+# CP932 エンコードの日本語プレフィックスを構築
+# "メモ: インクルード ファイル:" の CP932 (Shift-JIS) バイト列
+# Build CP932-encoded Japanese prefix for "メモ: インクルード ファイル:"
+cp932_prefix=$(printf '\x83\x81\x83\x82: \x83\x43\x83\x93\x83\x4e\x83\x8b\x81\x5b\x83\x68 \x83\x74\x83\x40\x83\x43\x83\x8b:')
+
+# awk スクリプトを実行 (LC_ALL=C でバイトモード動作)
+# Run awk in byte mode (LC_ALL=C) to handle both UTF-8 and CP932 input
+LC_ALL=C awk -v target="$target" -v source="$source" -v depfile="$depfile" -v cp932_prefix="$cp932_prefix" '
 BEGIN {
     # 依存関係ファイルのヘッダーを作成
     printf "%s: %s", target, source > depfile
@@ -27,7 +33,7 @@ BEGIN {
 }
 
 {
-    # 日本語プレフィックスを削除
+    # 日本語プレフィックスを削除 (UTF-8)
     header = ""
     if (match($0, /^メモ: インクルード ファイル: */)) {
         header = substr($0, RSTART + RLENGTH)
@@ -35,6 +41,13 @@ BEGIN {
     # 英語プレフィックスを削除
     else if (match($0, /^Note: including file: */)) {
         header = substr($0, RSTART + RLENGTH)
+    }
+    # 日本語プレフィックスを削除 (CP932)
+    # CP932 の 2 バイト目が regex メタ文字 [ と衝突するため index() で固定文字列マッチ
+    # Use index() for fixed-string match because CP932 second bytes may collide with regex metacharacters
+    else if (index($0, cp932_prefix) == 1) {
+        header = substr($0, length(cp932_prefix) + 1)
+        sub(/^ */, "", header)
     }
 
     if (header != "") {
