@@ -136,8 +136,7 @@ else
 build: $(OBJDIR)/.gitignore_sorted
 endif
 $(OBJDIR)/.gitignore_sorted: $(notdir $(CP_SRCS) $(LINK_SRCS)) | $(OBJDIR)
-	@sort -u -o .gitignore .gitignore
-	@touch $@
+	@sort -u -o .gitignore .gitignore && touch $@
 endif
 # Resolve library files (only when LIB_TYPE=shared and LIBS is defined)
 ifeq ($(LIB_TYPE),shared)

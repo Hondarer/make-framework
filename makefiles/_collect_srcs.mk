@@ -43,7 +43,7 @@ CP_SRCS := $(foreach src,$(TEST_SRCS) $(ADD_SRCS), \
 # Determine DIRECT_SRCS: get basenames via Make functions, batch file tests in single shell call
 _DIRECT_CANDIDATES := $(filter-out $(CP_SRCS),$(TEST_SRCS) $(ADD_SRCS))
 DIRECT_SRCS := $(if $(_DIRECT_CANDIDATES),$(shell for f in $(_DIRECT_CANDIDATES); do \
-	b=$${f##*/}; \
+	b=$${f\#\#*/}; \
 	if [ -f "./$$b" ] && [ ! -L "./$$b" ]; then \
 		echo $$f; \
 	fi; \
@@ -87,8 +87,8 @@ ifeq ($(OS),Windows_NT)
     EXTERNAL_SRCS := $(shell \
         cur=$$(pwd); \
         for f in $(DIRECT_SRCS); do \
-            real_f=$$(cd "$${f%/*}" 2>/dev/null && pwd)/$${f##*/}; \
-            if [ "$$real_f" != "$$cur/$${f##*/}" ]; then \
+            real_f=$$(cd "$${f%/*}" 2>/dev/null && pwd)/$${f\#\#*/}; \
+            if [ "$$real_f" != "$$cur/$${f\#\#*/}" ]; then \
                 echo $$f; \
             fi; \
         done)

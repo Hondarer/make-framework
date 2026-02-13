@@ -267,8 +267,7 @@ else
 build: $(OBJDIR)/.gitignore_sorted
 endif
 $(OBJDIR)/.gitignore_sorted: $(notdir $(CP_SRCS) $(LINK_SRCS)) | $(OBJDIR)
-	@sort -u -o .gitignore .gitignore
-	@touch $@
+	@sort -u -o .gitignore .gitignore && touch $@
 endif
 
 ifndef NO_LINK
