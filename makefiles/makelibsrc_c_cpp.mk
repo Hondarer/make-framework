@@ -135,7 +135,7 @@ ifeq ($(LIB_TYPE),shared)
         ifeq ($(OS),Windows_NT)
             CURRENT_LIB := $(patsubst lib%,%,$(basename $(TARGET)))
         else
-            CURRENT_LIB := $(patsubst lib%.a,%,$(TARGET))
+            CURRENT_LIB := $(patsubst lib%.so,%,$(TARGET))
         endif
 
         # 静的ライブラリファイルの検索
@@ -165,13 +165,10 @@ ifeq ($(LIB_TYPE),shared)
         # 見つからないライブラリは動的リンク用フラグとして保持
         # Libraries not found are kept as dynamic link flags
         ifeq ($(OS),Windows_NT)
-            # lib なし/あり両方で見つかる可能性があるため、LIBS の各要素について再チェック
-            # Re-check each LIBS entry since files may be found with or without lib prefix
+            # STATIC_LIBS の結果から見つかったライブラリ名を導出
+            # Derive found library names from STATIC_LIBS results
             FOUND_LIBS := $(foreach lib,$(filter-out $(CURRENT_LIB),$(LIBS)),\
-                $(if $(or \
-                    $(firstword $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/$(lib).lib))),\
-                    $(firstword $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/lib$(lib).lib)))),\
-                $(lib)))
+                $(if $(filter %/$(lib).lib %/lib$(lib).lib,$(STATIC_LIBS)),$(lib)))
             NOT_FOUND_LIBS := $(filter-out $(CURRENT_LIB) $(FOUND_LIBS),$(LIBS))
             DYNAMIC_LIBS := $(addsuffix .lib,$(NOT_FOUND_LIBS))
         else
