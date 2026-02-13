@@ -148,7 +148,16 @@ ifneq ($(OS),Windows_NT)
     LIBS := $(addprefix -l, $(LIBS))
 else
     # Windows
-    LIBS := $(addsuffix .lib,$(LIBS))
+    # まず lib なしでファイルを探索し、無い場合は lib を付けて再探索
+    # (advapi32 等のフレームワークライブラリは lib が付かないための対策)
+    # First search without lib prefix, then retry with lib prefix
+    # (because framework libraries like advapi32 don't have lib prefix)
+    LIBS := $(foreach lib,$(LIBS),\
+        $(if $(firstword $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/$(lib).lib))),\
+            $(lib).lib,\
+            $(if $(firstword $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/lib$(lib).lib))),\
+                lib$(lib).lib,\
+                $(lib).lib)))
 endif
 
 # リンクライブラリフォルダ名の解決
