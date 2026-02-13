@@ -72,10 +72,12 @@ ifneq ($(OS),Windows_NT)
     endif
 else
     # Windows
+    # Linux 同様に lib プレフィックスを付与
+    # Add lib prefix like Linux
     ifeq ($(LIB_TYPE),shared)
-        TARGET := $(TARGET).dll
+        TARGET := lib$(TARGET).dll
     else
-        TARGET := $(TARGET).lib
+        TARGET := lib$(TARGET).lib
     endif
 endif
 
@@ -131,7 +133,7 @@ ifeq ($(LIB_TYPE),shared)
         # 現在ビルド中のライブラリ名を取得 (拡張子なし)
         # Get the name of the library currently being built (without extension)
         ifeq ($(OS),Windows_NT)
-            CURRENT_LIB := $(basename $(TARGET))
+            CURRENT_LIB := $(patsubst lib%,%,$(basename $(TARGET)))
         else
             CURRENT_LIB := $(patsubst lib%.a,%,$(TARGET))
         endif
@@ -141,10 +143,16 @@ ifeq ($(LIB_TYPE),shared)
         ifeq ($(OS),Windows_NT)
             # Windows: .lib を検索
             # 自身を除外し、複数の LIBSDIR を考慮
+            # まず lib なしで検索、なければ lib 付きで再検索
+            # (advapi32 等のフレームワークライブラリは lib が付かないための対策)
             # Windows: search for .lib
             # Exclude self and consider multiple LIBSDIR
+            # First search without lib prefix, then retry with lib prefix
+            # (because framework libraries like advapi32 don't have lib prefix)
             STATIC_LIBS := $(foreach lib,$(filter-out $(CURRENT_LIB),$(LIBS)),\
-                $(firstword $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/$(lib).lib))))
+                $(or \
+                    $(firstword $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/$(lib).lib))),\
+                    $(firstword $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/lib$(lib).lib)))))
         else
             # Linux: .a を検索
             # 自身を除外し、複数の LIBSDIR を考慮
@@ -157,7 +165,13 @@ ifeq ($(LIB_TYPE),shared)
         # 見つからないライブラリは動的リンク用フラグとして保持
         # Libraries not found are kept as dynamic link flags
         ifeq ($(OS),Windows_NT)
-            FOUND_LIBS := $(notdir $(basename $(STATIC_LIBS)))
+            # lib なし/あり両方で見つかる可能性があるため、LIBS の各要素について再チェック
+            # Re-check each LIBS entry since files may be found with or without lib prefix
+            FOUND_LIBS := $(foreach lib,$(filter-out $(CURRENT_LIB),$(LIBS)),\
+                $(if $(or \
+                    $(firstword $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/$(lib).lib))),\
+                    $(firstword $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/lib$(lib).lib)))),\
+                $(lib)))
             NOT_FOUND_LIBS := $(filter-out $(CURRENT_LIB) $(FOUND_LIBS),$(LIBS))
             DYNAMIC_LIBS := $(addsuffix .lib,$(NOT_FOUND_LIBS))
         else
