@@ -38,12 +38,14 @@ endif
 
 # サブディレクトリの obj ディレクトリを再帰的に検索して、オブジェクトファイルを収集
 # Recursively collect object files from subdirectories' obj directories
+# find -exec find を単一の find -path パターンに変更してプロセス生成を削減
+# Replace find -exec find with single find using -path pattern to reduce process creation
 ifeq ($(OS),Windows_NT)
     # Windows: .obj ファイルを検索
-    SUBDIR_OBJS := $(shell find . -type d -name obj -not -path "./obj" -exec find {} -maxdepth 1 -type f -name "*.obj" \; 2>/dev/null)
+    SUBDIR_OBJS := $(shell find . -path "./obj" -prune -o -path "*/obj/*.obj" -type f -print 2>/dev/null)
 else
     # Linux: .o ファイルを検索
-    SUBDIR_OBJS := $(shell find . -type d -name obj -not -path "./obj" -exec find {} -maxdepth 1 -type f -name "*.o" \; 2>/dev/null)
+    SUBDIR_OBJS := $(shell find . -path "./obj" -prune -o -path "*/obj/*.o" -type f -print 2>/dev/null)
 endif
 OBJS += $(SUBDIR_OBJS)
 
@@ -58,10 +60,10 @@ endif
 # 未指定の場合、カレントディレクトリ/lib に成果物を生成する
 OUTPUT_DIR ?= $(CURDIR)/lib
 
-# ディレクトリ名をアーカイブ名にする
-# Use directory name as archive name if TARGET is not specified
+# ディレクトリ名をアーカイブ名にする (Make 関数の notdir でプロセス生成を削減)
+# Use directory name as archive name if TARGET is not specified (use Make's notdir to avoid process)
 ifeq ($(TARGET),)
-    TARGET := $(shell basename `pwd`)
+    TARGET := $(notdir $(CURDIR))
 endif
 ifneq ($(OS),Windows_NT)
     # Linux
@@ -122,6 +124,19 @@ _build_main: $(OUTPUT_DIR)/$(TARGET)
     else
 _build_main: $(OBJS)
     endif
+endif
+
+# ビルド完了後に .gitignore を1回だけソート/重複排除 (スタンプファイルで不要な実行を回避)
+# Normalize .gitignore once after build (stamp file avoids unnecessary execution)
+# link/copy 対象ファイルが更新された場合のみ sort を実行し、それ以外ではプロセス生成ゼロ
+# Only runs sort when link/copy targets changed; zero process creation otherwise
+ifneq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
+ifeq ($(call should_skip,$(SKIP_BUILD)),true)
+else
+build: $(OBJDIR)/.gitignore_sorted
+endif
+$(OBJDIR)/.gitignore_sorted: $(notdir $(CP_SRCS) $(LINK_SRCS)) | $(OBJDIR)
+	@sort -u -o .gitignore .gitignore && touch $@
 endif
 # Resolve library files (only when LIB_TYPE=shared and LIBS is defined)
 ifeq ($(LIB_TYPE),shared)
@@ -283,15 +298,14 @@ $(eval $(call compile_rule_template,cpp,CXX,CXXFLAGS))
 
 # シンボリックリンク対象のソースファイルをシンボリックリンク
 # Create symbolic links for LINK_SRCS
+# .gitignore への追記のみ行い、ソート/重複排除は行わない (プロセス生成削減)
+# Only append to .gitignore, skip sort/uniq per file (reduce process creation)
 define generate_link_src_rule
 $(1):
 	ln -s $(2) $(1)
 #	.gitignore に対象ファイルを追加
 #	Add the file to .gitignore
-	echo /$(1) >> .gitignore
-	@tempfile=$$(mktemp) && \
-	sort .gitignore | uniq > $$tempfile && \
-	mv $$tempfile .gitignore
+	@grep -qxF '/$(1)' .gitignore 2>/dev/null || echo /$(1) >> .gitignore
 endef
 
 # ファイルごとの依存関係を動的に定義
@@ -334,12 +348,9 @@ $(1): $(2) $(wildcard $(1).filter.sh) $(wildcard $(basename $(1)).inject$(suffix
 		echo "echo \"#endif // _IN_TEST_SRC\" >> $(1)"; \
 		echo "#endif // _IN_TEST_SRC" >> $(1); \
 	fi
-#	.gitignore に対象ファイルを追加
-#	Add the file to .gitignore
-	echo /$(1) >> .gitignore
-	@tempfile=$$(mktemp) && \
-	sort .gitignore | uniq > $$tempfile && \
-	mv $$tempfile .gitignore
+#	.gitignore に対象ファイルを追加 (追記のみ、ソート/重複排除は行わない - プロセス生成削減)
+#	Add the file to .gitignore (append only, skip sort/uniq per file - reduce process creation)
+	@grep -qxF '/$(1)' .gitignore 2>/dev/null || echo /$(1) >> .gitignore
 endef
 
 # ファイルごとの依存関係を動的に定義
@@ -383,24 +394,19 @@ clean: _pre_clean_hook _clean_main _post_clean_hook
 _clean_main:
     # .gitignore の再生成 (コミット差分が出ないように)
     # Regenerate .gitignore (avoid commit diffs)
+    # mktemp の2回呼び出しと for ループを printf + sort -u に簡略化 (プロセス生成削減)
+    # Simplify 2x mktemp + for-loop to printf + sort -u (reduce process creation)
     ifneq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
-		@tempfile=$$(mktemp) && \
-		tempfile2=$$(mktemp) && \
-		for ignorefile in $(notdir $(CP_SRCS) $(LINK_SRCS)); \
-			do echo /$$ignorefile >> $$tempfile; \
-		done && \
-		sort $$tempfile | uniq > $$tempfile2 && \
-		mv $$tempfile2 .gitignore && \
-		rm -f $$tempfile
+		@printf '%s\n' $(addprefix /,$(notdir $(CP_SRCS) $(LINK_SRCS))) | sort -u > .gitignore
     endif
 	-rm -rf $(CLEAN_COMMON) $(CLEAN_OS)
-    # $(OUTPUT_DIR) に配下がなければ、$(OUTPUT_DIR) を削除する
-    # Remove $(OUTPUT_DIR) if it's empty
-	@if [ -d "$(OUTPUT_DIR)" ] && [ -z "$$(ls -A "$(OUTPUT_DIR)")" ]; then echo "rmdir \"$(OUTPUT_DIR)\""; rmdir "$(OUTPUT_DIR)"; fi
+    # $(OUTPUT_DIR) に配下がなければ、$(OUTPUT_DIR) を削除する (rmdir は非空なら失敗するので直接試行)
+    # Remove $(OUTPUT_DIR) if it's empty (rmdir fails on non-empty, so just try it)
+	@rmdir "$(OUTPUT_DIR)" 2>/dev/null && echo "rmdir \"$(OUTPUT_DIR)\"" || true
     # Windows の場合、obj に配下がなければ、obj を削除する
     # Remove obj if it's empty (Windows only)
 ifeq ($(OS),Windows_NT)
-	@if [ -d obj ] && [ -z "$$(ls -A obj)" ]; then echo "rmdir obj"; rmdir obj; fi
+	@rmdir obj 2>/dev/null && echo "rmdir obj" || true
 endif
 
 .PHONY: test _test_main

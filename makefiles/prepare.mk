@@ -8,8 +8,9 @@
 
 SHELL := /bin/bash
 
-# c_cpp_properties.json から defines を得る
-DEFINES := $(shell sh $(WORKSPACE_FOLDER)/makefw/cmnd/get_defines.sh)
+# c_cpp_properties.json から defines を得る (get_config.sh に統合)
+# Get defines from c_cpp_properties.json (consolidated into get_config.sh)
+DEFINES := $(shell sh $(WORKSPACE_FOLDER)/makefw/cmnd/get_config.sh defines)
 # defines の値を変数名 (値 = 1) として設定する
 $(foreach define, $(DEFINES), $(eval $(define) = 1))
 
@@ -29,24 +30,25 @@ endif
 
 # アーキテクチャ判定
 # Determine target architecture
+# uname -m は Linux/Windows 共通で1回だけ呼ぶ
+# Call uname -m only once (shared between Linux and Windows)
+UNAME_ARCH := $(shell uname -m)
+# x86_64 を x64 に変換
+# Convert x86_64 to x64
+ifeq ($(UNAME_ARCH),x86_64)
+    ARCH := x64
+else
+    ARCH := $(UNAME_ARCH)
+endif
+
 ifneq ($(OS),Windows_NT)
     # Linux (ex: linux-el8-x64)
-    # uname -m を使用してアーキテクチャを判定
-    # Use uname -m to determine architecture
-    UNAME_ARCH := $(shell uname -m)
-    # x86_64 を x64 に変換
-    # Convert x86_64 to x64
-    ifeq ($(UNAME_ARCH),x86_64)
-        ARCH := x64
-    else
-        ARCH := $(UNAME_ARCH)
-    endif
     # RHEL系 (Oracle Linux, RHEL, CentOS, Rocky Linux など) の場合
     # For RHEL-based distributions (Oracle Linux, RHEL, CentOS, Rocky Linux, etc.)
-    ifeq ($(shell [ -f /etc/redhat-release ] && echo 1),1)
-        # バージョン番号を取得 (例: 8.10 -> 8)
-        # Extract major version number (e.g., 8.10 -> 8)
-        RHEL_VERSION := $(shell sed -n 's/.*release \([0-9]\+\).*/\1/p' /etc/redhat-release)
+    # /etc/redhat-release の有無判定と sed を1つの shell 呼び出しに統合
+    # Combine redhat-release check and sed into single shell invocation
+    RHEL_VERSION := $(shell sed -n 's/.*release \([0-9]\+\).*/\1/p' /etc/redhat-release 2>/dev/null)
+    ifneq ($(RHEL_VERSION),)
         OS_ID := el$(RHEL_VERSION)
     else
         # その他の Linux ディストリビューション
@@ -56,16 +58,6 @@ ifneq ($(OS),Windows_NT)
     TARGET_ARCH := linux-$(OS_ID)-$(ARCH)
 else
     # Windows (ex: windows-x64)
-    # uname -m を使用してアーキテクチャを判定 (MSYS/MinGW bash が提供)
-    # Use uname -m to determine architecture (provided by MSYS/MinGW bash)
-    UNAME_ARCH := $(shell uname -m)
-    # x86_64 を x64 に変換
-    # Convert x86_64 to x64
-    ifeq ($(UNAME_ARCH),x86_64)
-        ARCH := x64
-    else
-        ARCH := $(UNAME_ARCH)
-    endif
     TARGET_ARCH := windows-$(ARCH)
 endif
 
@@ -100,6 +92,8 @@ else
     # Windows (MSVC)
 
     # Windows 環境のインターロックチェック
+    # bash と cl の存在確認を1回の where 呼び出しにまとめて取得
+    # Check bash and cl existence, consolidating where calls
     # 1. bash の存在確認と MinGW (MSYS) bash の検証
     BASH_PATH := $(shell where bash 2>/dev/null | head -1)
     ifeq ($(BASH_PATH),)
@@ -112,9 +106,10 @@ else
         $(error WindowsApps の bash.exe が検出されました。MinGW (MSYS) の bash を優先してください。)
     endif
 
-    # 2. cl.exe の存在確認
-    CL_CHECK := $(shell where cl 2>/dev/null | head -1)
-    ifeq ($(CL_CHECK),)
+    # 2. cl.exe の存在確認 (結果を CL_PATH として再利用し、where cl の重複呼び出しを排除)
+    # Check cl.exe existence (reuse result as CL_PATH to eliminate duplicate where cl calls)
+    CL_PATH := $(shell where cl 2>/dev/null | head -1)
+    ifeq ($(CL_PATH),)
         $(error cl.exe へのパスが通っていません。Visual Studio Build Tools へのパスを設定してください。)
     endif
 
@@ -126,16 +121,12 @@ else
     endif
     ifeq ($(origin LD),default)
         # MinGW の link ではなく MSVC の link を確実に選択させる
-        # 1. cl のパスを得る (where の出力は複数行の可能性があるため head -1 で最初の行のみ取得)
-        # 2. cl を link に置換する
-        # 3. 8.3 形式に変換 (スペースを含まないパスに変換)
-        # 4. Unix パス形式に変換 (bash でバックスラッシュが消えるのを防ぐ)
-        CL_PATH := $(shell where cl 2>/dev/null | head -1)
-        ifneq ($(CL_PATH),)
-            LD = $(shell cygpath -u "$$(cygpath -d "$(subst cl.exe,link.exe,$(CL_PATH))")")
-        else
-            LD = link
-        endif
+        # CL_PATH は上で取得済みのため再利用
+        # CL_PATH is already obtained above, reuse it
+        # 1. cl を link に置換する
+        # 2. 8.3 形式に変換 (スペースを含まないパスに変換)
+        # 3. Unix パス形式に変換 (bash でバックスラッシュが消えるのを防ぐ)
+        LD = $(shell cygpath -u "$$(cygpath -d "$(subst cl.exe,link.exe,$(CL_PATH))")")
     endif
     ifeq ($(origin AR),default)
         AR = lib
@@ -158,6 +149,8 @@ CXX_STANDARD := 17
 # デフォルト設定 END ################################################################
 
 # makepart.mk の検索
+# dirname コマンドの代わりにシェルのパラメータ展開を使用してプロセス生成を削減
+# Use shell parameter expansion instead of dirname command to reduce process creation
 MAKEPART_MK := $(shell \
 	dir=`pwd`; \
 	while [ "$$dir" != "/" ]; do \
@@ -171,12 +164,15 @@ MAKEPART_MK := $(shell \
 		if [ -f "$$dir/.workspaceRoot" ]; then \
 			break; \
 		fi; \
-		dir=$$(dirname $$dir); \
+		dir=$${dir%/*}; \
+		if [ -z "$$dir" ]; then dir=/; fi; \
 	done \
 )
 
-# 逆順にする
-MAKEPART_MK := $(foreach mkfile, $(shell seq $(words $(MAKEPART_MK)) -1 1), $(word $(mkfile), $(MAKEPART_MK)))
+# 逆順にする (seq コマンドの代わりに Make の関数で実現してプロセス生成を削減)
+# Reverse order using Make functions instead of seq command to reduce process creation
+_reverse = $(if $(1),$(call _reverse,$(wordlist 2,$(words $(1)),$(1))) $(firstword $(1)))
+MAKEPART_MK := $(strip $(call _reverse,$(MAKEPART_MK)))
 
 # Windows の場合、MSVC C ランタイムライブラリの設定
 # Set MSVC C runtime library configuration for Windows
