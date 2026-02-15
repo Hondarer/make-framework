@@ -21,11 +21,26 @@ FILES_LANG := $(shell sh $(WORKSPACE_FOLDER)/makefw/cmnd/get_files_lang.sh)
 
 #$(info FILES_LANG: $(FILES_LANG));
 
-# FILES_LANG が UTF-8 の場合は nkf を省略 (cat に置換)
-ifneq (,$(filter %.utf8 %.UTF-8 %.utf-8 %.UTF8,$(FILES_LANG)))
-    NKF := cat
+# FILES_LANG からエンコーディング部分を抽出
+FILES_ENCODING := $(lastword $(subst ., ,$(FILES_LANG)))
+
+# FILES_LANG が UTF-8 の場合は変換不要 (cat に置換)
+ifneq (,$(filter utf8 UTF-8 utf-8 UTF8,$(FILES_ENCODING)))
+    ICONV := cat
 else
-    NKF := nkf
+    # エンコーディング名のマッピング (VS Code files.encoding → iconv)
+    ICONV_ENCODING_eucjp    := EUC-JP
+    ICONV_ENCODING_eucJP    := EUC-JP
+    ICONV_ENCODING_shiftjis := SHIFT_JIS
+    ICONV_ENCODING_cp932    := CP932
+    ICONV_ENCODING_iso2022jp := ISO-2022-JP
+
+    ICONV_FROM := $(ICONV_ENCODING_$(FILES_ENCODING))
+    ifeq ($(ICONV_FROM),)
+        # マッピング未定義の場合はそのまま使用 (iconv が受け付ける可能性)
+        ICONV_FROM := $(FILES_ENCODING)
+    endif
+    ICONV := iconv -c -f $(ICONV_FROM) -t UTF-8
 endif
 
 # アーキテクチャ判定

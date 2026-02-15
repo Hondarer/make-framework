@@ -52,7 +52,7 @@ test: _pre_test_hook _test_main _post_test_hook
 # Actual test process
 _test_main: $(TESTSH) build
 	@status=0; \
-	export OUTPUT_DIR="$(OUTPUT_DIR)" && export CONFIG="$(CONFIG)" && "$(SHELL)" "$(TESTSH)" > >($(NKF)) 2> >($(NKF) >&2) || status=$$?; \
+	export OUTPUT_DIR="$(OUTPUT_DIR)" && export CONFIG="$(CONFIG)" && "$(SHELL)" "$(TESTSH)" > >($(ICONV)) 2> >($(ICONV) >&2) || status=$$?; \
 	exit $$status
 
 .PHONY: run
