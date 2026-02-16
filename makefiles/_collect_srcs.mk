@@ -43,7 +43,7 @@ CP_SRCS := $(foreach src,$(TEST_SRCS) $(ADD_SRCS), \
 # Determine DIRECT_SRCS: get basenames via Make functions, batch file tests in single shell call
 _DIRECT_CANDIDATES := $(filter-out $(CP_SRCS),$(TEST_SRCS) $(ADD_SRCS))
 DIRECT_SRCS := $(if $(_DIRECT_CANDIDATES),$(shell for f in $(_DIRECT_CANDIDATES); do \
-	b=$${f\#\#*/}; \
+	b=$${f##*/}; \
 	if [ -f "./$$b" ] && [ ! -L "./$$b" ]; then \
 		echo $$f; \
 	fi; \
@@ -82,13 +82,13 @@ ifeq ($(OS),Windows_NT)
     LINK_SRCS :=
     # Windows ではコピーを行うことにより、inject ファイル および フィルタファイルがないにもかかわらず実体が存在するため、DIRECT_SRCS と判定されることへの対策として、
     # 外部ファイル (実パスがカレントディレクトリと異なるファイル) を DIRECT_SRCS から CP_SRCS に移動する
-    # dirname/basename の代わりにシェルパラメータ展開を使用してプロセス生成を削減
-    # Use shell parameter expansion instead of dirname/basename to reduce process creation
+    # シェルパラメータ展開を使用してプロセス生成を削減
+    # Use shell parameter expansion instead of basename to reduce process creation
     EXTERNAL_SRCS := $(shell \
         cur=$$(pwd); \
         for f in $(DIRECT_SRCS); do \
-            real_f=$$(cd "$${f%/*}" 2>/dev/null && pwd)/$${f\#\#*/}; \
-            if [ "$$real_f" != "$$cur/$${f\#\#*/}" ]; then \
+            real_f=$$(cd "$${f%/*}" 2>/dev/null && pwd)/$${f##*/}; \
+            if [ "$$real_f" != "$$cur/$${f##*/}" ]; then \
                 echo $$f; \
             fi; \
         done)
