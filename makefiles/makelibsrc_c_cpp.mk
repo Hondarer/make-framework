@@ -400,14 +400,10 @@ _clean_main:
 		@printf '%s\n' $(addprefix /,$(notdir $(CP_SRCS) $(LINK_SRCS))) | sort -u > .gitignore
     endif
 	-rm -rf $(CLEAN_COMMON) $(CLEAN_OS)
-    # $(OUTPUT_DIR) に配下がなければ、$(OUTPUT_DIR) を削除する (rmdir は非空なら失敗するので直接試行)
-    # Remove $(OUTPUT_DIR) if it's empty (rmdir fails on non-empty, so just try it)
-	@rmdir "$(OUTPUT_DIR)" 2>/dev/null && echo "rmdir \"$(OUTPUT_DIR)\"" || true
-    # Windows の場合、obj に配下がなければ、obj を削除する
-    # Remove obj if it's empty (Windows only)
-ifeq ($(OS),Windows_NT)
-	@rmdir obj 2>/dev/null && echo "rmdir obj" || true
-endif
+    # 空ディレクトリを削除する (rmdir は非空なら失敗するので直接試行)
+    # Remove empty directories (rmdir fails on non-empty, so just try it)
+    # obj は Windows のみ存在するが、コマンドを表に見せないのでそのまま実行
+	@rmdir "$(OUTPUT_DIR)" obj 2>/dev/null; true
 
 .PHONY: test _test_main
 ifeq ($(call should_skip,$(SKIP_TEST)),true)
