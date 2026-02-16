@@ -42,12 +42,18 @@ CP_SRCS := $(foreach src,$(TEST_SRCS) $(ADD_SRCS), \
 # DIRECT_SRCS の判定: Make 関数で basename を取得し、1回の shell 呼び出しでまとめて判定
 # Determine DIRECT_SRCS: get basenames via Make functions, batch file tests in single shell call
 _DIRECT_CANDIDATES := $(filter-out $(CP_SRCS),$(TEST_SRCS) $(ADD_SRCS))
-DIRECT_SRCS := $(if $(_DIRECT_CANDIDATES),$(shell for f in $(_DIRECT_CANDIDATES); do \
+# NOTE: $(if ...) の内部で $(shell ...) を使うと、shell コード中の # が
+# GNU Make 4.2 以前でコメントと誤認されるため、ifneq/endif で分離する
+ifneq ($(_DIRECT_CANDIDATES),)
+    DIRECT_SRCS := $(shell for f in $(_DIRECT_CANDIDATES); do \
 	b=$${f##*/}; \
 	if [ -f "./$$b" ] && [ ! -L "./$$b" ]; then \
 		echo $$f; \
 	fi; \
-	done))
+	done)
+else
+    DIRECT_SRCS :=
+endif
 
 LINK_SRCS := $(filter-out $(CP_SRCS) $(DIRECT_SRCS),$(TEST_SRCS) $(ADD_SRCS))
 
