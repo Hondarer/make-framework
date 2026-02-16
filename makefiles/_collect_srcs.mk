@@ -39,18 +39,18 @@ CP_SRCS := $(foreach src,$(TEST_SRCS) $(ADD_SRCS), \
 		$(wildcard $(notdir $(src)).filter.sh)), \
 		$(src)))
 
-# DIRECT_SRCS の判定: Make 関数で basename を取得し、1回の shell 呼び出しでまとめて判定
-# Determine DIRECT_SRCS: get basenames via Make functions, batch file tests in single shell call
+# DIRECT_SRCS の判定
+# Determine DIRECT_SRCS
+# Step 1: $(wildcard) によるファイル存在チェック (Make インプロセス、全バージョン対応)
 _DIRECT_CANDIDATES := $(filter-out $(CP_SRCS),$(TEST_SRCS) $(ADD_SRCS))
-# NOTE: $(if ...) の内部で $(shell ...) を使うと、shell コード中の # が
-# GNU Make 4.2 以前でコメントと誤認されるため、ifneq/endif で分離する
-ifneq ($(_DIRECT_CANDIDATES),)
-    DIRECT_SRCS := $(shell for f in $(_DIRECT_CANDIDATES); do \
-	b=$${f##*/}; \
-	if [ -f "./$$b" ] && [ ! -L "./$$b" ]; then \
-		echo $$f; \
-	fi; \
-	done)
+_DIRECT_EXISTS := $(foreach f,$(_DIRECT_CANDIDATES),$(if $(wildcard ./$(notdir $(f))),$(f)))
+# Step 2: シンボリックリンクの除外
+# $(foreach) と $(notdir) で Make 側でベースネームを展開し、シェルには展開済みの値を渡す
+# これにより $(shell ...) 内でシェルの # を使用せずに済む (GNU Make 4.2 以前との互換性を確保)
+ifneq ($(_DIRECT_EXISTS),)
+    _DIRECT_SYMLINKS := $(shell \
+        $(foreach f,$(_DIRECT_EXISTS),if [ -L "./$(notdir $(f))" ]; then echo "$(f)"; fi; ))
+    DIRECT_SRCS := $(filter-out $(_DIRECT_SYMLINKS),$(_DIRECT_EXISTS))
 else
     DIRECT_SRCS :=
 endif
@@ -88,16 +88,12 @@ ifeq ($(OS),Windows_NT)
     LINK_SRCS :=
     # Windows ではコピーを行うことにより、inject ファイル および フィルタファイルがないにもかかわらず実体が存在するため、DIRECT_SRCS と判定されることへの対策として、
     # 外部ファイル (実パスがカレントディレクトリと異なるファイル) を DIRECT_SRCS から CP_SRCS に移動する
-    # シェルパラメータ展開を使用してプロセス生成を削減
-    # Use shell parameter expansion instead of basename to reduce process creation
+    # $(foreach) と $(notdir)/$(dir) で Make 側で展開し、シェルには展開済みの値を渡す
     EXTERNAL_SRCS := $(shell \
         cur=$$(pwd); \
-        for f in $(DIRECT_SRCS); do \
-            real_f=$$(cd "$${f%/*}" 2>/dev/null && pwd)/$${f##*/}; \
-            if [ "$$real_f" != "$$cur/$${f##*/}" ]; then \
-                echo $$f; \
-            fi; \
-        done)
+        $(foreach f,$(DIRECT_SRCS),\
+            real_f=$$(cd "$(dir $(f))." 2>/dev/null && pwd)/$(notdir $(f)); \
+            if [ "$$real_f" != "$$cur/$(notdir $(f))" ]; then echo "$(f)"; fi; ))
     CP_SRCS += $(EXTERNAL_SRCS)
     DIRECT_SRCS := $(filter-out $(EXTERNAL_SRCS),$(DIRECT_SRCS))
 endif
