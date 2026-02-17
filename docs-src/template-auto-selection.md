@@ -41,7 +41,20 @@ note right
   - makepart.mk の読み込み（親階層から順次）
 end note
 :(3) makemain.mk を include;
-:(4) パス判定による分岐;
+:(4) サブディレクトリ検出;
+note right
+  GNUmakefile/makefile/Makefile を
+  含むサブディレクトリを検出
+end note
+:(5) サブディレクトリの OS フィルタリング;
+note right
+  最終ディレクトリ名 (大文字小文字無視) で判定:
+  "linux"   → Linux のみ有効
+  "windows" → Windows のみ有効
+  "shared" / その他 → 両 OS で有効
+  詳細: os-subdirectory-filtering.md
+end note
+:(6) パス判定による分岐;
 
 if (パスに /libsrc/ を含む?) then (yes)
   :ライブラリ;
@@ -148,6 +161,10 @@ endif
 | `/src/` を含む | 無し | `makesrc_c_cpp.mk` |
 | `/src/` を含む | 有り | `makesrc_dotnet.mk` |
 | 上記以外 | - | エラー |
+
+## サブディレクトリの OS フィルタリング
+
+サブディレクトリ名に基づく OS フィルタリングの詳細は、[サブディレクトリの OS フィルタリング](os-subdirectory-filtering.md) を参照してください。
 
 ## 使用例
 
