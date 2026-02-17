@@ -226,6 +226,41 @@ endif
 # makepart.mk が存在すればインクルード
 $(foreach makepart, $(MAKEPART_MK), $(eval include $(makepart)))
 
+# makechild.mk の検索 (親階層のみ、カレントディレクトリを除く)
+# カレントディレクトリの makechild.mk は「自身より1つ下の階層以降」にのみ適用されるため、
+# カレントディレクトリでは読み込まない。親ディレクトリの makechild.mk のみを親から順に読み込む。
+# Search for makechild.mk in parent directories only (excluding current directory)
+# makechild.mk in the current directory applies only to child directories,
+# so it is NOT loaded here. Only parent directories' makechild.mk are loaded (parent-first order).
+MAKECHILD_MK := $(shell \
+	dir=`pwd`; \
+	if [ ! -f "$$dir/.workspaceRoot" ]; then \
+		dir=$${dir%/*}; \
+		if [ -z "$$dir" ]; then dir=/; fi; \
+		while [ "$$dir" != "/" ]; do \
+			if [ -f "$$dir/makechild.mk" ]; then \
+				if command -v cygpath > /dev/null 2>&1; then \
+					cygpath -w "$$dir/makechild.mk"; \
+				else \
+					echo "$$dir/makechild.mk"; \
+				fi; \
+			fi; \
+			if [ -f "$$dir/.workspaceRoot" ]; then \
+				break; \
+			fi; \
+			dir=$${dir%/*}; \
+			if [ -z "$$dir" ]; then dir=/; fi; \
+		done; \
+	fi \
+)
+
+# 逆順にする (親階層から順にインクルードするため)
+# Reverse order so that parent directories are included first
+MAKECHILD_MK := $(strip $(call _reverse,$(MAKECHILD_MK)))
+
+# makechild.mk が存在すればインクルード (親階層のものを親から順に)
+$(foreach makechild, $(MAKECHILD_MK), $(eval -include $(makechild)))
+
 # makelocal.mk の読み込み (カレントディレクトリのみ)
 # prepare.mk は各ディレクトリの makefile から include されるため、
 # ここでカレントディレクトリの makelocal.mk を読み込めばよい
