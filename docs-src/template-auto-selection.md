@@ -41,7 +41,19 @@ note right
   - makepart.mk の読み込み（親階層から順次）
 end note
 :(3) makemain.mk を include;
-:(4) パス判定による分岐;
+:(4) サブディレクトリ検出;
+note right
+  GNUmakefile/makefile/Makefile を
+  含むサブディレクトリを検出
+end note
+:(5) サブディレクトリの OS フィルタリング;
+note right
+  最終ディレクトリ名 (大文字小文字無視) で判定:
+  "linux"   → Linux のみ有効
+  "windows" → Windows のみ有効
+  "shared" / その他 → 両 OS で有効
+end note
+:(6) パス判定による分岐;
 
 if (パスに /libsrc/ を含む?) then (yes)
   :ライブラリ;
@@ -148,6 +160,104 @@ endif
 | `/src/` を含む | 無し | `makesrc_c_cpp.mk` |
 | `/src/` を含む | 有り | `makesrc_dotnet.mk` |
 | 上記以外 | - | エラー |
+
+## サブディレクトリの OS フィルタリング
+
+makemain.mk では、サブディレクトリの再帰的 make 処理に先立ち、ディレクトリ名に基づく OS フィルタリングを行います。これにより、プラットフォーム固有のコードをディレクトリ単位で分離できます。
+
+### フィルタルール
+
+サブディレクトリの**最終ディレクトリ名**（大文字小文字を無視）に基づいて、以下のルールで判定されます：
+
+| 最終ディレクトリ名 | Linux | Windows | 説明 |
+|---|:---:|:---:|---|
+| `linux` | 有効 | 除外 | Linux 固有のコード |
+| `windows` | 除外 | 有効 | Windows 固有のコード |
+| `shared` | 有効 | 有効 | 両 OS 共通コード（明示的） |
+| その他 | 有効 | 有効 | デフォルト動作 |
+
+- `shared` とその他は動作上同じですが、`shared` はクロスプラットフォームであることを明示する意図で使用します。
+- 大文字小文字を無視するため、`Linux`、`LINUX`、`linux` はすべて同一視されます。
+
+### 判定の仕組み
+
+```makefile
+# 小文字変換関数 (pure Make, shell 呼び出し不要)
+_lc = $(subst A,a,$(subst B,b,$(subst C,c,...$(subst Z,z,$(1))...)))
+
+# ディレクトリパスの最終コンポーネントを小文字で取得
+# e.g., "foo/Linux/" -> "linux", "Windows/" -> "windows"
+_dir_lc_name = $(call _lc,$(notdir $(patsubst %/,%,$(1))))
+
+# OS フィルタ: 現在の OS に適合するサブディレクトリのみ残す
+define _os_filter_subdir
+$(strip \
+    $(if $(filter linux,$(call _dir_lc_name,$(1))),\
+        $(if $(filter Windows_NT,$(OS)),,$(1)),\
+    $(if $(filter windows,$(call _dir_lc_name,$(1))),\
+        $(if $(filter Windows_NT,$(OS)),$(1),),\
+    $(1))))
+endef
+
+SUBDIRS := $(foreach d,$(SUBDIRS),$(call _os_filter_subdir,$(d)))
+```
+
+ポイント：
+
+- **`_lc` 関数**: `$(subst A,a,...)`の連鎖による pure Make 実装。`$(shell)` 呼び出しを回避し、パフォーマンスに影響しない
+- **`_dir_lc_name` 関数**: `$(patsubst %/,%,...)` で末尾の `/` を除去し、`$(notdir ...)` で最終コンポーネントを取得後、小文字化
+- **OS 判定**: `$(OS)` 変数の値（`Windows_NT` または未設定）で Linux/Windows を判別。`_should_skip.mk` と同一のパターン
+
+### ディレクトリ構成例
+
+```text
+prod/calc/src/calcapp/
++-- makefile
++-- shared/          # 両 OS で有効（明示的）
+|   +-- makefile
+|   +-- common.c
++-- linux/           # Linux でのみ有効
+|   +-- makefile
+|   +-- platform_linux.c
++-- windows/         # Windows でのみ有効
+|   +-- makefile
+|   +-- platform_windows.c
++-- utils/           # 両 OS で有効（デフォルト）
+    +-- makefile
+    +-- helper.c
+```
+
+#### Linux での実行結果
+
+```text
+SUBDIRS = linux/ shared/ utils/
+# windows/ は除外される
+```
+
+#### Windows での実行結果
+
+```text
+SUBDIRS = shared/ utils/ windows/
+# linux/ は除外される
+```
+
+### 複数階層での動作
+
+サブディレクトリが複数階層にまたがる場合、各階層で個別にフィルタリングが適用されます。最終ディレクトリ名のみで判定されるため、中間階層の名前は影響しません。
+
+```text
+prod/calc/src/calcapp/
++-- platform/           # "platform" → 両 OS で有効
+    +-- makefile
+    +-- linux/           # "linux" → Linux でのみ有効
+    |   +-- makefile
+    |   +-- impl_linux.c
+    +-- windows/         # "windows" → Windows でのみ有効
+        +-- makefile
+        +-- impl_windows.c
+```
+
+この場合、`calcapp/` レベルでは `platform/` が両 OS で有効となり、`platform/` 内で再帰的に make が実行される際に `linux/` または `windows/` がフィルタリングされます。
 
 ## 使用例
 
