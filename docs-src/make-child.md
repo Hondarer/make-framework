@@ -27,11 +27,18 @@
 
 ## インクルード順序
 
+各ディレクトリレベルごとに `makepart.mk` の直後に同ディレクトリの `makechild.mk` がインクルードされます。
+これにより、同一ディレクトリの `makepart.mk` による設定の直後に `makechild.mk` による子向けオーバーライドが適用されます。
+
 ```
 1. prepare.mk
-   +-- makepart.mk (親階層から順にインクルード、継承)
-   +-- makechild.mk (親階層から順にインクルード、自ディレクトリは除く)
-   +-- makelocal.mk (自ディレクトリのみ、継承なし)
+   +-- /a/makepart.mk          (親: 自ディレクトリ含む継承)
+   +-- /a/makechild.mk         (親: 子階層以降に適用 ← makepart.mk の直後)
+   +-- /a/b/makepart.mk        (中間: 継承)
+   +-- /a/b/makechild.mk       (中間: 子階層以降に適用 ← makepart.mk の直後)
+   +-- /a/b/c/makepart.mk      (カレント: 継承)
+   ※ /a/b/c/makechild.mk は除く (カレントディレクトリのため)
+   +-- makelocal.mk            (自ディレクトリのみ、継承なし)
 
 2. makemain.mk
    +-- テンプレート (makelibsrc_c_cpp.mk など)
@@ -69,24 +76,21 @@ prod/
 
 ### prepare.mk での読み込み処理
 
-`prepare.mk` の `makepart.mk` インクルード後、`makelocal.mk` インクルード前に以下を行います。
+各 `makepart.mk` のインクルード直後に、同ディレクトリの `makechild.mk` が存在すれば続けてインクルードします。
+ただしカレントディレクトリの `makechild.mk` は除きます。
 
 ```makefile
-# makechild.mk の検索 (親階層のみ、カレントディレクトリを除く)
-MAKECHILD_MK := $(shell \
-    dir=`pwd`; \
-    if [ ! -f "$$dir/.workspaceRoot" ]; then \
-        dir=$${dir%/*}; \
-        ...
-    fi \
-)
-MAKECHILD_MK := $(strip $(call _reverse,$(MAKECHILD_MK)))
-$(foreach makechild, $(MAKECHILD_MK), $(eval -include $(makechild)))
+define _include_makepart_and_child
+$(eval include $(1))$(if $(filter-out $(CURDIR)/makepart.mk,$(1)),$(eval -include $(patsubst %/makepart.mk,%/makechild.mk,$(1))))
+endef
+
+$(foreach makepart, $(MAKEPART_MK), $(call _include_makepart_and_child,$(makepart)))
 ```
 
-- カレントディレクトリが `.workspaceRoot` の場合、`makechild.mk` は一切読み込まれない
+- `$(filter-out $(CURDIR)/makepart.mk,$(1))` でカレントディレクトリを除外
+- `$(patsubst %/makepart.mk,%/makechild.mk,$(1))` でパスを `makechild.mk` に変換
 - `-include` を使用することで、ファイルが存在しない場合もエラーにならない
-- 親階層から順に読み込まれる (上書きが意図通りに機能する)
+- 各ディレクトリの `makepart.mk` の直後にその `makechild.mk` が適用されるため、設定の上書き順が直感的
 
 ## 使用例
 

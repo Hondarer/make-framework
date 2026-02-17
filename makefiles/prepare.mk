@@ -4,6 +4,8 @@
 # 3. コンパイルコマンド関連を設定する
 # 4. 親階層から makefile の存在する階層までに存在する makepart.mk を
 #    親階層から makefile の存在する階層に向かって順次 include する
+#    各 makepart.mk の直後に、同ディレクトリの makechild.mk が存在すれば include する
+#    (カレントディレクトリの makechild.mk は子階層以降にのみ適用されるため除く)
 # 5. カレントディレクトリの makelocal.mk を include する
 
 SHELL := /bin/bash
@@ -223,43 +225,15 @@ ifeq ($(OS),Windows_NT)
     endif
 endif
 
-# makepart.mk が存在すればインクルード
-$(foreach makepart, $(MAKEPART_MK), $(eval include $(makepart)))
+# makepart.mk をインクルードし、カレントディレクトリ以外では直後に makechild.mk もインクルード
+# Include makepart.mk, and for non-current directories, immediately include makechild.mk afterward
+# (カレントディレクトリの makechild.mk は子階層以降のみに適用するため除く)
+# (The current directory's makechild.mk applies only to child directories, so it is excluded here)
+define _include_makepart_and_child
+$(eval include $(1))$(if $(filter-out $(CURDIR)/makepart.mk,$(1)),$(eval -include $(patsubst %/makepart.mk,%/makechild.mk,$(1))))
+endef
 
-# makechild.mk の検索 (親階層のみ、カレントディレクトリを除く)
-# カレントディレクトリの makechild.mk は「自身より1つ下の階層以降」にのみ適用されるため、
-# カレントディレクトリでは読み込まない。親ディレクトリの makechild.mk のみを親から順に読み込む。
-# Search for makechild.mk in parent directories only (excluding current directory)
-# makechild.mk in the current directory applies only to child directories,
-# so it is NOT loaded here. Only parent directories' makechild.mk are loaded (parent-first order).
-MAKECHILD_MK := $(shell \
-	dir=`pwd`; \
-	if [ ! -f "$$dir/.workspaceRoot" ]; then \
-		dir=$${dir%/*}; \
-		if [ -z "$$dir" ]; then dir=/; fi; \
-		while [ "$$dir" != "/" ]; do \
-			if [ -f "$$dir/makechild.mk" ]; then \
-				if command -v cygpath > /dev/null 2>&1; then \
-					cygpath -w "$$dir/makechild.mk"; \
-				else \
-					echo "$$dir/makechild.mk"; \
-				fi; \
-			fi; \
-			if [ -f "$$dir/.workspaceRoot" ]; then \
-				break; \
-			fi; \
-			dir=$${dir%/*}; \
-			if [ -z "$$dir" ]; then dir=/; fi; \
-		done; \
-	fi \
-)
-
-# 逆順にする (親階層から順にインクルードするため)
-# Reverse order so that parent directories are included first
-MAKECHILD_MK := $(strip $(call _reverse,$(MAKECHILD_MK)))
-
-# makechild.mk が存在すればインクルード (親階層のものを親から順に)
-$(foreach makechild, $(MAKECHILD_MK), $(eval -include $(makechild)))
+$(foreach makepart, $(MAKEPART_MK), $(call _include_makepart_and_child,$(makepart)))
 
 # makelocal.mk の読み込み (カレントディレクトリのみ)
 # prepare.mk は各ディレクトリの makefile から include されるため、
