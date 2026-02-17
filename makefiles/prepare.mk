@@ -4,6 +4,8 @@
 # 3. コンパイルコマンド関連を設定する
 # 4. 親階層から makefile の存在する階層までに存在する makepart.mk を
 #    親階層から makefile の存在する階層に向かって順次 include する
+#    各 makepart.mk の直後に、同ディレクトリの makechild.mk が存在すれば include する
+#    (カレントディレクトリの makechild.mk は子階層以降にのみ適用されるため除く)
 # 5. カレントディレクトリの makelocal.mk を include する
 
 SHELL := /bin/bash
@@ -223,8 +225,15 @@ ifeq ($(OS),Windows_NT)
     endif
 endif
 
-# makepart.mk が存在すればインクルード
-$(foreach makepart, $(MAKEPART_MK), $(eval include $(makepart)))
+# makepart.mk をインクルードし、カレントディレクトリ以外では直後に makechild.mk もインクルード
+# Include makepart.mk, and for non-current directories, immediately include makechild.mk afterward
+# (カレントディレクトリの makechild.mk は子階層以降のみに適用するため除く)
+# (The current directory's makechild.mk applies only to child directories, so it is excluded here)
+define _include_makepart_and_child
+$(eval include $(1))$(if $(filter-out $(CURDIR)/makepart.mk,$(1)),$(eval -include $(patsubst %/makepart.mk,%/makechild.mk,$(1))))
+endef
+
+$(foreach makepart, $(MAKEPART_MK), $(call _include_makepart_and_child,$(makepart)))
 
 # makelocal.mk の読み込み (カレントディレクトリのみ)
 # prepare.mk は各ディレクトリの makefile から include されるため、
