@@ -67,7 +67,7 @@ else
     $(error Cannot auto-select makefile template. Current path must contain /libsrc/ or /src/: $(CURDIR))
 endif
 
-# サブディレクトリの再帰的make処理
+# サブディレクトリの再帰的 make 処理
 # Recursive make for subdirectories
 ifneq ($(SUBDIRS),)
     # サブディレクトリ自体をターゲット化し、指定されたターゲットを伝播
