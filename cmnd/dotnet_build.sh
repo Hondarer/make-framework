@@ -28,13 +28,17 @@
 # Example:
 #   dotnet_build.sh -c RelWithDebInfo -o ./lib
 
+# 実行コマンドを表示
+# Show the command being executed
+echo "dotnet build $*"
+
 # dotnet build を実行し、出力をシェル変数にバッファ
 # Run dotnet build and buffer output in a shell variable
 buf=$(dotnet build "$@" 2>&1)
 rc=$?
 
-# warning/error が検出された場合、またはビルド失敗の場合のみ表示
-# Display output only when warnings/errors are detected or build failed
+# warning/error が検出された場合、またはビルド失敗の場合のみ詳細を表示
+# Display details only when warnings/errors are detected or build failed
 if [ $rc -ne 0 ] || echo "$buf" | grep -qE ': (warning|error) '; then
     echo "$buf" | sed \
       -e 's/\(.*: warning .*\)/\x1b[33m\1\x1b[0m/' \

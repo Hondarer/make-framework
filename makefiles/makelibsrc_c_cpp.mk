@@ -209,10 +209,10 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
 				@all_objs="$(OBJS)"; \
 				sub_objs=$$(find . -name "*.o" -not -path "./obj/*"); \
 				if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
-				all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | tr '\n' ' '); \
+				all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
 				newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
 				if [ "$$newest" != "$@" ]; then \
-					echo "$(CC) -shared -o $@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)"; \
+					echo "$(strip $(CC) -shared -o $(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
 					$(CC) -shared -o $@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS); \
 				fi
         else
@@ -221,10 +221,10 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
 			@all_objs="$(OBJS)"; \
 			sub_objs=$$(find . -name "*.obj" -not -path "./obj/*"); \
 			if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
-			all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | tr '\n' ' '); \
+			all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
 			newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
 			if [ "$$newest" != "$@" ]; then \
-				echo "MSYS_NO_PATHCONV=1 $(LD) /DLL /OUT:$@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS)"; \
+				echo "$(strip MSYS_NO_PATHCONV=1 $(LD) /DLL /OUT:$(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
 				MSYS_NO_PATHCONV=1 $(LD) /DLL /OUT:$@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS); \
 			fi
 			@if [ -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" ]; then mv "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" "$(OBJDIR)/"; fi
@@ -236,10 +236,10 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
 				@all_objs="$(OBJS)"; \
 				sub_objs=$$(find . -name "*.o" -not -path "./obj/*"); \
 				if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
-				all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | tr '\n' ' '); \
+				all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
 				newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
 				if [ "$$newest" != "$@" ]; then \
-					echo "$(AR) rvs $@ $$all_objs"; \
+					echo "$(strip $(AR) rvs $(call _relpath,$@) $$all_objs)"; \
 					$(AR) rvs $@ $$all_objs; \
 				fi
         else
@@ -248,10 +248,10 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
 				@all_objs="$(OBJS)"; \
 				sub_objs=$$(find . -name "*.obj" -not -path "./obj/*"); \
 				if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
-				all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | tr '\n' ' '); \
+				all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
 				newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
 				if [ "$$newest" != "$@" ]; then \
-					echo "MSYS_NO_PATHCONV=1 $(AR) /NOLOGO /OUT:$@ $$all_objs"; \
+					echo "$(strip MSYS_NO_PATHCONV=1 $(AR) /NOLOGO /OUT:$(call _relpath,$@) $$all_objs)"; \
 					MSYS_NO_PATHCONV=1 $(AR) /NOLOGO /OUT:$@ $$all_objs; \
 				fi
         endif
@@ -363,23 +363,27 @@ $(DEPS):
 include $(wildcard $(DEPS))
 
 $(OUTPUT_DIR):
-	mkdir -p $@
+	mkdir -p $(call _relpath,$@)
 
 $(OBJDIR):
 	mkdir -p $@
 
 # 削除対象の定義
 # Define files/directories to clean
-CLEAN_COMMON := $(OUTPUT_DIR)/$(TARGET) $(OBJDIR) $(notdir $(CP_SRCS) $(LINK_SRCS))
+# カレントディレクトリ配下の絶対パスを相対パスに変換する (make の出力を読みやすくする)
+# Convert absolute paths under $(CURDIR) to relative paths (for readable make output)
+_relpath = $(patsubst $(CURDIR)/%,%,$(1))
+
+CLEAN_COMMON := $(strip $(call _relpath,$(OUTPUT_DIR)/$(TARGET)) $(OBJDIR) $(notdir $(CP_SRCS) $(LINK_SRCS)))
 ifeq ($(OS),Windows_NT)
     # Windows
     ifeq ($(LIB_TYPE),shared)
-        CLEAN_OS := $(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET))
-        CLEAN_OS += $(OUTPUT_DIR)/$(patsubst %.dll,%.lib,$(TARGET))
+        CLEAN_OS := $(call _relpath,$(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET)))
+        CLEAN_OS += $(call _relpath,$(OUTPUT_DIR)/$(patsubst %.dll,%.lib,$(TARGET)))
     else
         # 静的ライブラリの場合は、統合 PDB ファイルを削除対象に追加
         # For static libraries, add the unified PDB file to clean target
-        CLEAN_OS := $(OUTPUT_DIR)/$(basename $(TARGET)).pdb
+        CLEAN_OS := $(call _relpath,$(OUTPUT_DIR)/$(basename $(TARGET)).pdb)
     endif
 endif
 ifeq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
@@ -399,11 +403,11 @@ _clean_main:
     ifneq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
 		@printf '%s\n' $(addprefix /,$(notdir $(CP_SRCS) $(LINK_SRCS))) | sort -u > .gitignore
     endif
-	-rm -rf $(CLEAN_COMMON) $(CLEAN_OS)
+	-rm -rf $(strip $(CLEAN_COMMON) $(CLEAN_OS))
     # 空ディレクトリを削除する (rmdir は非空なら失敗するので直接試行)
     # Remove empty directories (rmdir fails on non-empty, so just try it)
     # obj は Windows のみ存在するが、コマンドを表に見せないのでそのまま実行
-	@rmdir "$(OUTPUT_DIR)" obj 2>/dev/null; true
+	@rmdir "$(call _relpath,$(OUTPUT_DIR))" obj 2>/dev/null; true
 
 .PHONY: test _test_main
 ifeq ($(call should_skip,$(SKIP_TEST)),true)

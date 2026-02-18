@@ -2,6 +2,10 @@
 
 include $(WORKSPACE_FOLDER)/makefw/makefiles/_hooks.mk
 
+# カレントディレクトリ配下の絶対パスを相対パスに変換する (make の出力を読みやすくする)
+# Convert absolute paths under $(CURDIR) to relative paths (for readable make output)
+_relpath = $(patsubst $(CURDIR)/%,%,$(1))
+
 # 成果物のディレクトリ名
 # 未指定の場合、カレントディレクトリ/lib に成果物を生成する
 OUTPUT_DIR ?= $(CURDIR)/lib
@@ -31,7 +35,8 @@ default: build
 DOTNET_BUILD := $(WORKSPACE_FOLDER)/makefw/cmnd/dotnet_build.sh
 
 $(OUTPUT_ASSEMBLY): $(SOURCES) $(PROJECT_FILE)
-	"$(DOTNET_BUILD)" -c $(CONFIG) -o $(OUTPUT_DIR)
+    # dotnet_build.sh 側にてビルドコマンドは echo される
+	@"$(DOTNET_BUILD)" -c $(CONFIG) -o $(OUTPUT_DIR)
 
 .PHONY: build _build_main
 build: _pre_build_hook _build_main _post_build_hook
@@ -46,11 +51,10 @@ clean: _pre_clean_hook _clean_main _post_clean_hook
 # 実際のクリーン処理
 # Actual clean process
 _clean_main:
-	rm -f $(OUTPUT_DIR)/$(PROJECT_NAME).*
-	rm -rf bin obj
+	rm -rf $(call _relpath,$(OUTPUT_DIR)/$(PROJECT_NAME).*) bin obj
     # $(OUTPUT_DIR) に配下がなければ、$(OUTPUT_DIR) を削除する (rmdir は非空なら失敗するので直接試行)
     # Remove $(OUTPUT_DIR) if it's empty (rmdir fails on non-empty, so just try it)
-	@rmdir "$(OUTPUT_DIR)" 2>/dev/null && echo "rmdir \"$(OUTPUT_DIR)\"" || true
+	@rmdir "$(call _relpath,$(OUTPUT_DIR))" 2>/dev/null && echo "rmdir \"$(call _relpath,$(OUTPUT_DIR))\"" || true
 
 .PHONY: restore
 restore:

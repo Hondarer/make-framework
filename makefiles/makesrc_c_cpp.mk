@@ -279,10 +279,10 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
 			@all_objs="$(OBJS)"; \
 			sub_objs=$$(find . -name "*.o" -not -path "./obj/*"); \
 			if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
-			all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | tr '\n' ' '); \
+			all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
 			newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
 			if [ "$$newest" != "$@" ]; then \
-				echo "set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $$all_objs $(LIBS) -fdiagnostics-color=always 2>&1 | $(ICONV)"; \
+				echo "$(strip set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $(call _relpath,$@) $$all_objs $(LIBS) -fdiagnostics-color=always 2>&1 | $(ICONV))"; \
 				set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $$all_objs $(LIBS) -fdiagnostics-color=always 2>&1 | $(ICONV); \
 			fi
     else
@@ -291,10 +291,10 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
 			@all_objs="$(OBJS)"; \
 			sub_objs=$$(find . -name "*.obj" -not -path "./obj/*"); \
 			if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
-			all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | tr '\n' ' '); \
+			all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
 			newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
 			if [ "$$newest" != "$@" ]; then \
-				echo "set -o pipefail; MSYS_NO_PATHCONV=1 $(LD) $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ $$all_objs $(LIBS)"; \
+				echo "$(strip set -o pipefail; MSYS_NO_PATHCONV=1 $(LD) $(LDFLAGS) /PDB:$(call _relpath,$(patsubst %.exe,%.pdb,$@)) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$(call _relpath,$@) $$all_objs $(LIBS))"; \
 				set -o pipefail; MSYS_NO_PATHCONV=1 $(LD) $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ $$all_objs $(LIBS); \
 			fi
     endif
@@ -418,20 +418,24 @@ $(DEPS):
 include $(wildcard $(DEPS))
 
 $(OUTPUT_DIR):
-	mkdir -p $@
+	mkdir -p $(call _relpath,$@)
 
 $(OBJDIR):
 	mkdir -p $@
 
 # 削除対象の定義
 # Define files/directories to clean
-CLEAN_COMMON := "$(OUTPUT_DIR)/$(TARGET)" $(OBJDIR) $(GCOVDIR) $(COVERAGEDIR) $(notdir $(CP_SRCS) $(LINK_SRCS)) results
+# カレントディレクトリ配下の絶対パスを相対パスに変換する (make の出力を読みやすくする)
+# Convert absolute paths under $(CURDIR) to relative paths (for readable make output)
+_relpath = $(patsubst $(CURDIR)/%,%,$(1))
+
+CLEAN_COMMON := $(strip $(call _relpath,$(OUTPUT_DIR)/$(TARGET)) $(OBJDIR) $(GCOVDIR) $(COVERAGEDIR) $(notdir $(CP_SRCS) $(LINK_SRCS)) results)
 ifneq ($(OS),Windows_NT)
     # Linux
     CLEAN_OS := core $(LCOVDIR)
 else
     # Windows
-    CLEAN_OS := $(patsubst %.exe,%.pdb,$(OUTPUT_DIR)/$(TARGET))
+    CLEAN_OS := $(call _relpath,$(patsubst %.exe,%.pdb,$(OUTPUT_DIR)/$(TARGET)))
 endif
 ifeq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
     CLEAN_COMMON += .gitignore
@@ -450,11 +454,11 @@ _clean_main:
     ifneq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
 		@printf '%s\n' $(addprefix /,$(notdir $(CP_SRCS) $(LINK_SRCS))) | sort -u > .gitignore
     endif
-	-rm -rf $(CLEAN_COMMON) $(CLEAN_OS)
+	-rm -rf $(strip $(CLEAN_COMMON) $(CLEAN_OS))
     # 空ディレクトリを削除する (rmdir は非空なら失敗するので直接試行)
     # Remove empty directories (rmdir fails on non-empty, so just try it)
     # obj は Windows のみ存在するが、コマンドを表に見せないのでそのまま実行
-	@rmdir "$(OUTPUT_DIR)" obj 2>/dev/null; true
+	@rmdir "$(call _relpath,$(OUTPUT_DIR))" obj 2>/dev/null; true
 
 .PHONY: test _test_main
 ifeq ($(call should_skip,$(SKIP_TEST)),true)
