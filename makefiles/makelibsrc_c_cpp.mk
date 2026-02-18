@@ -224,7 +224,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
 			all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
 			newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
 			if [ "$$newest" != "$@" ]; then \
-				echo "$(strip MSYS_NO_PATHCONV=1 $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
+				echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
 				MSYS_NO_PATHCONV=1 $(LD) /DLL /OUT:$@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS); \
 			fi
 			@if [ -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" ]; then mv "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" "$(OBJDIR)/"; fi
@@ -251,7 +251,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
 				all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
 				newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
 				if [ "$$newest" != "$@" ]; then \
-					echo "$(strip MSYS_NO_PATHCONV=1 $(AR) /NOLOGO /OUT:$(call _relpath,$@) $$all_objs)"; \
+					echo "$(strip $(AR) /NOLOGO /OUT:$(call _relpath,$@) $$all_objs)"; \
 					MSYS_NO_PATHCONV=1 $(AR) /NOLOGO /OUT:$@ $$all_objs; \
 				fi
         endif
@@ -269,17 +269,20 @@ define compile_rule_template
 ifneq ($$(OS),Windows_NT)
     # Linux
 $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
-		set -o pipefail; LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV)
+		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$<
+		@set -o pipefail; LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV)
 else
     # Windows
     # 静的ライブラリの場合は OUTPUT_DIR に統合 PDB を生成、動的ライブラリの場合は個別 PDB を生成
     # For static libraries, generate a unified PDB in OUTPUT_DIR; for shared libraries, generate individual PDBs
     ifeq ($$(LIB_TYPE),shared)
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
-		set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd$$(patsubst %.obj,%.pdb,$$@) /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d
+		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd$$(patsubst %.obj,%.pdb,$$@) /c /Fo:$$@ $$< 2>&1 '|' powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d
+		@set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd$$(patsubst %.obj,%.pdb,$$@) /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d
     else
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
-		set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd$$(OUTPUT_DIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d
+		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd$$(OUTPUT_DIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$< 2>&1 '|' powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d
+		@set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd$$(OUTPUT_DIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d
     endif
 endif
 endef

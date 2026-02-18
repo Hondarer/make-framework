@@ -282,7 +282,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
 			all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
 			newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
 			if [ "$$newest" != "$@" ]; then \
-				echo "$(strip set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $(call _relpath,$@) $$all_objs $(LIBS) -fdiagnostics-color=always 2>&1 | $(ICONV))"; \
+				echo "$(strip $(LD) $(LDFLAGS) -o $(call _relpath,$@) $$all_objs $(LIBS))"; \
 				set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $$all_objs $(LIBS) -fdiagnostics-color=always 2>&1 | $(ICONV); \
 			fi
     else
@@ -294,7 +294,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
 			all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
 			newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
 			if [ "$$newest" != "$@" ]; then \
-				echo "$(strip set -o pipefail; MSYS_NO_PATHCONV=1 $(basename $(notdir $(LD))) $(LDFLAGS) /PDB:$(call _relpath,$(patsubst %.exe,%.pdb,$@)) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$(call _relpath,$@) $$all_objs $(LIBS))"; \
+				echo "$(strip $(basename $(notdir $(LD))) $(LDFLAGS) /PDB:$(call _relpath,$(patsubst %.exe,%.pdb,$@)) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$(call _relpath,$@) $$all_objs $(LIBS))"; \
 				set -o pipefail; MSYS_NO_PATHCONV=1 $(LD) $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ $$all_objs $(LIBS); \
 			fi
     endif
@@ -320,20 +320,20 @@ ifneq ($$(OS),Windows_NT)
     # Linux
 $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR)
 		@set -o pipefail; if echo $$(TEST_SRCS) | grep -q $$(notdir $$<); then \
-			echo LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV); \
+			echo $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC -c -o $$@ $$< -fdiagnostics-color=always; \
 			LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV); \
 		else \
-			echo LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV); \
+			echo $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always; \
 			LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV); \
 		fi
 else
     # Windows
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR)
 		@set -o pipefail; if echo $$(TEST_SRCS) | grep -q $$(notdir $$<); then \
-			echo MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC /c /Fo$$@ $$< 2>&1 '|' powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d; \
+			echo $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) /Fd$$(patsubst %.obj,%.pdb,$$@) -D_IN_TEST_SRC /c /Fo$$@ $$< 2>&1 '|' powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d; \
 			MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) /Fd$$(patsubst %.obj,%.pdb,$$@) -D_IN_TEST_SRC /c /Fo$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d; \
 		else \
-			echo MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /c /Fo$$@ $$< 2>&1 '|' powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d; \
+			echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd$$(patsubst %.obj,%.pdb,$$@) /c /Fo$$@ $$< 2>&1 '|' powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d; \
 			MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd$$(patsubst %.obj,%.pdb,$$@) /c /Fo$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d; \
 		fi
 endif
