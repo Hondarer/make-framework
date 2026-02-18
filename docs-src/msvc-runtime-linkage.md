@@ -95,7 +95,7 @@ C ランタイムライブラリのコードは実行ファイルには埋め込
 **ビルド設定例**
 
 ```{.makefile caption="デバッグ構成の例（静的）"}
-CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MTd /Fd$(OUTPUT_DIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_FOLDER)/prod/calc/include
+CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MTd /Fd:$(OUTPUT_DIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_FOLDER)/prod/calc/include
 ```
 
 ### /MDd (動的・デバッグ CRT)
@@ -122,7 +122,7 @@ CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MTd /Fd$(OUTPUT_DIR)/$(TARGET_BASE).pd
 **ビルド設定例**
 
 ```{.makefile caption="デバッグ構成の例（動的）"}
-CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MDd /Fd$(OUTPUT_DIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_FOLDER)/prod/calc/include
+CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MDd /Fd:$(OUTPUT_DIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_FOLDER)/prod/calc/include
 ```
 
 ### デバッグ CRT 利用時の注意

@@ -277,12 +277,12 @@ else
     # For static libraries, generate a unified PDB in OUTPUT_DIR; for shared libraries, generate individual PDBs
     ifeq ($$(LIB_TYPE),shared)
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
-		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd$$(patsubst %.obj,%.pdb,$$@) /c /Fo:$$@ $$< 2>&1 '|' powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d
-		@set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd$$(patsubst %.obj,%.pdb,$$@) /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d
+		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(patsubst %.obj,%.pdb,$$@) /c /Fo:$$@ $$<
+		@set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(patsubst %.obj,%.pdb,$$@) /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d
     else
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
-		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd$$(OUTPUT_DIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$< 2>&1 '|' powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d
-		@set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd$$(OUTPUT_DIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d
+		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OUTPUT_DIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$<
+		@set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OUTPUT_DIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/makefw/cmnd/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d
     endif
 endif
 endef
