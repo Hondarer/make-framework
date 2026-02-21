@@ -47,7 +47,7 @@ EL8 (gcc8) と EL10 (gcc14) の両環境でビルドを破綻させずに
 -Wmissing-declarations
 ```
 
-### Makefile 例
+### makefile 例
 
 ```makefile
 WARN_BASE = \
