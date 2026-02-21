@@ -191,6 +191,14 @@ ifeq ($(LIB_TYPE),shared)
             NOT_FOUND_LIBS := $(filter-out $(CURRENT_LIB) $(FOUND_LIBS),$(LIBS))
             DYNAMIC_LIBS := $(addprefix -l,$(NOT_FOUND_LIBS))
         endif
+
+        # リンクライブラリフォルダ名の解決 (DYNAMIC_LIBS の -l に対応する -L パスを追加)
+        # Add library search paths to LDFLAGS for dynamic link flags
+        ifneq ($(OS),Windows_NT)
+            LDFLAGS += $(addprefix -L, $(LIBSDIR))
+        else
+            LDFLAGS += $(addprefix /LIBPATH:, $(LIBSDIR))
+        endif
     endif
 endif
 
