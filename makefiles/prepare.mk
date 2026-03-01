@@ -84,6 +84,15 @@ endif
 # Remove any existing TARGET_ARCH definition from DEFINES (assignment or declaration) before adding
 DEFINES := $(filter-out TARGET_ARCH%,$(DEFINES)) TARGET_ARCH='"$(TARGET_ARCH)"'
 
+# DEFINES の各エントリを make 変数として定義する (makepart.mk から参照可能にする)
+# キーのみ: KEY → KEY := 1 / KEY=値 → KEY := 値 / KEY="値" → KEY := 値 (ダブルクォート除去)
+# $(call) でプレーンテキストを生成し $(eval) で make 構文として評価することで展開タイミング問題を回避
+define _def_var_from_defines
+$(firstword $(subst =, ,$(1))) := $(if $(findstring =,$(1)),$(patsubst "%",%,$(patsubst $(firstword $(subst =, ,$(1)))=%,%,$(1))),1)
+endef
+$(foreach _d,$(DEFINES),$(eval $(call _def_var_from_defines,$(_d))))
+#$(foreach _d,$(DEFINES),$(info [DEFINES] $(firstword $(subst =, ,$(_d))) = $($(firstword $(subst =, ,$(_d))))))
+
 # デフォルト設定 START ##############################################################
 
 # コンフィグ設定 (RelWithDebInfo, Debug, Release)
