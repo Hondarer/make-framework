@@ -85,9 +85,10 @@ endif
 DEFINES := $(filter-out TARGET_ARCH%,$(DEFINES)) TARGET_ARCH='"$(TARGET_ARCH)"'
 
 # DEFINES の各エントリを make 変数として定義する (makepart.mk などから参照可能にする)
-# キーのみ: KEY → KEY := 1 / KEY=値 → KEY := 値 / KEY="値" → KEY := 値 (ダブルクォート除去)
+# キーのみ: KEY → KEY := 1
+# KEY=値 / KEY="値" / KEY='"値"' → KEY := 値 (シングル・ダブルクォートを除去)
 define _def_var_from_defines
-$(firstword $(subst =, ,$(1))) := $(if $(findstring =,$(1)),$(patsubst "%",%,$(patsubst $(firstword $(subst =, ,$(1)))=%,%,$(1))),1)
+$(firstword $(subst =, ,$(1))) := $(if $(findstring =,$(1)),$(subst ',$(empty),$(subst ",,$(patsubst $(firstword $(subst =, ,$(1)))=%,%,$(1)))),1)
 endef
 $(foreach _d,$(DEFINES),$(eval $(call _def_var_from_defines,$(_d))))
 #$(foreach _d,$(DEFINES),$(info [DEFINES] $(firstword $(subst =, ,$(_d))) = $($(firstword $(subst =, ,$(_d))))))
