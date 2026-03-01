@@ -13,8 +13,6 @@ SHELL := /bin/bash
 # c_cpp_properties.json から defines を得る (get_config.sh に統合)
 # Get defines from c_cpp_properties.json (consolidated into get_config.sh)
 DEFINES := $(shell sh $(WORKSPACE_FOLDER)/makefw/cmnd/get_config.sh defines)
-# defines の値を変数名 (値 = 1) として設定する
-$(foreach define, $(DEFINES), $(eval $(define) = 1))
 
 #$(info DEFINES: $(DEFINES));
 
@@ -77,6 +75,14 @@ else
     # Windows (ex: windows-x64)
     TARGET_ARCH := windows-$(ARCH)
 endif
+
+# TARGET_ARCH をコンパイル時定数として C/C++ コードに渡す
+# Pass TARGET_ARCH as a compile-time string constant to C/C++ code
+# DEFINES に追加することで CFLAGS/CXXFLAGS 両方に自動反映される
+# Add to DEFINES so it is automatically applied to both CFLAGS and CXXFLAGS
+# DEFINES に既存の TARGET_ARCH 定義 (代入・宣言のみを問わず) があれば除去してから追加
+# Remove any existing TARGET_ARCH definition from DEFINES (assignment or declaration) before adding
+DEFINES := $(filter-out TARGET_ARCH%,$(DEFINES)) TARGET_ARCH='"$(TARGET_ARCH)"'
 
 # デフォルト設定 START ##############################################################
 
