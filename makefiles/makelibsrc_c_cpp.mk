@@ -225,7 +225,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
 				fi
         else
             # Windows
-$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
+$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
 			@all_objs="$(OBJS)"; \
 			sub_objs=$$(find . -name "*.obj" -not -path "./obj/*"); \
 			if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
@@ -385,16 +385,19 @@ $(OBJDIR):
 # Convert absolute paths under $(CURDIR) to relative paths (for readable make output)
 _relpath = $(patsubst $(CURDIR)/%,%,$(1))
 
-CLEAN_COMMON := $(strip $(call _relpath,$(OUTPUT_DIR)/$(TARGET)) $(OBJDIR) $(notdir $(CP_SRCS) $(LINK_SRCS)))
-ifeq ($(OS),Windows_NT)
-    # Windows
-    ifeq ($(LIB_TYPE),shared)
-        CLEAN_OS := $(call _relpath,$(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET)))
-        CLEAN_OS += $(call _relpath,$(OUTPUT_DIR)/$(patsubst %.dll,%.lib,$(TARGET)))
-    else
-        # 静的ライブラリの場合は、統合 PDB ファイルを削除対象に追加
-        # For static libraries, add the unified PDB file to clean target
-        CLEAN_OS := $(call _relpath,$(OUTPUT_DIR)/$(basename $(TARGET)).pdb)
+CLEAN_COMMON := $(strip $(OBJDIR) $(notdir $(CP_SRCS) $(LINK_SRCS)))
+ifndef NO_LINK
+    CLEAN_COMMON += $(call _relpath,$(OUTPUT_DIR)/$(TARGET))
+    ifeq ($(OS),Windows_NT)
+        # Windows
+        ifeq ($(LIB_TYPE),shared)
+            CLEAN_OS := $(call _relpath,$(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET)))
+            CLEAN_OS += $(call _relpath,$(OUTPUT_DIR)/$(patsubst %.dll,%.lib,$(TARGET)))
+        else
+            # 静的ライブラリの場合は、統合 PDB ファイルを削除対象に追加
+            # For static libraries, add the unified PDB file to clean target
+            CLEAN_OS := $(call _relpath,$(OUTPUT_DIR)/$(basename $(TARGET)).pdb)
+        endif
     endif
 endif
 ifeq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
@@ -418,7 +421,11 @@ _clean_main:
     # 空ディレクトリを削除する (rmdir は非空なら失敗するので直接試行)
     # Remove empty directories (rmdir fails on non-empty, so just try it)
     # obj は Windows のみ存在するが、コマンドを表に見せないのでそのまま実行
+    ifndef NO_LINK
 	@rmdir "$(call _relpath,$(OUTPUT_DIR))" obj 2>/dev/null; true
+    else
+	@rmdir obj 2>/dev/null; true
+    endif
 
 .PHONY: test _test_main
 ifeq ($(call should_skip,$(SKIP_TEST)),true)

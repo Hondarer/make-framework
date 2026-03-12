@@ -188,7 +188,7 @@ MAKEPART_MK := $(shell \
 	while [ "$$dir" != "/" ]; do \
 		if [ -f "$$dir/makepart.mk" ]; then \
 			if command -v cygpath > /dev/null 2>&1; then \
-				cygpath -w "$$dir/makepart.mk"; \
+				cygpath -m "$$dir/makepart.mk"; \
 			else \
 				echo "$$dir/makepart.mk"; \
 			fi; \
