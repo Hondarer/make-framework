@@ -1,3 +1,6 @@
+# _flags.mk 自身のディレクトリを include 時に確定（後から MAKEFILE_LIST が変化するため）
+_MAKEFW_MAKEFILES_DIR := $(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST))))
+
 # ユーザー設定のデフォルト値
 C_STANDARD        ?= 17             # 90, 99, 11, 17, 23
 CXX_STANDARD      ?= 17             # 14, 17, 20, 23
@@ -106,6 +109,25 @@ ifeq ($(OS),Windows_NT)
     # /SUBSYSTEM:CONSOLE は、main と wmain のどちらを採用するかにかかわる
     # 指定しないと、LINK : fatal error LNK1561: entry point must be defined となる場合がある
     LDFLAGS  += /SUBSYSTEM:CONSOLE
+endif
+
+# WIN32_MANIFEST: マニフェスト埋め込み (Windows EXE のみ)
+# 使い方: makepart.mk に WIN32_MANIFEST = utf8 (または任意の .manifest ファイルパス) を記述
+# 効果: activeCodePage=UTF-8 により argv を含むプロセス全体を UTF-8 モードにする (Win10 1903+)
+ifeq ($(OS),Windows_NT)
+  ifdef WIN32_MANIFEST
+    ifeq ($(WIN32_MANIFEST),utf8)
+      _WIN32_MANIFEST_FILE := $(_MAKEFW_MAKEFILES_DIR)/utf8_manifest.manifest
+    else
+      _WIN32_MANIFEST_FILE := $(WIN32_MANIFEST)
+    endif
+    # link.exe には Windows パスが必要。MSYS 環境では cygpath -w で変換する
+    _WIN32_MANIFEST_WIN := $(shell cygpath -w "$(abspath $(_WIN32_MANIFEST_FILE))" 2>/dev/null)
+    ifeq ($(_WIN32_MANIFEST_WIN),)
+      _WIN32_MANIFEST_WIN := $(abspath $(_WIN32_MANIFEST_FILE))
+    endif
+    LDFLAGS += /MANIFEST:EMBED /MANIFESTINPUT:$(_WIN32_MANIFEST_WIN)
+  endif
 endif
 
 # runtime
