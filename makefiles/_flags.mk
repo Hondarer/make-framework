@@ -121,8 +121,10 @@ ifeq ($(OS),Windows_NT)
     else
       _WIN32_MANIFEST_FILE := $(WIN32_MANIFEST)
     endif
-    # link.exe には Windows パスが必要。MSYS 環境では cygpath -w で変換する
-    _WIN32_MANIFEST_WIN := $(shell cygpath -w "$(abspath $(_WIN32_MANIFEST_FILE))" 2>/dev/null)
+    # link.exe には Windows パスが必要。MSYS 環境では cygpath -m で変換する
+    # -w (バックスラッシュ形式) は sh 経由でコマンドを実行する際にエスケープされてパスが壊れるため
+    # -m (フォワードスラッシュ形式: D:/a/...) を使用する
+    _WIN32_MANIFEST_WIN := $(shell cygpath -m "$(abspath $(_WIN32_MANIFEST_FILE))" 2>/dev/null)
     ifeq ($(_WIN32_MANIFEST_WIN),)
       _WIN32_MANIFEST_WIN := $(abspath $(_WIN32_MANIFEST_FILE))
     endif
