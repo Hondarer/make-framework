@@ -280,7 +280,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
 			sub_objs=$$(find . -name "*.o" -not -path "./obj/*"); \
 			if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
 			all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
-			newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
+			newest=$$(ls -t $$all_objs $(LIBSFILES) $@ 2>/dev/null | head -1); \
 			if [ "$$newest" != "$@" ]; then \
 				echo "$(strip $(LD) $(LDFLAGS) -o $(call _relpath,$@) $$all_objs $(LIBS))"; \
 				set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $$all_objs $(LIBS) -fdiagnostics-color=always 2>&1 | $(ICONV); \
@@ -292,7 +292,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
 			sub_objs=$$(find . -name "*.obj" -not -path "./obj/*"); \
 			if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
 			all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
-			newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
+			newest=$$(ls -t $$all_objs $(LIBSFILES) $@ 2>/dev/null | head -1); \
 			if [ "$$newest" != "$@" ]; then \
 				echo "$(strip $(basename $(notdir $(LD))) $(LDFLAGS) /PDB:$(call _relpath,$(patsubst %.exe,%.pdb,$@)) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$(call _relpath,$@) $$all_objs $(LIBS))"; \
 				set -o pipefail; MSYS_NO_PATHCONV=1 $(LD) $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ $$all_objs $(LIBS); \

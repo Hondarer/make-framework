@@ -218,7 +218,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
 				sub_objs=$$(find . -name "*.o" -not -path "./obj/*"); \
 				if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
 				all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
-				newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
+				newest=$$(ls -t $$all_objs $(STATIC_LIBS) $@ 2>/dev/null | head -1); \
 				if [ "$$newest" != "$@" ]; then \
 					echo "$(strip $(CC) -shared -o $(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
 					$(CC) -shared -o $@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS); \
@@ -230,7 +230,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJ
 			sub_objs=$$(find . -name "*.obj" -not -path "./obj/*"); \
 			if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
 			all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
-			newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
+			newest=$$(ls -t $$all_objs $(STATIC_LIBS) $@ 2>/dev/null | head -1); \
 			if [ "$$newest" != "$@" ]; then \
 				echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
 				MSYS_NO_PATHCONV=1 $(LD) /DLL /OUT:$@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS); \
