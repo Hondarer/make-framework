@@ -3,13 +3,6 @@ include $(WORKSPACE_FOLDER)/makefw/makefiles/_flags.mk
 include $(WORKSPACE_FOLDER)/makefw/makefiles/_should_skip.mk
 include $(WORKSPACE_FOLDER)/makefw/makefiles/_hooks.mk
 
-# Make の wildcard で代替し、find/for ループのプロセス生成を削減
-# Use Make's wildcard to avoid find/for-loop process creation
-# wildcard はディレクトリも返すため、末尾 / 付きパターンで除外し find -type f と等価にする
-# Filter out directories (matched by trailing /) to match original find -type f behavior
-LIBSFILES := $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/*))
-LIBSFILES := $(filter-out $(patsubst %/,%,$(foreach dir,$(LIBSDIR),$(wildcard $(dir)/*/))),$(LIBSFILES))
-
 # テストライブラリの設定
 # Set test libraries
 # LINK_TEST が 1 の場合にのみ設定する
@@ -48,6 +41,14 @@ ifeq ($(LINK_TEST), 1)
         endif
     endif
 endif
+
+# ライブラリディレクトリ内のファイル一覧を収集する (LINK_TEST ブロック後なので gtest のパスも含まれる)
+# Collect library files from all lib dirs (after LINK_TEST block so gtest path is included).
+# wildcard はディレクトリも返すため、拡張子フィルタでライブラリファイルのみを残す。
+# Filter to library files only via extension: cross-platform, avoids wildcard trailing-slash issues.
+# (On Windows, $(wildcard path/) returns the path even for plain files, so cannot detect dirs reliably.)
+_LIBSFILES_ALL := $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/*))
+LIBSFILES := $(filter %.lib %.a %.so %.dylib %.dll %.pdb,$(_LIBSFILES_ALL))
 
 #$(info NO_GTEST_MAIN: $(NO_GTEST_MAIN))
 #$(info USE_WRAP_MAIN: $(USE_WRAP_MAIN))
