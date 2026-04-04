@@ -81,6 +81,15 @@ CP_SRCS := $(sort $(CP_SRCS))
 # Remove CP_SRCS files from LINK_SRCS
 LINK_SRCS := $(filter-out $(CP_SRCS), $(LINK_SRCS))
 
+# LINK_SRCS のリンク元存在チェック (Linux only, パース時)
+# Verify LINK_SRCS source files exist at parse time (Linux only)
+ifneq ($(OS),Windows_NT)
+    _MISSING_LINK_SRCS := $(foreach f,$(LINK_SRCS),$(if $(wildcard $(f)),,$(f)))
+    ifneq ($(_MISSING_LINK_SRCS),)
+        $(error ERROR: Source files not found for LINK_SRCS: $(_MISSING_LINK_SRCS))
+    endif
+endif
+
 # Windows ではシンボリックリンク機能に制限があるため、すべて CP_SRCS 扱いとする
 ifeq ($(OS),Windows_NT)
     # Windows
