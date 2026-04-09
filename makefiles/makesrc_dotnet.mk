@@ -19,7 +19,7 @@ PROJECT_NAME := $(notdir $(patsubst %/,%,$(CURDIR)))
 ifeq ($(TARGET),)
     TARGET := $(PROJECT_NAME)
 endif
-ifeq ($(OS),Windows_NT)
+ifdef PLATFORM_WINDOWS
     TARGET := $(TARGET).exe
 endif
 

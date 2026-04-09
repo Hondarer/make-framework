@@ -5,8 +5,7 @@ include $(WORKSPACE_FOLDER)/makefw/makefiles/_hooks.mk
 
 # -fPIC オプションが含まれていない場合に追加
 # Add -fPIC option if not already included
-ifneq ($(OS),Windows_NT)
-    # Linux
+ifdef PLATFORM_LINUX
     ifeq ($(findstring -fPIC,$(CFLAGS)),)
         CFLAGS += -fPIC
     endif
@@ -31,7 +30,7 @@ OBJS := $(filter-out $(OBJDIR)/%.inject.o, \
 	$(notdir $(patsubst %.c, %.o, $(patsubst %.cc, %.o, $(patsubst %.cpp, %.o, $(SRCS_C) $(SRCS_CPP))))))))
 # DEPS
 DEPS := $(patsubst %.o, %.d, $(OBJS))
-ifeq ($(OS),Windows_NT)
+ifdef PLATFORM_WINDOWS
     # Windows の場合は .o を .obj に置換
     OBJS := $(patsubst %.o, %.obj, $(OBJS))
 endif
@@ -40,12 +39,12 @@ endif
 # Recursively collect object files from subdirectories' obj directories
 # find -exec find を単一の find -path パターンに変更してプロセス生成を削減
 # Replace find -exec find with single find using -path pattern to reduce process creation
-ifeq ($(OS),Windows_NT)
-    # Windows: .obj ファイルを検索
-    SUBDIR_OBJS := $(shell find . -path "./obj" -prune -o -path "*/obj/*.obj" -type f -print 2>/dev/null)
-else
+ifdef PLATFORM_LINUX
     # Linux: .o ファイルを検索
     SUBDIR_OBJS := $(shell find . -path "./obj" -prune -o -path "*/obj/*.o" -type f -print 2>/dev/null)
+else ifdef PLATFORM_WINDOWS
+    # Windows: .obj ファイルを検索
+    SUBDIR_OBJS := $(shell find . -path "./obj" -prune -o -path "*/obj/*.obj" -type f -print 2>/dev/null)
 endif
 OBJS += $(SUBDIR_OBJS)
 
@@ -65,15 +64,13 @@ OUTPUT_DIR ?= $(CURDIR)/lib
 ifeq ($(TARGET),)
     TARGET := $(notdir $(CURDIR))
 endif
-ifneq ($(OS),Windows_NT)
-    # Linux
+ifdef PLATFORM_LINUX
     ifeq ($(LIB_TYPE),shared)
         TARGET := lib$(TARGET).so
     else
         TARGET := lib$(TARGET).a
     endif
-else
-    # Windows
+else ifdef PLATFORM_WINDOWS
     # Linux 同様に lib プレフィックスを付与
     # Add lib prefix like Linux
     ifeq ($(LIB_TYPE),shared)
@@ -147,15 +144,22 @@ ifeq ($(LIB_TYPE),shared)
 
         # 現在ビルド中のライブラリ名を取得 (拡張子なし)
         # Get the name of the library currently being built (without extension)
-        ifeq ($(OS),Windows_NT)
-            CURRENT_LIB := $(patsubst lib%,%,$(basename $(TARGET)))
-        else
+        ifdef PLATFORM_LINUX
             CURRENT_LIB := $(patsubst lib%.so,%,$(TARGET))
+        else ifdef PLATFORM_WINDOWS
+            CURRENT_LIB := $(patsubst lib%,%,$(basename $(TARGET)))
         endif
 
         # 静的ライブラリファイルの検索
         # Search for static library files
-        ifeq ($(OS),Windows_NT)
+        ifdef PLATFORM_LINUX
+            # Linux: .a を検索
+            # 自身を除外し、複数の LIBSDIR を考慮
+            # Linux: search for .a
+            # Exclude self and consider multiple LIBSDIR
+            STATIC_LIBS := $(foreach lib,$(filter-out $(CURRENT_LIB),$(LIBS)),\
+                $(firstword $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/lib$(lib).a))))
+        else ifdef PLATFORM_WINDOWS
             # Windows: .lib を検索
             # 自身を除外し、複数の LIBSDIR を考慮
             # まず lib なしで検索、なければ lib 付きで再検索
@@ -168,35 +172,28 @@ ifeq ($(LIB_TYPE),shared)
                 $(or \
                     $(firstword $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/$(lib).lib))),\
                     $(firstword $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/lib$(lib).lib)))))
-        else
-            # Linux: .a を検索
-            # 自身を除外し、複数の LIBSDIR を考慮
-            # Linux: search for .a
-            # Exclude self and consider multiple LIBSDIR
-            STATIC_LIBS := $(foreach lib,$(filter-out $(CURRENT_LIB),$(LIBS)),\
-                $(firstword $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/lib$(lib).a))))
         endif
 
         # 見つからないライブラリは動的リンク用フラグとして保持
         # Libraries not found are kept as dynamic link flags
-        ifeq ($(OS),Windows_NT)
+        ifdef PLATFORM_LINUX
+            FOUND_LIBS := $(patsubst lib%.a,%,$(notdir $(STATIC_LIBS)))
+            NOT_FOUND_LIBS := $(filter-out $(CURRENT_LIB) $(FOUND_LIBS),$(LIBS))
+            DYNAMIC_LIBS := $(addprefix -l,$(NOT_FOUND_LIBS))
+        else ifdef PLATFORM_WINDOWS
             # STATIC_LIBS の結果から見つかったライブラリ名を導出
             # Derive found library names from STATIC_LIBS results
             FOUND_LIBS := $(foreach lib,$(filter-out $(CURRENT_LIB),$(LIBS)),\
                 $(if $(filter %/$(lib).lib %/lib$(lib).lib,$(STATIC_LIBS)),$(lib)))
             NOT_FOUND_LIBS := $(filter-out $(CURRENT_LIB) $(FOUND_LIBS),$(LIBS))
             DYNAMIC_LIBS := $(addsuffix .lib,$(NOT_FOUND_LIBS))
-        else
-            FOUND_LIBS := $(patsubst lib%.a,%,$(notdir $(STATIC_LIBS)))
-            NOT_FOUND_LIBS := $(filter-out $(CURRENT_LIB) $(FOUND_LIBS),$(LIBS))
-            DYNAMIC_LIBS := $(addprefix -l,$(NOT_FOUND_LIBS))
         endif
 
         # リンクライブラリフォルダ名の解決 (DYNAMIC_LIBS の -l に対応する -L パスを追加)
         # Add library search paths to LDFLAGS for dynamic link flags
-        ifneq ($(OS),Windows_NT)
+        ifdef PLATFORM_LINUX
             LDFLAGS += $(addprefix -L, $(LIBSDIR))
-        else
+        else ifdef PLATFORM_WINDOWS
             LDFLAGS += $(addprefix /LIBPATH:, $(LIBSDIR))
         endif
     endif
@@ -211,8 +208,7 @@ ifndef NO_LINK
     # 最終的なリンクコマンド
     # Final link command: static libs are embedded, dynamic libs remain as -l
     ifeq ($(LIB_TYPE),shared)
-        ifneq ($(OS),Windows_NT)
-            # Linux
+        ifdef PLATFORM_LINUX
 $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
 				@all_objs="$(OBJS)"; \
 				sub_objs=$$(find . -name "*.o" -not -path "./obj/*"); \
@@ -223,8 +219,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
 					echo "$(strip $(CC) -shared -o $(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
 					$(CC) -shared -o $@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS); \
 				fi
-        else
-            # Windows
+        else ifdef PLATFORM_WINDOWS
 $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
 			@all_objs="$(OBJS)"; \
 			sub_objs=$$(find . -name "*.obj" -not -path "./obj/*"); \
@@ -238,8 +233,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJ
 			@if [ -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" ]; then mv "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" "$(OBJDIR)/"; fi
         endif
     else
-        ifneq ($(OS),Windows_NT)
-            # Linux
+        ifdef PLATFORM_LINUX
 $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
 				@all_objs="$(OBJS)"; \
 				sub_objs=$$(find . -name "*.o" -not -path "./obj/*"); \
@@ -250,8 +244,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
 					echo "$(strip $(AR) rvs $(call _relpath,$@) $$all_objs)"; \
 					$(AR) rvs $@ $$all_objs; \
 				fi
-        else
-            # Windows
+        else ifdef PLATFORM_WINDOWS
 $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
 				@all_objs="$(OBJS)"; \
 				sub_objs=$$(find . -name "*.obj" -not -path "./obj/*"); \
@@ -274,13 +267,11 @@ endif
 # Compile rule template definition
 # 引数: $(1)=拡張子 (c/cc/cpp), $(2)=コンパイラ変数名 (CC/CXX), $(3)=フラグ変数名 (CFLAGS/CXXFLAGS)
 define compile_rule_template
-ifneq ($$(OS),Windows_NT)
-    # Linux
+ifdef PLATFORM_LINUX
 $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
 		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$<
 		@set -o pipefail; LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV)
-else
-    # Windows
+else ifdef PLATFORM_WINDOWS
     # 静的ライブラリの場合は OUTPUT_DIR に統合 PDB を生成、動的ライブラリの場合は個別 PDB を生成
     # For static libraries, generate a unified PDB in OUTPUT_DIR; for shared libraries, generate individual PDBs
     ifeq ($$(LIB_TYPE),shared)
@@ -388,8 +379,7 @@ _relpath = $(patsubst $(CURDIR)/%,%,$(1))
 CLEAN_COMMON := $(strip $(OBJDIR) $(notdir $(CP_SRCS) $(LINK_SRCS)))
 ifndef NO_LINK
     CLEAN_COMMON += $(call _relpath,$(OUTPUT_DIR)/$(TARGET))
-    ifeq ($(OS),Windows_NT)
-        # Windows
+    ifdef PLATFORM_WINDOWS
         ifeq ($(LIB_TYPE),shared)
             CLEAN_OS := $(call _relpath,$(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET)))
             CLEAN_OS += $(call _relpath,$(OUTPUT_DIR)/$(patsubst %.dll,%.lib,$(TARGET)))

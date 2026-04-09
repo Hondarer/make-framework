@@ -28,14 +28,12 @@ define _c_std_gnu
 -std=$(GNU_C_PREFIX)$(1)
 endef
 
-ifneq ($(OS),Windows_NT)
-    # Linux
+ifdef PLATFORM_LINUX
     C_STDFLAG := $(call _c_std_gnu,$(C_STANDARD))
     ifeq ($(STRICT),ON)
         C_STDFLAG += -Wpedantic
     endif
-else
-    # Windows
+else ifdef PLATFORM_WINDOWS
     C_STDFLAG := $(call _c_std_msvc,$(C_STANDARD)) /Zc:preprocessor
 endif
 
@@ -56,14 +54,12 @@ define _cxx_std_gnu
 -std=$(GNU_CXX_PREFIX)$(1)
 endef
 
-ifneq ($(OS),Windows_NT)
-    # Linux
+ifdef PLATFORM_LINUX
     CXX_STDFLAG := $(call _cxx_std_gnu,$(CXX_STANDARD))
     ifeq ($(STRICT),ON)
         CXX_STDFLAG += -Wpedantic
     endif
-else
-    # Windows
+else ifdef PLATFORM_WINDOWS
     CXX_STDFLAG := $(call _cxx_std_msvc,$(CXX_STANDARD)) /Zc:__cplusplus
     ifeq ($(STRICT),ON)
         CXX_STDFLAG += /permissive-
@@ -71,12 +67,10 @@ else
 endif
 
 # 推奨の警告オプション
-ifneq ($(OS),Windows_NT)
-    # Linux
+ifdef PLATFORM_LINUX
     CWARNS   ?= -Wall -Wextra
     CXXWARNS ?= -Wall -Wextra
-else
-    # Windows
+else ifdef PLATFORM_WINDOWS
     CWARNS   ?= /W4
     CXXWARNS ?= /W4
 endif
@@ -86,8 +80,7 @@ CFLAGS   += $(C_STDFLAG) $(CWARNS)
 CXXFLAGS += $(CXX_STDFLAG) $(CXXWARNS)
 
 # 文字コード
-ifeq ($(OS),Windows_NT)
-    # Windows
+ifdef PLATFORM_WINDOWS
     ifneq (,$(filter %.utf8 %.UTF-8 %.utf-8 %.UTF8,$(FILES_LANG)))
         # UTF-8
         CFLAGS   += /utf-8
@@ -96,16 +89,14 @@ ifeq ($(OS),Windows_NT)
 endif
 
 # nologo
-ifeq ($(OS),Windows_NT)
-    # Windows
+ifdef PLATFORM_WINDOWS
     CFLAGS   += /nologo
     CXXFLAGS += /nologo
     LDFLAGS  += /NOLOGO
 endif
 
 # subsystem
-ifeq ($(OS),Windows_NT)
-    # Windows
+ifdef PLATFORM_WINDOWS
     # /SUBSYSTEM:CONSOLE は、main と wmain のどちらを採用するかにかかわる
     # 指定しないと、LINK : fatal error LNK1561: entry point must be defined となる場合がある
     LDFLAGS  += /SUBSYSTEM:CONSOLE
@@ -114,7 +105,7 @@ endif
 # WIN32_MANIFEST: マニフェスト埋め込み (Windows EXE のみ)
 # 使い方: makepart.mk に WIN32_MANIFEST = utf8 (または任意の .manifest ファイルパス) を記述
 # 効果: activeCodePage=UTF-8 により argv を含むプロセス全体を UTF-8 モードにする (Win10 1903+)
-ifeq ($(OS),Windows_NT)
+ifdef PLATFORM_WINDOWS
   ifdef WIN32_MANIFEST
     ifeq ($(WIN32_MANIFEST),utf8)
       _WIN32_MANIFEST_FILE := $(_MAKEFW_MAKEFILES_DIR)/utf8_manifest.manifest
@@ -133,8 +124,7 @@ ifeq ($(OS),Windows_NT)
 endif
 
 # runtime
-ifneq ($(OS),Windows_NT)
-    # Linux
+ifdef PLATFORM_LINUX
     # 構成別フラグ
     ifeq ($(CONFIG),Debug)
       CPPFLAGS += -D_DEBUG
@@ -151,8 +141,7 @@ ifneq ($(OS),Windows_NT)
     else
       $(error CONFIG は Debug, Release, RelWithDebInfo のいずれか)
     endif
-else
-    # Windows
+else ifdef PLATFORM_WINDOWS
     # 共通フラグ
     CFLAGS   += /EHsc /MP
     CXXFLAGS += /EHsc /MP
@@ -199,24 +188,21 @@ CXXFLAGS += $(CPPFLAGS)
 
 # ビルド設定は基本的に固定のため、OBJDIR も obj に固定する
 #OBJDIR  := obj/$(CONFIG)
-ifneq ($(OS),Windows_NT)
-    # Linux
+ifdef PLATFORM_LINUX
     OBJDIR  := obj
-else
-    # Windows: ランタイムライブラリごとにサブディレクトリを分ける
-    # Windows: Separate subdirectories for each runtime library to avoid mixing object files
+else ifdef PLATFORM_WINDOWS
+    # ランタイムライブラリごとにサブディレクトリを分ける
+    # Separate subdirectories for each runtime library to avoid mixing object files
     OBJDIR  := obj/$(MSVC_CRT_SUBDIR)
 endif
 
 # wrap-main
 ifeq ($(USE_WRAP_MAIN),1)
     # リンクオプションの追加
-    ifneq ($(OS),Windows_NT)
-        # Linux
+    ifdef PLATFORM_LINUX
         # -Wl,--wrap=main により、エントリポイントを __wrap_main() に、元々のエントリポイントを __real_main() に変更
         LDFLAGS += -Wl,--wrap=main
-    else
-        # Windows
+    else ifdef PLATFORM_WINDOWS
         # /Dmain=__real_main により、元々のエントリポイントを __real_main() に変更 (エントリポイントは main のまま)
         DEFINES += main=__real_main
         # wrapmain.lib により、main() から __wrap_main() をコール
@@ -225,11 +211,9 @@ ifeq ($(USE_WRAP_MAIN),1)
 endif
 
 # 依存関係出力用フラグ
-ifneq ($(OS),Windows_NT)
-    # Linux
+ifdef PLATFORM_LINUX
     DEPFLAGS = -MT $@ -MMD -MP -MF $(OBJDIR)/$*.d
-else
-    # Windows
+else ifdef PLATFORM_WINDOWS
     # MSVC では /showIncludes を使用して依存関係を生成
     # Use /showIncludes to generate dependencies with MSVC
     DEPFLAGS = /showIncludes

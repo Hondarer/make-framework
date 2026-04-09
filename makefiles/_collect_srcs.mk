@@ -83,7 +83,7 @@ LINK_SRCS := $(filter-out $(CP_SRCS), $(LINK_SRCS))
 
 # LINK_SRCS のリンク元存在チェック (Linux only, パース時)
 # Verify LINK_SRCS source files exist at parse time (Linux only)
-ifneq ($(OS),Windows_NT)
+ifdef PLATFORM_LINUX
     _MISSING_LINK_SRCS := $(strip $(foreach f,$(LINK_SRCS),$(if $(wildcard $(f)),,$(f))))
     ifneq ($(_MISSING_LINK_SRCS),)
         $(error ERROR: Source files not found for LINK_SRCS: $(_MISSING_LINK_SRCS))
@@ -91,8 +91,7 @@ ifneq ($(OS),Windows_NT)
 endif
 
 # Windows ではシンボリックリンク機能に制限があるため、すべて CP_SRCS 扱いとする
-ifeq ($(OS),Windows_NT)
-    # Windows
+ifdef PLATFORM_WINDOWS
     CP_SRCS += $(LINK_SRCS)
     LINK_SRCS :=
     # Windows ではコピーを行うことにより、inject ファイル および フィルタファイルがないにもかかわらず実体が存在するため、DIRECT_SRCS と判定されることへの対策として、
@@ -131,11 +130,9 @@ INCDIR += $(shell sh $(WORKSPACE_FOLDER)/makefw/cmnd/get_config.sh include_paths
 # foreach で個別に realpath/cygpath を呼ぶ代わりに、1回のシェルで一括処理
 # Batch realpath/cygpath in single shell instead of per-directory foreach
 ifneq ($(INCDIR),)
-    ifneq ($(OS),Windows_NT)
-        # Linux
+    ifdef PLATFORM_LINUX
         INCDIR := $(sort $(shell for d in $(INCDIR); do realpath -m "$$d" 2>/dev/null || echo "$$d"; done))
-    else
-        # Windows
+    else ifdef PLATFORM_WINDOWS
         # cygpath -m を使って MSYS2 形式から Windows 形式に変換
         # Convert from MSYS2 format to Windows format using cygpath -m
         INCDIR := $(sort $(shell for d in $(INCDIR); do r=$$(realpath -m "$$d" 2>/dev/null || echo "$$d"); cygpath -m "$$r" 2>/dev/null || echo "$$r"; done))

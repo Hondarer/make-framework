@@ -9,8 +9,7 @@ include $(WORKSPACE_FOLDER)/makefw/makefiles/_hooks.mk
 ifeq ($(LINK_TEST), 1)
     LIBS += test_com gtest gmock
 
-    ifneq ($(OS),Windows_NT)
-        # Linux
+    ifdef PLATFORM_LINUX
         LIBS += pthread gcov
         # ステップ実行/カバレッジに支障となるオプションを除去
         #   -flto: リンク時最適化 (GCC の LTO)
@@ -18,8 +17,7 @@ ifeq ($(LINK_TEST), 1)
         # TARGET_ARCH を使用してプラットフォーム固有のパスを指定
         # Use TARGET_ARCH for platform-specific path (e.g., linux-el8-x64)
         LIBSDIR += $(WORKSPACE_FOLDER)/testfw/gtest/lib/$(TARGET_ARCH)
-    else
-        # Windows
+    else ifdef PLATFORM_WINDOWS
         # ステップ実行/カバレッジに支障となるオプションを除去
         #   /LTCG: リンク時コード生成 (プログラム全体最適化)
         LDFLAGS := $(filter-out /LTCG,$(LDFLAGS))
@@ -74,8 +72,7 @@ CXXFLAGS += $(addprefix -D,$(DEFINES))
 # For test targets
 CFLAGS_TEST := $(CFLAGS) -I$(WORKSPACE_FOLDER)/testfw/include_override -I$(WORKSPACE_FOLDER)/test/include_override $(addprefix -I, $(INCDIR))
 CXXFLAGS_TEST := $(CXXFLAGS) -I$(WORKSPACE_FOLDER)/testfw/include_override -I$(WORKSPACE_FOLDER)/test/include_override $(addprefix -I, $(INCDIR))
-ifneq ($(OS),Windows_NT)
-    # Linux
+ifdef PLATFORM_LINUX
     # ステップ実行/カバレッジに支障となるオプションを除去
     #   -O1, -O2, -O3, -Os, -Ofast: 最適化レベル
     #   -finline-functions: インライン展開
@@ -101,8 +98,7 @@ ifneq ($(OS),Windows_NT)
     #   -coverage: gcov/lcov 用のインストルメンテーション
     CFLAGS_TEST += -coverage
     CXXFLAGS_TEST += -coverage
-else
-    # Windows
+else ifdef PLATFORM_WINDOWS
     # ステップ実行/カバレッジに支障となるオプションを除去
     #   /O1, /O2: 最適化 (コード再配置・省略が発生)
     #   /Ob1, /Ob2: インライン展開 (関数呼び出しが消える)
@@ -149,11 +145,9 @@ CFLAGS   += $(addprefix -I, $(INCDIR))
 CXXFLAGS += $(addprefix -I, $(INCDIR))
 
 # リンクライブラリファイル名の解決
-ifneq ($(OS),Windows_NT)
-    # Linux
+ifdef PLATFORM_LINUX
     LIBS := $(addprefix -l, $(LIBS))
-else
-    # Windows
+else ifdef PLATFORM_WINDOWS
     # まず lib なしでファイルを探索し、無い場合は lib を付けて再探索
     # (advapi32 等のフレームワークライブラリは lib が付かないための対策)
     # First search without lib prefix, then retry with lib prefix
@@ -167,11 +161,9 @@ else
 endif
 
 # リンクライブラリフォルダ名の解決
-ifneq ($(OS),Windows_NT)
-    # Linux
+ifdef PLATFORM_LINUX
     LDFLAGS := $(LDFLAGS) $(addprefix -L, $(LIBSDIR))
-else
-    # Windows
+else ifdef PLATFORM_WINDOWS
     LDFLAGS := $(LDFLAGS) $(addprefix /LIBPATH:, $(LIBSDIR))
 endif
 
@@ -183,7 +175,7 @@ OBJS := $(filter-out $(OBJDIR)/%.inject.o, \
 	$(notdir $(patsubst %.c, %.o, $(patsubst %.cc, %.o, $(patsubst %.cpp, %.o, $(SRCS_C) $(SRCS_CPP))))))))
 # DEPS
 DEPS := $(patsubst %.o, %.d, $(OBJS))
-ifeq ($(OS),Windows_NT)
+ifdef PLATFORM_WINDOWS
     # Windows の場合は .o を .obj に置換
     OBJS := $(patsubst %.o, %.obj, $(OBJS))
 endif
@@ -192,12 +184,12 @@ endif
 # Recursively collect object files from subdirectories' obj directories
 # find -exec find を単一の find -path パターンに変更してプロセス生成を削減
 # Replace find -exec find with single find using -path pattern to reduce process creation
-ifeq ($(OS),Windows_NT)
-    # Windows: .obj ファイルを検索
-    SUBDIR_OBJS := $(shell find . -path "./obj" -prune -o -path "*/obj/*.obj" -type f -print 2>/dev/null)
-else
+ifdef PLATFORM_LINUX
     # Linux: .o ファイルを検索
     SUBDIR_OBJS := $(shell find . -path "./obj" -prune -o -path "*/obj/*.o" -type f -print 2>/dev/null)
+else ifdef PLATFORM_WINDOWS
+    # Windows: .obj ファイルを検索
+    SUBDIR_OBJS := $(shell find . -path "./obj" -prune -o -path "*/obj/*.obj" -type f -print 2>/dev/null)
 endif
 OBJS += $(SUBDIR_OBJS)
 
@@ -210,8 +202,7 @@ OUTPUT_DIR ?= $(CURDIR)/bin
 ifeq ($(TARGET),)
     TARGET := $(notdir $(CURDIR))
 endif
-ifeq ($(OS),Windows_NT)
-    # Windows
+ifdef PLATFORM_WINDOWS
     TARGET := $(TARGET).exe
 endif
 
@@ -274,8 +265,7 @@ endif
 ifndef NO_LINK
     # 実行体の生成
     # Build the executable
-    ifneq ($(OS),Windows_NT)
-        # Linux
+    ifdef PLATFORM_LINUX
 $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
 			@all_objs="$(OBJS)"; \
 			sub_objs=$$(find . -name "*.o" -not -path "./obj/*"); \
@@ -286,8 +276,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
 				echo "$(strip $(LD) $(LDFLAGS) -o $(call _relpath,$@) $$all_objs $(LIBS))"; \
 				set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $$all_objs $(LIBS) -fdiagnostics-color=always 2>&1 | $(ICONV); \
 			fi
-    else
-        # Windows
+    else ifdef PLATFORM_WINDOWS
 $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
 			@all_objs="$(OBJS)"; \
 			sub_objs=$$(find . -name "*.obj" -not -path "./obj/*"); \
@@ -317,8 +306,7 @@ show-exepath:
 # Compile rule template definition
 # 引数: $(1)=拡張子 (c/cc/cpp), $(2)=コンパイラ変数名 (CC/CXX), $(3)=フラグ変数名 (CFLAGS/CXXFLAGS)
 define compile_rule_template
-ifneq ($$(OS),Windows_NT)
-    # Linux
+ifdef PLATFORM_LINUX
 $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR)
 		@set -o pipefail; if echo $$(TEST_SRCS) | grep -q $$(notdir $$<); then \
 			echo $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC -c -o $$@ $$<; \
@@ -327,8 +315,7 @@ $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_S
 			echo $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$<; \
 			LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV); \
 		fi
-else
-    # Windows
+else ifdef PLATFORM_WINDOWS
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR)
 		@set -o pipefail; if echo $$(TEST_SRCS) | grep -q $$(notdir $$<); then \
 			echo $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) /Fd:$$(patsubst %.obj,%.pdb,$$@) -D_IN_TEST_SRC /c /Fo$$@ $$<; \
@@ -431,11 +418,9 @@ $(OBJDIR):
 _relpath = $(patsubst $(CURDIR)/%,%,$(1))
 
 CLEAN_COMMON := $(strip $(call _relpath,$(OUTPUT_DIR)/$(TARGET)) $(OBJDIR) $(GCOVDIR) $(COVERAGEDIR) $(notdir $(CP_SRCS) $(LINK_SRCS)) results)
-ifneq ($(OS),Windows_NT)
-    # Linux
+ifdef PLATFORM_LINUX
     CLEAN_OS := core $(LCOVDIR)
-else
-    # Windows
+else ifdef PLATFORM_WINDOWS
     CLEAN_OS := $(call _relpath,$(patsubst %.exe,%.pdb,$(OUTPUT_DIR)/$(TARGET)))
 endif
 ifeq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)

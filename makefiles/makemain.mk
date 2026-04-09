@@ -29,9 +29,9 @@ _dir_lc_name = $(call _lc,$(notdir $(patsubst %/,%,$(1))))
 define _os_filter_subdir
 $(strip \
     $(if $(filter linux,$(call _dir_lc_name,$(1))),\
-        $(if $(filter Windows_NT,$(OS)),,$(1)),\
+        $(if $(PLATFORM_LINUX),$(1),),\
     $(if $(filter windows,$(call _dir_lc_name,$(1))),\
-        $(if $(filter Windows_NT,$(OS)),$(1),),\
+        $(if $(PLATFORM_WINDOWS),$(1),),\
     $(1))))
 endef
 

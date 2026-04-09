@@ -29,26 +29,29 @@ endif
 
 export PLATFORM
 
-PLATFORM_WINDOWS := 0
-PLATFORM_LINUX := 0
-PLATFORM_UNKNOWN := 0
+override undefine PLATFORM_WINDOWS
+override undefine PLATFORM_LINUX
+override undefine PLATFORM_UNKNOWN
 
 ifeq ($(PLATFORM),Windows)
-    PLATFORM_WINDOWS := 1
+    override PLATFORM_WINDOWS := 1
+    export PLATFORM_WINDOWS
 else ifeq ($(PLATFORM),Linux)
-    PLATFORM_LINUX := 1
+    override PLATFORM_LINUX := 1
+    export PLATFORM_LINUX
 else
-    PLATFORM_UNKNOWN := 1
+    override PLATFORM_UNKNOWN := 1
+    export PLATFORM_UNKNOWN
 endif
-
-export PLATFORM_WINDOWS
-export PLATFORM_LINUX
-export PLATFORM_UNKNOWN
 
 #$(info PLATFORM: $(PLATFORM))
 #$(info PLATFORM_WINDOWS: $(PLATFORM_WINDOWS))
 #$(info PLATFORM_LINUX: $(PLATFORM_LINUX))
 #$(info PLATFORM_UNKNOWN: $(PLATFORM_UNKNOWN))
+
+ifdef PLATFORM_UNKNOWN
+    $(error Unsupported PLATFORM: $(PLATFORM). Supported platforms are Linux and Windows)
+endif
 
 # c_cpp_properties.json から defines を得る (get_config.sh に統合)
 # Get defines from c_cpp_properties.json (consolidated into get_config.sh)
@@ -96,8 +99,7 @@ else
     ARCH := $(UNAME_ARCH)
 endif
 
-ifneq ($(OS),Windows_NT)
-    # Linux (ex: linux-el8-x64)
+ifdef PLATFORM_LINUX
     # RHEL系 (Oracle Linux, RHEL, CentOS, Rocky Linux など) の場合
     # For RHEL-based distributions (Oracle Linux, RHEL, CentOS, Rocky Linux, etc.)
     # /etc/redhat-release の有無判定と sed を1つの shell 呼び出しに統合
@@ -111,8 +113,7 @@ ifneq ($(OS),Windows_NT)
         OS_ID := $(shell . /etc/os-release 2>/dev/null && echo $$ID || echo linux)
     endif
     TARGET_ARCH := linux-$(OS_ID)-$(ARCH)
-else
-    # Windows (ex: windows-x64)
+else ifdef PLATFORM_WINDOWS
     TARGET_ARCH := windows-$(ARCH)
 endif
 
@@ -146,7 +147,7 @@ CONFIG ?= RelWithDebInfo
 # - command line: コマンドライン引数から
 # 以下は、make のデフォルト値の場合のみ、値を置き換えます。
 # 環境変数やコマンドライン引数で指定された場合はそちらが優先されます。
-ifneq ($(OS),Windows_NT)
+ifdef PLATFORM_LINUX
     # Linux (gcc/g++)
     ifeq ($(origin CC),default)
         CC = gcc
@@ -160,7 +161,7 @@ ifneq ($(OS),Windows_NT)
     ifeq ($(origin AR),default)
         AR = ar
     endif
-else
+else ifdef PLATFORM_WINDOWS
     # Windows (MSVC)
 
     # Windows 環境のインターロックチェック
@@ -248,7 +249,7 @@ MAKEPART_MK := $(strip $(call _reverse,$(MAKEPART_MK)))
 
 # Windows の場合、MSVC C ランタイムライブラリの設定
 # Set MSVC C runtime library configuration for Windows
-ifeq ($(OS),Windows_NT)
+ifdef PLATFORM_WINDOWS
     # MSVC C ランタイムライブラリの種類 (shared または static)
     # MSVC C runtime library type (shared or static)
     # shared: Multi-threaded DLL (/MD, /MDd)

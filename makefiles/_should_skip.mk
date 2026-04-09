@@ -17,16 +17,16 @@
 #   その他 / other            -> スキップしない / not skip
 #
 # 例 / Examples:
-#   make SKIP_BUILD=1          # 常にビルドをスキップ
-#   make SKIP_BUILD=LINUX      # Linux でのみビルドをスキップ
-#   make SKIP_TEST=WINDOWS     # Windows でのみテストをスキップ
+#   make SKIP_BUILD=1                    # 常にビルドをスキップ
+#   make SKIP_BUILD=LINUX                # Linux でのみビルドをスキップ
+#   make SKIP_TEST=WINDOWS               # Windows でのみテストをスキップ
 #   make SKIP_BUILD=BOTH SKIP_TEST=BOTH  # 両方スキップ
 #
 define should_skip
 $(strip \
     $(if $(filter 1 BOTH both Both,$(1)),true,\
         $(if $(filter WINDOWS windows Windows,$(1)),\
-            $(if $(filter Windows_NT,$(OS)),true,),\
+            $(if $(PLATFORM_WINDOWS),true,),\
             $(if $(filter LINUX linux Linux,$(1)),\
-                $(if $(filter Windows_NT,$(OS)),,true),))))
+                $(if $(PLATFORM_LINUX),true,),))))
 endef
