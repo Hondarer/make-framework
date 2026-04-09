@@ -1,14 +1,54 @@
 # 各 makefile から呼び出され、
-# 1. c_cpp_properties.json から defines を設定する
-# 2. ソースファイルのエンコード指定から LANG を得る
-# 3. コンパイルコマンド関連を設定する
-# 4. 親階層から makefile の存在する階層までに存在する makepart.mk を
+# 1. プラットフォームの判定を行う
+# 2. c_cpp_properties.json から defines を設定する
+# 3. ソースファイルのエンコード指定から LANG を得る
+# 4. コンパイルコマンド関連を設定する
+# 5. 親階層から makefile の存在する階層までに存在する makepart.mk を
 #    親階層から makefile の存在する階層に向かって順次 include する
 #    各 makepart.mk の直後に、同ディレクトリの makechild.mk が存在すれば include する
 #    (カレントディレクトリの makechild.mk は子階層以降にのみ適用されるため除く)
-# 5. カレントディレクトリの makelocal.mk を include する
+# 6. カレントディレクトリの makelocal.mk を include する
 
 SHELL := /bin/bash
+
+# プラットフォーム判定
+# すでに定義されているか確認
+ifeq ($(origin PLATFORM), undefined)
+    # 判定
+    ifeq ($(OS),Windows_NT)
+        PLATFORM := Windows
+    else
+        UNAME_S := $(shell uname -s 2>/dev/null)
+        ifeq ($(UNAME_S),Linux)
+            PLATFORM := Linux
+        else
+            PLATFORM := Unknown
+        endif
+    endif
+endif
+
+export PLATFORM
+
+PLATFORM_WINDOWS := 0
+PLATFORM_LINUX := 0
+PLATFORM_UNKNOWN := 0
+
+ifeq ($(PLATFORM),Windows)
+    PLATFORM_WINDOWS := 1
+else ifeq ($(PLATFORM),Linux)
+    PLATFORM_LINUX := 1
+else
+    PLATFORM_UNKNOWN := 1
+endif
+
+export PLATFORM_WINDOWS
+export PLATFORM_LINUX
+export PLATFORM_UNKNOWN
+
+#$(info PLATFORM: $(PLATFORM))
+#$(info PLATFORM_WINDOWS: $(PLATFORM_WINDOWS))
+#$(info PLATFORM_LINUX: $(PLATFORM_LINUX))
+#$(info PLATFORM_UNKNOWN: $(PLATFORM_UNKNOWN))
 
 # c_cpp_properties.json から defines を得る (get_config.sh に統合)
 # Get defines from c_cpp_properties.json (consolidated into get_config.sh)
