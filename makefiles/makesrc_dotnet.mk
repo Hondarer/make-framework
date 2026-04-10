@@ -10,7 +10,7 @@ _relpath = $(patsubst $(CURDIR)/%,%,$(1))
 OUTPUT_DIR ?= $(CURDIR)/bin
 
 # テストスクリプトのパス
-TESTSH := $(WORKSPACE_FOLDER)/testfw/cmnd/exec_test_dotnet.sh
+TESTSH := $(WORKSPACE_FOLDER)/framework/testfw/cmnd/exec_test_dotnet.sh
 
 # プロジェクト名 (カレントディレクトリ名から取得)
 PROJECT_NAME := $(notdir $(patsubst %/,%,$(CURDIR)))

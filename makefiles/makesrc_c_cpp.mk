@@ -16,7 +16,7 @@ ifeq ($(LINK_TEST), 1)
         LDFLAGS := $(filter-out -flto,$(LDFLAGS))
         # TARGET_ARCH を使用してプラットフォーム固有のパスを指定
         # Use TARGET_ARCH for platform-specific path (e.g., linux-el8-x64)
-        LIBSDIR += $(WORKSPACE_FOLDER)/testfw/gtest/lib/$(TARGET_ARCH)
+        LIBSDIR += $(WORKSPACE_FOLDER)/framework/testfw/gtest/lib/$(TARGET_ARCH)
     else ifdef PLATFORM_WINDOWS
         # ステップ実行/カバレッジに支障となるオプションを除去
         #   /LTCG: リンク時コード生成 (プログラム全体最適化)
@@ -25,7 +25,7 @@ ifeq ($(LINK_TEST), 1)
         # MSVC_CRT_SUBDIR is calculated in prepare.mk from CONFIG and MSVC_CRT
         # TARGET_ARCH を使用してプラットフォーム固有のパスを指定
         # Use TARGET_ARCH for platform-specific path (e.g., windows-x64/md)
-        LIBSDIR += $(WORKSPACE_FOLDER)/testfw/gtest/lib/$(TARGET_ARCH)/$(MSVC_CRT_SUBDIR)
+        LIBSDIR += $(WORKSPACE_FOLDER)/framework/testfw/gtest/lib/$(TARGET_ARCH)/$(MSVC_CRT_SUBDIR)
     endif
 
     ifneq ($(NO_GTEST_MAIN), 1)
@@ -52,7 +52,7 @@ LIBSFILES := $(filter %.lib %.a %.so %.dylib %.dll %.pdb,$(_LIBSFILES_ALL))
 #$(info USE_WRAP_MAIN: $(USE_WRAP_MAIN))
 #$(info LIBS: $(LIBS))
 
-TESTSH := $(WORKSPACE_FOLDER)/testfw/cmnd/exec_test_c_cpp.sh
+TESTSH := $(WORKSPACE_FOLDER)/framework/testfw/cmnd/exec_test_c_cpp.sh
 
 GCOVDIR := gcov
 LCOVDIR := lcov
@@ -70,8 +70,8 @@ CXXFLAGS += $(addprefix -D,$(DEFINES))
 
 # テスト対象
 # For test targets
-CFLAGS_TEST := $(CFLAGS) -I$(WORKSPACE_FOLDER)/testfw/include_override -I$(WORKSPACE_FOLDER)/test/include_override $(addprefix -I, $(INCDIR))
-CXXFLAGS_TEST := $(CXXFLAGS) -I$(WORKSPACE_FOLDER)/testfw/include_override -I$(WORKSPACE_FOLDER)/test/include_override $(addprefix -I, $(INCDIR))
+CFLAGS_TEST := $(CFLAGS) -I$(WORKSPACE_FOLDER)/framework/testfw/include_override -I$(WORKSPACE_FOLDER)/test/include_override $(addprefix -I, $(INCDIR))
+CXXFLAGS_TEST := $(CXXFLAGS) -I$(WORKSPACE_FOLDER)/framework/testfw/include_override -I$(WORKSPACE_FOLDER)/test/include_override $(addprefix -I, $(INCDIR))
 ifdef PLATFORM_LINUX
     # ステップ実行/カバレッジに支障となるオプションを除去
     #   -O1, -O2, -O3, -Os, -Ofast: 最適化レベル

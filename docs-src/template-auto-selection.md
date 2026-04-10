@@ -306,7 +306,7 @@ endif
 
 # ライブラリ検索パスの追加
 LIBSDIR += \
-    $(WORKSPACE_FOLDER)/testfw/lib \
+    $(WORKSPACE_FOLDER)/framework/testfw/lib \
     $(WORKSPACE_FOLDER)/test/lib
 ```
 
