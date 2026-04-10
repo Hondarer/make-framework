@@ -10,7 +10,9 @@ _relpath = $(patsubst $(CURDIR)/%,%,$(1))
 OUTPUT_DIR ?= $(CURDIR)/bin
 
 # テストスクリプトのパス
-TESTSH := $(WORKSPACE_FOLDER)/framework/testfw/cmnd/exec_test_dotnet.sh
+ifneq ($(strip $(TESTFW_DIR)),)
+    TESTSH := $(TESTFW_DIR)/cmnd/exec_test_dotnet.sh
+endif
 
 # プロジェクト名 (カレントディレクトリ名から取得)
 PROJECT_NAME := $(notdir $(patsubst %/,%,$(CURDIR)))
@@ -60,7 +62,11 @@ test: _pre_test_hook _test_main _post_test_hook
 # 実際のテスト処理
 # Actual test process
 _test_main: $(TESTSH) build
-	@status=0; \
+	@if [ -z "$(TESTSH)" ]; then \
+		echo "$(TESTFW_DIR_ERROR)"; \
+		exit 1; \
+	fi; \
+	status=0; \
 	export OUTPUT_DIR="$(OUTPUT_DIR)" && export CONFIG="$(CONFIG)" && "$(SHELL)" "$(TESTSH)" > >($(ICONV)) 2> >($(ICONV) >&2) || status=$$?; \
 	exit $$status
 

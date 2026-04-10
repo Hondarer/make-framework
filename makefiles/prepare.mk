@@ -53,6 +53,24 @@ ifdef PLATFORM_UNKNOWN
     $(error Unsupported PLATFORM: $(PLATFORM). Supported platforms are Linux and Windows)
 endif
 
+# testfw の配置パスを解決
+# Resolve testfw location
+# 優先順位:
+# 1. 明示指定された TESTFW_DIR
+# 2. 統合プロジェクト配下の framework/testfw
+# 3. 単独 CI / sibling 配置の testfw
+ifeq ($(strip $(TESTFW_DIR)),)
+    ifneq ($(wildcard $(WORKSPACE_FOLDER)/framework/testfw),)
+        TESTFW_DIR := $(WORKSPACE_FOLDER)/framework/testfw
+    else ifneq ($(wildcard $(WORKSPACE_FOLDER)/testfw),)
+        TESTFW_DIR := $(WORKSPACE_FOLDER)/testfw
+    endif
+else
+    TESTFW_DIR := $(abspath $(TESTFW_DIR))
+endif
+TESTFW_DIR_ERROR := testfw directory not found. Set TESTFW_DIR or place testfw under $(WORKSPACE_FOLDER)/framework/testfw or $(WORKSPACE_FOLDER)/testfw.
+export TESTFW_DIR
+
 # c_cpp_properties.json から defines を得る (get_config.sh に統合)
 # Get defines from c_cpp_properties.json (consolidated into get_config.sh)
 DEFINES := $(shell sh $(WORKSPACE_FOLDER)/makefw/cmnd/get_config.sh defines)
