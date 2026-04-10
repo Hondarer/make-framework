@@ -5,16 +5,21 @@
 # 使用方法 (Usage):
 #   cl /showIncludes ... 2>&1 | powershell -ExecutionPolicy Bypass -File msvc_dep.ps1 target.obj source.c target.d
 
-$target  = $args[0]
-$source  = $args[1]
-$depfile = $args[2]
+$target   = $args[0]
+$source   = $args[1]
+$depfile  = $args[2]
+$warnfile = if ($args.Count -gt 3) { $args[3] } else { $null }
 
 # 引数チェック
 if (-not $target -or -not $source -or -not $depfile) {
     Write-Host "Error: Required arguments not provided" -ForegroundColor Red
-    Write-Host "Usage: powershell -File msvc_dep.ps1 target.obj source.c target.d"
+    Write-Host "Usage: powershell -File msvc_dep.ps1 target.obj source.c target.d [warn_file]"
     exit 1
 }
+
+# 警告行の収集用リスト
+# List to collect warning lines
+$warnLines = @()
 
 # 依存ファイルのリストを保存 (空ルール生成用)
 $deps = @()
@@ -74,6 +79,7 @@ foreach ($line in $input) {
         }
         elseif ($outputLine -match '\bwarning\b') {
             Write-Host $outputLine -ForegroundColor Yellow
+            if ($warnfile) { $warnLines += $outputLine }
         }
         else {
             Write-Host $outputLine
@@ -98,4 +104,15 @@ $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 if (Test-Path $target) {
     $objTime = (Get-Item $target).LastWriteTime
     (Get-Item $depfile).LastWriteTime = $objTime
+}
+
+# 警告行を warn_file に書き出す (警告がなければファイルを作成しない)
+# Write warning lines to warn_file (do not create file when no warnings)
+if ($warnfile) {
+    if ($warnLines.Count -gt 0) {
+        $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+        [System.IO.File]::WriteAllLines($warnfile, $warnLines, $utf8NoBom)
+    } else {
+        Remove-Item -Path $warnfile -Force -ErrorAction SilentlyContinue
+    }
 }

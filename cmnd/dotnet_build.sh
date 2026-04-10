@@ -37,6 +37,15 @@ echo "dotnet build $*"
 buf=$(dotnet build "$@" 2>&1)
 rc=$?
 
+# 警告行を WARN_FILE に書き出す (警告がなければファイルを作成しない)
+# Write warning lines to WARN_FILE (do not create file when no warnings)
+if [ -n "$WARN_FILE" ]; then
+    echo "$buf" | grep -E ': warning ' > "$WARN_FILE" 2>/dev/null || true
+    if [ ! -s "$WARN_FILE" ]; then
+        rm -f "$WARN_FILE"
+    fi
+fi
+
 # warning/error が検出された場合、またはビルド失敗の場合のみ詳細を表示
 # Display details only when warnings/errors are detected or build failed
 if [ $rc -ne 0 ] || echo "$buf" | grep -qE ': (warning|error) '; then

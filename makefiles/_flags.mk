@@ -196,6 +196,10 @@ else ifdef PLATFORM_WINDOWS
     OBJDIR  := obj/$(MSVC_CRT_SUBDIR)
 endif
 
+# 警告キャプチャスクリプト (コンパイラ/リンカ出力から .warn ファイルを生成)
+# Warning capture script (generates .warn files from compiler/linker output)
+CAPTURE_WARNINGS := $(WORKSPACE_FOLDER)/makefw/cmnd/capture_warnings.sh
+
 # wrap-main
 ifeq ($(USE_WRAP_MAIN),1)
     # リンクオプションの追加

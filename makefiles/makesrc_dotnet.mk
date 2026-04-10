@@ -41,7 +41,7 @@ DOTNET_BUILD := $(WORKSPACE_FOLDER)/makefw/cmnd/dotnet_build.sh
 
 $(OUTPUT_ASSEMBLY): $(SOURCES) $(PROJECT_FILE)
     # dotnet_build.sh 側にてビルドコマンドは echo される
-	@"$(DOTNET_BUILD)" -c $(CONFIG) -o $(OUTPUT_DIR)
+	@WARN_FILE="$(OUTPUT_DIR)/$(TARGET).warn" "$(DOTNET_BUILD)" -c $(CONFIG) -o $(OUTPUT_DIR)
 
 .PHONY: build _build_main
 build: _pre_build_hook _build_main _post_build_hook
@@ -74,7 +74,7 @@ clean: _pre_clean_hook _clean_main _post_clean_hook
 # 実際のクリーン処理
 # Actual clean process
 _clean_main:
-	rm -rf $(call _relpath,$(OUTPUT_DIR)/$(PROJECT_NAME).*) bin obj results
+	rm -rf $(call _relpath,$(OUTPUT_DIR)/$(PROJECT_NAME).*) $(call _relpath,$(OUTPUT_DIR)/$(TARGET).warn) bin obj results
     # $(OUTPUT_DIR) に配下がなければ、$(OUTPUT_DIR) を削除する (rmdir は非空なら失敗するので直接試行)
     # Remove $(OUTPUT_DIR) if it's empty (rmdir fails on non-empty, so just try it)
 	@rmdir "$(call _relpath,$(OUTPUT_DIR))" 2>/dev/null && echo "rmdir \"$(call _relpath,$(OUTPUT_DIR))\"" || true
