@@ -213,7 +213,7 @@ else ifdef PLATFORM_WINDOWS
     # 2. cl.exe の存在確認 (結果を CL_PATH として再利用し、where cl の重複呼び出しを排除)
     # Check cl.exe existence (reuse result as CL_PATH to eliminate duplicate where cl calls)
     ifeq ($(origin MAKEFW_CL_PATH), undefined)
-        MAKEFW_CL_PATH := $(shell where cl 2>/dev/null | head -1)
+        MAKEFW_CL_PATH := $(shell where.exe cl 2>nul | head -1)
     endif
     export MAKEFW_CL_PATH
     CL_PATH := $(MAKEFW_CL_PATH)
@@ -232,14 +232,50 @@ else ifdef PLATFORM_WINDOWS
         # CL_PATH は上で取得済みのため再利用
         # CL_PATH is already obtained above, reuse it
         # 1. cl を link に置換する
-        # 2. 8.3 形式に変換 (スペースを含まないパスに変換)
-        # 3. Unix パス形式に変換 (bash でバックスラッシュが消えるのを防ぐ)
-        LD = $(shell cygpath -u "$$(cygpath -d "$(subst cl.exe,link.exe,$(CL_PATH))")")
+        # 2. 可能なら 8.3 形式に変換
+        # 3. bash 実行向けに Unix パス形式へ変換
+        # 短縮名が取得できない環境でも、後段でクォートして実行できるパスを保持する
+        MAKEFW_LINK_PATH_WIN := $(subst cl.exe,link.exe,$(CL_PATH))
+        MAKEFW_LINK_PATH_SHORT := $(shell cygpath -d "$(MAKEFW_LINK_PATH_WIN)" 2>/dev/null)
+        ifeq ($(MAKEFW_LINK_PATH_SHORT),)
+            MAKEFW_LINK_PATH_SHORT := $(MAKEFW_LINK_PATH_WIN)
+        endif
+        MAKEFW_LINK_PATH_UNIX := $(shell cygpath -u "$(MAKEFW_LINK_PATH_SHORT)" 2>/dev/null)
+        ifeq ($(MAKEFW_LINK_PATH_UNIX),)
+            MAKEFW_LINK_PATH := $(MAKEFW_LINK_PATH_SHORT)
+        else
+            MAKEFW_LINK_PATH := $(MAKEFW_LINK_PATH_UNIX)
+        endif
+        export MAKEFW_LINK_PATH
+        LD = $(MAKEFW_LINK_PATH)
     endif
     ifeq ($(origin AR),default)
         AR = lib
     endif
+
+    # 3. dotnet.exe の存在確認と実行パス解決
+    ifeq ($(origin MAKEFW_DOTNET_PATH), undefined)
+        MAKEFW_DOTNET_PATH_WIN := $(shell where.exe dotnet 2>nul | head -1)
+        ifneq ($(MAKEFW_DOTNET_PATH_WIN),)
+            MAKEFW_DOTNET_PATH_UNIX := $(shell cygpath -u "$(MAKEFW_DOTNET_PATH_WIN)" 2>/dev/null)
+            ifeq ($(MAKEFW_DOTNET_PATH_UNIX),)
+                MAKEFW_DOTNET_PATH := $(MAKEFW_DOTNET_PATH_WIN)
+            else
+                MAKEFW_DOTNET_PATH := $(MAKEFW_DOTNET_PATH_UNIX)
+            endif
+        endif
+    endif
+    export MAKEFW_DOTNET_PATH
 endif
+
+ifeq ($(origin DOTNET), undefined)
+    ifneq ($(strip $(MAKEFW_DOTNET_PATH)),)
+        DOTNET := $(MAKEFW_DOTNET_PATH)
+    else
+        DOTNET := dotnet
+    endif
+endif
+export DOTNET
 
 C_STANDARD   := 17
 CXX_STANDARD := 17

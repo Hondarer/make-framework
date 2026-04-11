@@ -230,7 +230,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJ
 			newest=$$(ls -t $$all_objs $(STATIC_LIBS) $@ 2>/dev/null | head -1); \
 			if [ "$$newest" != "$@" ]; then \
 				echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
-				set -o pipefail; MSYS_NO_PATHCONV=1 $(LD) /DLL /OUT:$@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(CAPTURE_WARNINGS) $(OBJDIR)/link.warn; \
+				set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(CAPTURE_WARNINGS) $(OBJDIR)/link.warn; \
 			fi; \
 			find $(OBJDIR) -name '*.warn' -size +0 -exec cat {} + > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null || true; \
 			if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi

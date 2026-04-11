@@ -32,9 +32,19 @@
 # Show the command being executed
 echo "dotnet build $*"
 
+DOTNET_CMD="${DOTNET:-}"
+if [ -z "$DOTNET_CMD" ]; then
+    DOTNET_CMD=$(command -v dotnet 2>/dev/null)
+fi
+
+if [ -z "$DOTNET_CMD" ]; then
+    echo "dotnet executable not found" >&2
+    exit 127
+fi
+
 # dotnet build を実行し、出力をシェル変数にバッファ
 # Run dotnet build and buffer output in a shell variable
-buf=$(dotnet build "$@" 2>&1)
+buf=$("$DOTNET_CMD" build "$@" 2>&1)
 rc=$?
 
 # 警告行を WARN_FILE に書き出す (警告がなければファイルを作成しない)
