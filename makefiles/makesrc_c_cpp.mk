@@ -284,10 +284,8 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
 			newest=$$(ls -t $$all_objs $(LIBSFILES) $@ 2>/dev/null | head -1); \
 			if [ "$$newest" != "$@" ]; then \
 				echo "$(strip $(LD) $(LDFLAGS) -o $(call _relpath,$@) $$all_objs $(LIBS))"; \
-				set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $$all_objs $(LIBS) -fdiagnostics-color=always 2>&1 | $(ICONV) | $(CAPTURE_WARNINGS) $(OBJDIR)/link.warn; \
+				set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $$all_objs $(LIBS) -fdiagnostics-color=always 2>&1 | $(ICONV) | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 			fi; \
-			warn_files=$$(find $(OBJDIR) -name '*.warn' -size +0 2>/dev/null); \
-			if [ -n "$$warn_files" ]; then printf '%s\n' "$$warn_files" | xargs cat > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null; rm -f $$warn_files; else rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
 			if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi
     else ifdef PLATFORM_WINDOWS
 $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
@@ -298,10 +296,8 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
 			newest=$$(ls -t $$all_objs $(LIBSFILES) $@ 2>/dev/null | head -1); \
 			if [ "$$newest" != "$@" ]; then \
 				echo "$(strip $(basename $(notdir $(LD))) $(LDFLAGS) /PDB:$(call _relpath,$(patsubst %.exe,%.pdb,$@)) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$(call _relpath,$@) $$all_objs $(LIBS))"; \
-				set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ $$all_objs $(LIBS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_FOLDER)/framework/makefw/bin/msvc_link_output.ps1 | $(CAPTURE_WARNINGS) $(OBJDIR)/link.warn; \
+				set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ $$all_objs $(LIBS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_FOLDER)/framework/makefw/bin/msvc_link_output.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 			fi; \
-			warn_files=$$(find $(OBJDIR) -name '*.warn' -size +0 2>/dev/null); \
-			if [ -n "$$warn_files" ]; then printf '%s\n' "$$warn_files" | xargs cat > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null; rm -f $$warn_files; else rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
 			if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi
     endif
 else
@@ -326,19 +322,19 @@ ifdef PLATFORM_LINUX
 $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR)
 		@set -o pipefail; if echo $$(TEST_SRCS) | grep -q $$(notdir $$<); then \
 			echo $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC -c -o $$@ $$<; \
-			LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV) | $$(CAPTURE_WARNINGS) $$(patsubst %.o,%.warn,$$@); \
+			LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV) | $$(CAPTURE_WARNINGS) $$<.warn; \
 		else \
 			echo $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$<; \
-			LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV) | $$(CAPTURE_WARNINGS) $$(patsubst %.o,%.warn,$$@); \
+			LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV) | $$(CAPTURE_WARNINGS) $$<.warn; \
 		fi
 else ifdef PLATFORM_WINDOWS
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR)
 		@set -o pipefail; if echo $$(TEST_SRCS) | grep -q $$(notdir $$<); then \
 			echo $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) /Fd:$$(patsubst %.obj,%.pdb,$$@) -D_IN_TEST_SRC /c /Fo$$@ $$<; \
-			MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) /Fd:$$(patsubst %.obj,%.pdb,$$@) -D_IN_TEST_SRC /c /Fo$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/framework/makefw/bin/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$(patsubst %.obj,%.warn,$$@); \
+			MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) /Fd:$$(patsubst %.obj,%.pdb,$$@) -D_IN_TEST_SRC /c /Fo$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/framework/makefw/bin/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$<.warn; \
 		else \
 			echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(patsubst %.obj,%.pdb,$$@) /c /Fo$$@ $$<; \
-			MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(patsubst %.obj,%.pdb,$$@) /c /Fo$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/framework/makefw/bin/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$(patsubst %.obj,%.warn,$$@); \
+			MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(patsubst %.obj,%.pdb,$$@) /c /Fo$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/framework/makefw/bin/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$<.warn; \
 		fi
 endif
 endef
@@ -433,7 +429,9 @@ $(OBJDIR):
 # Convert absolute paths under $(CURDIR) to relative paths (for readable make output)
 _relpath = $(patsubst $(CURDIR)/%,%,$(1))
 
-CLEAN_COMMON := $(strip $(call _relpath,$(OUTPUT_DIR)/$(TARGET)) $(call _relpath,$(OUTPUT_DIR)/$(TARGET).warn) $(OBJDIR) $(GCOVDIR) $(COVERAGEDIR) $(notdir $(CP_SRCS) $(LINK_SRCS)) results)
+WARN_SRCS := $(addsuffix .warn,$(SRCS_C) $(SRCS_CPP))
+
+CLEAN_COMMON := $(strip $(call _relpath,$(OUTPUT_DIR)/$(TARGET)) $(call _relpath,$(OUTPUT_DIR)/$(TARGET).warn) $(OBJDIR) $(GCOVDIR) $(COVERAGEDIR) $(WARN_SRCS) $(notdir $(CP_SRCS) $(LINK_SRCS)) results)
 ifdef PLATFORM_LINUX
     CLEAN_OS := core $(LCOVDIR)
 else ifdef PLATFORM_WINDOWS

@@ -217,10 +217,8 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
 				newest=$$(ls -t $$all_objs $(STATIC_LIBS) $@ 2>/dev/null | head -1); \
 				if [ "$$newest" != "$@" ]; then \
 					echo "$(strip $(CC) -shared -o $(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
-					set -o pipefail; $(CC) -shared -o $@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(CAPTURE_WARNINGS) $(OBJDIR)/link.warn; \
+					set -o pipefail; $(CC) -shared -o $@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 				fi; \
-				warn_files=$$(find $(OBJDIR) -name '*.warn' -size +0 2>/dev/null); \
-				if [ -n "$$warn_files" ]; then printf '%s\n' "$$warn_files" | xargs cat > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null; rm -f $$warn_files; else rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
 				if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi
         else ifdef PLATFORM_WINDOWS
 $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
@@ -231,10 +229,8 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJ
 			newest=$$(ls -t $$all_objs $(STATIC_LIBS) $@ 2>/dev/null | head -1); \
 			if [ "$$newest" != "$@" ]; then \
 				echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
-				set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_FOLDER)/framework/makefw/bin/msvc_link_output.ps1 | $(CAPTURE_WARNINGS) $(OBJDIR)/link.warn; \
+				set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_FOLDER)/framework/makefw/bin/msvc_link_output.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 			fi; \
-			warn_files=$$(find $(OBJDIR) -name '*.warn' -size +0 2>/dev/null); \
-			if [ -n "$$warn_files" ]; then printf '%s\n' "$$warn_files" | xargs cat > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null; rm -f $$warn_files; else rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
 			if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi
 			@if [ -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" ]; then mv "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" "$(OBJDIR)/"; fi
         endif
@@ -248,10 +244,8 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
 				newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
 				if [ "$$newest" != "$@" ]; then \
 					echo "$(strip $(AR) rvs $(call _relpath,$@) $$all_objs)"; \
-					$(AR) rvs $@ $$all_objs; \
+					set -o pipefail; $(AR) rvs $@ $$all_objs 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 				fi; \
-				warn_files=$$(find $(OBJDIR) -name '*.warn' -size +0 2>/dev/null); \
-				if [ -n "$$warn_files" ]; then printf '%s\n' "$$warn_files" | xargs cat > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null; rm -f $$warn_files; else rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
 				if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi
         else ifdef PLATFORM_WINDOWS
 $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
@@ -262,10 +256,8 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
 				newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
 				if [ "$$newest" != "$@" ]; then \
 					echo "$(strip $(AR) /NOLOGO /OUT:$(call _relpath,$@) $$all_objs)"; \
-					MSYS_NO_PATHCONV=1 "$(AR)" /NOLOGO /OUT:$@ $$all_objs; \
+					set -o pipefail; MSYS_NO_PATHCONV=1 "$(AR)" /NOLOGO /OUT:$@ $$all_objs 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 				fi; \
-				warn_files=$$(find $(OBJDIR) -name '*.warn' -size +0 2>/dev/null); \
-				if [ -n "$$warn_files" ]; then printf '%s\n' "$$warn_files" | xargs cat > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null; rm -f $$warn_files; else rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
 				if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi
         endif
     endif
@@ -282,18 +274,18 @@ define compile_rule_template
 ifdef PLATFORM_LINUX
 $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
 		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$<
-		@set -o pipefail; LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV) | $$(CAPTURE_WARNINGS) $$(patsubst %.o,%.warn,$$@)
+		@set -o pipefail; LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV) | $$(CAPTURE_WARNINGS) $$<.warn
 else ifdef PLATFORM_WINDOWS
     # 静的ライブラリの場合は OUTPUT_DIR に統合 PDB を生成、動的ライブラリの場合は個別 PDB を生成
     # For static libraries, generate a unified PDB in OUTPUT_DIR; for shared libraries, generate individual PDBs
     ifeq ($$(LIB_TYPE),shared)
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
 		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(patsubst %.obj,%.pdb,$$@) /c /Fo:$$@ $$<
-		@set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(patsubst %.obj,%.pdb,$$@) /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/framework/makefw/bin/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$(patsubst %.obj,%.warn,$$@)
+		@set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(patsubst %.obj,%.pdb,$$@) /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/framework/makefw/bin/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$<.warn
     else
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
 		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OUTPUT_DIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$<
-		@set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OUTPUT_DIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/framework/makefw/bin/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$(patsubst %.obj,%.warn,$$@)
+		@set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OUTPUT_DIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_FOLDER)/framework/makefw/bin/msvc_dep.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$<.warn
     endif
 endif
 endef
@@ -388,7 +380,9 @@ $(OBJDIR):
 # Convert absolute paths under $(CURDIR) to relative paths (for readable make output)
 _relpath = $(patsubst $(CURDIR)/%,%,$(1))
 
-CLEAN_COMMON := $(strip $(OBJDIR) $(notdir $(CP_SRCS) $(LINK_SRCS)))
+WARN_SRCS := $(addsuffix .warn,$(SRCS_C) $(SRCS_CPP))
+
+CLEAN_COMMON := $(strip $(OBJDIR) $(WARN_SRCS) $(notdir $(CP_SRCS) $(LINK_SRCS)))
 ifndef NO_LINK
     CLEAN_COMMON += $(call _relpath,$(OUTPUT_DIR)/$(TARGET))
     CLEAN_COMMON += $(call _relpath,$(OUTPUT_DIR)/$(TARGET).warn)
