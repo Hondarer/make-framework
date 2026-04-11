@@ -13,10 +13,24 @@
 #       sed を使った実装をデフォルトにしているが、この場合、setting.json の改行位置に注意。
 
 # このスクリプトのパス
-SCRIPT_DIR=$(dirname "$0")
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+
+find_workspace_root() {
+  local dir="$1"
+
+  while [[ "$dir" != "/" ]]; do
+    if [[ -f "$dir/.workspaceRoot" ]]; then
+      printf '%s\n' "$dir"
+      return 0
+    fi
+    dir=$(dirname -- "$dir")
+  done
+
+  return 1
+}
 
 # ワークスペースのディレクトリ
-WORKSPACE_FOLDER=$SCRIPT_DIR/../../
+WORKSPACE_FOLDER=$(find_workspace_root "$SCRIPT_DIR") || exit 0
 
 # LANG 環境変数の言語指定部分を取得 (デフォルトは "ja_JP")
 default_lang=$(echo "$LANG" | sed -E 's/\..*//' | grep -E '^[a-zA-Z]+(-[a-zA-Z]+)?$' || echo "ja_JP")

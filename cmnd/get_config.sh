@@ -1,19 +1,31 @@
 #!/bin/bash
 
-# c_cpp_properties.json から defines と includePath を一度に抽出するスクリプト
+# c_cpp_properties.json から defines と includePath を抽出するスクリプト
 # Extract both defines and includePath from c_cpp_properties.json in a single invocation
-# プロセス生成削減のため、get_defines.sh と get_include_paths.sh を統合
-# Consolidates get_defines.sh and get_include_paths.sh to reduce process creation
 #
 # Usage:
 #   get_config.sh defines       - defines のみ出力
 #   get_config.sh include_paths - includePath のみ出力
 
 # このスクリプトのパス
-SCRIPT_DIR=$(dirname "$0")
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+
+find_workspace_root() {
+    local dir="$1"
+
+    while [[ "$dir" != "/" ]]; do
+        if [[ -f "$dir/.workspaceRoot" ]]; then
+            printf '%s\n' "$dir"
+            return 0
+        fi
+        dir=$(dirname -- "$dir")
+    done
+
+    return 1
+}
 
 # ワークスペースのディレクトリ
-WORKSPACE_FOLDER=$SCRIPT_DIR/../../
+WORKSPACE_FOLDER=$(find_workspace_root "$SCRIPT_DIR") || exit 0
 
 # c_cpp_properties.json のパス
 c_cpp_properties="$WORKSPACE_FOLDER/.vscode/c_cpp_properties.json"

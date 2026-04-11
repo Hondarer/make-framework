@@ -121,7 +121,7 @@ SRCS_CPP := $(sort $(wildcard *.cc) $(wildcard *.cpp) $(notdir $(filter %.cc,$(C
 
 # c_cpp_properties.json から include ディレクトリを得る (get_config.sh に統合)
 # Get include directories from c_cpp_properties.json (consolidated into get_config.sh)
-INCDIR += $(shell sh $(WORKSPACE_FOLDER)/framework/makefw/cmnd/get_config.sh include_paths)
+INCDIR += $(shell bash $(WORKSPACE_FOLDER)/framework/makefw/cmnd/get_config.sh include_paths)
 
 # INCDIR が指すディレクトリが同じであれば、間引く
 # Remove duplicate directories from INCDIR
