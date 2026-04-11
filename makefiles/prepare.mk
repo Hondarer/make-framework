@@ -212,8 +212,9 @@ else ifdef PLATFORM_WINDOWS
 
     # 2. cl.exe の存在確認 (結果を CL_PATH として再利用し、where cl の重複呼び出しを排除)
     # Check cl.exe existence (reuse result as CL_PATH to eliminate duplicate where cl calls)
+    # Note: This file is evaluated by Bash even on Windows, so use /dev/null instead of nul.
     ifeq ($(origin MAKEFW_CL_PATH), undefined)
-        MAKEFW_CL_PATH := $(shell where.exe cl 2>nul | head -1)
+        MAKEFW_CL_PATH := $(shell where.exe cl 2>/dev/null | head -1)
     endif
     export MAKEFW_CL_PATH
     CL_PATH := $(MAKEFW_CL_PATH)
@@ -255,7 +256,7 @@ else ifdef PLATFORM_WINDOWS
 
     # 3. dotnet.exe の存在確認と実行パス解決
     ifeq ($(origin MAKEFW_DOTNET_PATH), undefined)
-        MAKEFW_DOTNET_PATH_WIN := $(shell where.exe dotnet 2>nul | head -1)
+        MAKEFW_DOTNET_PATH_WIN := $(shell where.exe dotnet 2>/dev/null | head -1)
         ifneq ($(MAKEFW_DOTNET_PATH_WIN),)
             MAKEFW_DOTNET_PATH_UNIX := $(shell cygpath -u "$(MAKEFW_DOTNET_PATH_WIN)" 2>/dev/null)
             ifeq ($(MAKEFW_DOTNET_PATH_UNIX),)
