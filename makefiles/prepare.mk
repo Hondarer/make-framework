@@ -78,7 +78,12 @@ DEFINES := $(shell bash $(WORKSPACE_FOLDER)/framework/makefw/cmnd/get_config.sh 
 #$(info DEFINES: $(DEFINES));
 
 # ソースファイルのエンコード指定から LANG を得る
-FILES_LANG := $(shell bash $(WORKSPACE_FOLDER)/framework/makefw/cmnd/get_files_lang.sh)
+# FILES_LANG is stable across recursive make invocations in the same workspace
+ifeq ($(origin MAKEFW_FILES_LANG), undefined)
+    MAKEFW_FILES_LANG := $(shell bash $(WORKSPACE_FOLDER)/framework/makefw/cmnd/get_files_lang.sh)
+endif
+export MAKEFW_FILES_LANG
+FILES_LANG := $(MAKEFW_FILES_LANG)
 
 #$(info FILES_LANG: $(FILES_LANG));
 
@@ -106,34 +111,38 @@ endif
 
 # アーキテクチャ判定
 # Determine target architecture
-# uname -m は Linux/Windows 共通で1回だけ呼ぶ
-# Call uname -m only once (shared between Linux and Windows)
-UNAME_ARCH := $(shell uname -m)
-# x86_64 を x64 に変換
-# Convert x86_64 to x64
-ifeq ($(UNAME_ARCH),x86_64)
-    ARCH := x64
-else
-    ARCH := $(UNAME_ARCH)
-endif
-
-ifdef PLATFORM_LINUX
-    # RHEL系 (Oracle Linux, RHEL, CentOS, Rocky Linux など) の場合
-    # For RHEL-based distributions (Oracle Linux, RHEL, CentOS, Rocky Linux, etc.)
-    # /etc/redhat-release の有無判定と sed を1つの shell 呼び出しに統合
-    # Combine redhat-release check and sed into single shell invocation
-    RHEL_VERSION := $(shell sed -n 's/.*release \([0-9]\+\).*/\1/p' /etc/redhat-release 2>/dev/null)
-    ifneq ($(RHEL_VERSION),)
-        OS_ID := el$(RHEL_VERSION)
+ifeq ($(origin MAKEFW_TARGET_ARCH), undefined)
+    # uname -m は Linux/Windows 共通で1回だけ呼ぶ
+    # Call uname -m only once (shared between Linux and Windows)
+    UNAME_ARCH := $(shell uname -m)
+    # x86_64 を x64 に変換
+    # Convert x86_64 to x64
+    ifeq ($(UNAME_ARCH),x86_64)
+        ARCH := x64
     else
-        # その他の Linux ディストリビューション
-        # Other Linux distributions
-        OS_ID := $(shell . /etc/os-release 2>/dev/null && echo $$ID || echo linux)
+        ARCH := $(UNAME_ARCH)
     endif
-    TARGET_ARCH := linux-$(OS_ID)-$(ARCH)
-else ifdef PLATFORM_WINDOWS
-    TARGET_ARCH := windows-$(ARCH)
+
+    ifdef PLATFORM_LINUX
+        # RHEL系 (Oracle Linux, RHEL, CentOS, Rocky Linux など) の場合
+        # For RHEL-based distributions (Oracle Linux, RHEL, CentOS, Rocky Linux, etc.)
+        # /etc/redhat-release の有無判定と sed を1つの shell 呼び出しに統合
+        # Combine redhat-release check and sed into single shell invocation
+        RHEL_VERSION := $(shell sed -n 's/.*release \([0-9]\+\).*/\1/p' /etc/redhat-release 2>/dev/null)
+        ifneq ($(RHEL_VERSION),)
+            OS_ID := el$(RHEL_VERSION)
+        else
+            # その他の Linux ディストリビューション
+            # Other Linux distributions
+            OS_ID := $(shell . /etc/os-release 2>/dev/null && echo $$ID || echo linux)
+        endif
+        MAKEFW_TARGET_ARCH := linux-$(OS_ID)-$(ARCH)
+    else ifdef PLATFORM_WINDOWS
+        MAKEFW_TARGET_ARCH := windows-$(ARCH)
+    endif
 endif
+export MAKEFW_TARGET_ARCH
+TARGET_ARCH := $(MAKEFW_TARGET_ARCH)
 
 # TARGET_ARCH をコンパイル時定数として C/C++ コードに渡す
 # Pass TARGET_ARCH as a compile-time string constant to C/C++ code
@@ -186,7 +195,11 @@ else ifdef PLATFORM_WINDOWS
     # bash と cl の存在確認を1回の where 呼び出しにまとめて取得
     # Check bash and cl existence, consolidating where calls
     # 1. bash の存在確認と MinGW (MSYS) bash の検証
-    BASH_PATH := $(shell where bash 2>/dev/null | head -1)
+    ifeq ($(origin MAKEFW_BASH_PATH), undefined)
+        MAKEFW_BASH_PATH := $(shell where bash 2>/dev/null | head -1)
+    endif
+    export MAKEFW_BASH_PATH
+    BASH_PATH := $(MAKEFW_BASH_PATH)
     ifeq ($(BASH_PATH),)
         $(error bash へのパスが通っていません。MinGW (MSYS) へのパスを設定してください。)
     endif
@@ -199,7 +212,11 @@ else ifdef PLATFORM_WINDOWS
 
     # 2. cl.exe の存在確認 (結果を CL_PATH として再利用し、where cl の重複呼び出しを排除)
     # Check cl.exe existence (reuse result as CL_PATH to eliminate duplicate where cl calls)
-    CL_PATH := $(shell where cl 2>/dev/null | head -1)
+    ifeq ($(origin MAKEFW_CL_PATH), undefined)
+        MAKEFW_CL_PATH := $(shell where cl 2>/dev/null | head -1)
+    endif
+    export MAKEFW_CL_PATH
+    CL_PATH := $(MAKEFW_CL_PATH)
     ifeq ($(CL_PATH),)
         $(error cl.exe へのパスが通っていません。Visual Studio Build Tools へのパスを設定してください。)
     endif

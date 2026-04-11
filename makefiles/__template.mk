@@ -9,7 +9,14 @@ find-up = \
             $(call find-up,$(patsubst %/,%,$(dir $(1))),$(2))\
         )\
     )
-WORKSPACE_FOLDER := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
+
+# 再帰 make 間でワークスペースルートは不変のため、内部キャッシュ変数で継承する
+ifeq ($(origin MAKEFW_WORKSPACE_FOLDER), undefined)
+    MAKEFW_WORKSPACE_FOLDER := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
+endif
+export MAKEFW_WORKSPACE_FOLDER
+
+WORKSPACE_FOLDER := $(MAKEFW_WORKSPACE_FOLDER)
 
 # 準備処理 (ビルドテンプレートより前に include)
 include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/prepare.mk
