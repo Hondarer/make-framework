@@ -36,7 +36,7 @@ DOTNET_BUILD := $(WORKSPACE_FOLDER)/framework/makefw/bin/dotnet_build.sh
 
 $(OUTPUT_ASSEMBLY): $(SOURCES) $(PROJECT_FILE)
     # dotnet_build.sh 側にてビルドコマンドは echo される
-	@WARN_FILE="$(OUTPUT_DIR)/$(TARGET).warn" "$(DOTNET_BUILD)" -c $(CONFIG) -o $(OUTPUT_DIR)
+	@WARN_FILE="$(OUTPUT_DIR)/$(TARGET).warn" $(SHELL) "$(DOTNET_BUILD)" -c $(CONFIG) -o $(OUTPUT_DIR)
 
 .PHONY: build _build_main
 build: _pre_build_hook _build_main _post_build_hook
