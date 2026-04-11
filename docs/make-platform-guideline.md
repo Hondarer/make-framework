@@ -135,3 +135,14 @@ endef
 `$(OS)` や `uname -s` を読んでよいのは、プラットフォームを一度だけ確定する `framework/makefw/makefiles/prepare.mk` に限定します。
 
 利用側の makefile は、その結果として export された `PLATFORM_*` のみを参照してください。
+
+## 関連する保守コマンド
+
+C/C++ 側の `#if defined(PLATFORM_LINUX)` / `#elif defined(PLATFORM_WINDOWS)` のコメント整形と二択分岐の正規化には、次の保守コマンドを利用できます。
+
+```bash
+python framework/makefw/bin/fix_if_comments.py --dry-run <path>...
+python framework/makefw/bin/fix_if_comments.py <path>...
+```
+
+詳細は [fix_if_comments.md](fix_if_comments.md) を参照してください。
