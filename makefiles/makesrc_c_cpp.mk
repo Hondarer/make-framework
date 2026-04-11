@@ -297,7 +297,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
 			newest=$$(ls -t $$all_objs $(LIBSFILES) $@ 2>/dev/null | head -1); \
 			if [ "$$newest" != "$@" ]; then \
 				echo "$(strip $(basename $(notdir $(LD))) $(LDFLAGS) /PDB:$(call _relpath,$(patsubst %.exe,%.pdb,$@)) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$(call _relpath,$@) $$all_objs $(LIBS))"; \
-				set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ $$all_objs $(LIBS) 2>&1 | $(CAPTURE_WARNINGS) $(OBJDIR)/link.warn; \
+				set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ $$all_objs $(LIBS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_FOLDER)/framework/makefw/bin/msvc_link_output.ps1 | $(CAPTURE_WARNINGS) $(OBJDIR)/link.warn; \
 			fi; \
 			find $(OBJDIR) -name '*.warn' -size +0 -exec cat {} + > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null || true; \
 			if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi
