@@ -259,7 +259,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
 				newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
 				if [ "$$newest" != "$@" ]; then \
 					echo "$(strip $(AR) /NOLOGO /OUT:$(call _relpath,$@) $$all_objs)"; \
-					MSYS_NO_PATHCONV=1 $(AR) /NOLOGO /OUT:$@ $$all_objs; \
+					MSYS_NO_PATHCONV=1 "$(AR)" /NOLOGO /OUT:$@ $$all_objs; \
 				fi; \
 				find $(OBJDIR) -name '*.warn' -size +0 -exec cat {} + > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null || true; \
 				if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi
