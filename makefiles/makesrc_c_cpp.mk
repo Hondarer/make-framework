@@ -286,7 +286,8 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
 				echo "$(strip $(LD) $(LDFLAGS) -o $(call _relpath,$@) $$all_objs $(LIBS))"; \
 				set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $$all_objs $(LIBS) -fdiagnostics-color=always 2>&1 | $(ICONV) | $(CAPTURE_WARNINGS) $(OBJDIR)/link.warn; \
 			fi; \
-			find $(OBJDIR) -name '*.warn' -size +0 -exec cat {} + > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null || true; \
+			warn_files=$$(find $(OBJDIR) -name '*.warn' -size +0 2>/dev/null); \
+			if [ -n "$$warn_files" ]; then printf '%s\n' "$$warn_files" | xargs cat > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null; rm -f $$warn_files; else rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
 			if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi
     else ifdef PLATFORM_WINDOWS
 $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
@@ -299,7 +300,8 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
 				echo "$(strip $(basename $(notdir $(LD))) $(LDFLAGS) /PDB:$(call _relpath,$(patsubst %.exe,%.pdb,$@)) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$(call _relpath,$@) $$all_objs $(LIBS))"; \
 				set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ $$all_objs $(LIBS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_FOLDER)/framework/makefw/bin/msvc_link_output.ps1 | $(CAPTURE_WARNINGS) $(OBJDIR)/link.warn; \
 			fi; \
-			find $(OBJDIR) -name '*.warn' -size +0 -exec cat {} + > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null || true; \
+			warn_files=$$(find $(OBJDIR) -name '*.warn' -size +0 2>/dev/null); \
+			if [ -n "$$warn_files" ]; then printf '%s\n' "$$warn_files" | xargs cat > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null; rm -f $$warn_files; else rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
 			if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi
     endif
 else

@@ -219,7 +219,8 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
 					echo "$(strip $(CC) -shared -o $(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
 					set -o pipefail; $(CC) -shared -o $@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(CAPTURE_WARNINGS) $(OBJDIR)/link.warn; \
 				fi; \
-				find $(OBJDIR) -name '*.warn' -size +0 -exec cat {} + > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null || true; \
+				warn_files=$$(find $(OBJDIR) -name '*.warn' -size +0 2>/dev/null); \
+				if [ -n "$$warn_files" ]; then printf '%s\n' "$$warn_files" | xargs cat > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null; rm -f $$warn_files; else rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
 				if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi
         else ifdef PLATFORM_WINDOWS
 $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
@@ -232,7 +233,8 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJ
 				echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
 				set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_FOLDER)/framework/makefw/bin/msvc_link_output.ps1 | $(CAPTURE_WARNINGS) $(OBJDIR)/link.warn; \
 			fi; \
-			find $(OBJDIR) -name '*.warn' -size +0 -exec cat {} + > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null || true; \
+			warn_files=$$(find $(OBJDIR) -name '*.warn' -size +0 2>/dev/null); \
+			if [ -n "$$warn_files" ]; then printf '%s\n' "$$warn_files" | xargs cat > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null; rm -f $$warn_files; else rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
 			if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi
 			@if [ -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" ]; then mv "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" "$(OBJDIR)/"; fi
         endif
@@ -248,7 +250,8 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
 					echo "$(strip $(AR) rvs $(call _relpath,$@) $$all_objs)"; \
 					$(AR) rvs $@ $$all_objs; \
 				fi; \
-				find $(OBJDIR) -name '*.warn' -size +0 -exec cat {} + > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null || true; \
+				warn_files=$$(find $(OBJDIR) -name '*.warn' -size +0 2>/dev/null); \
+				if [ -n "$$warn_files" ]; then printf '%s\n' "$$warn_files" | xargs cat > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null; rm -f $$warn_files; else rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
 				if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi
         else ifdef PLATFORM_WINDOWS
 $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
@@ -261,7 +264,8 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
 					echo "$(strip $(AR) /NOLOGO /OUT:$(call _relpath,$@) $$all_objs)"; \
 					MSYS_NO_PATHCONV=1 "$(AR)" /NOLOGO /OUT:$@ $$all_objs; \
 				fi; \
-				find $(OBJDIR) -name '*.warn' -size +0 -exec cat {} + > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null || true; \
+				warn_files=$$(find $(OBJDIR) -name '*.warn' -size +0 2>/dev/null); \
+				if [ -n "$$warn_files" ]; then printf '%s\n' "$$warn_files" | xargs cat > $(OUTPUT_DIR)/$(TARGET).warn 2>/dev/null; rm -f $$warn_files; else rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
 				if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi
         endif
     endif
