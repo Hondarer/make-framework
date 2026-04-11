@@ -8,7 +8,7 @@ include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/_hooks.mk
 # LINK_TEST が 1 の場合にのみ設定する
 ifneq ($(strip $(TESTFW_DIR)),)
     TESTFW_INCLUDE_OVERRIDE := -I$(TESTFW_DIR)/include_override
-    TESTSH := $(TESTFW_DIR)/cmnd/exec_test_c_cpp.sh
+    TESTSH := $(TESTFW_DIR)/bin/exec_test_c_cpp.sh
 endif
 
 ifeq ($(LINK_TEST), 1)

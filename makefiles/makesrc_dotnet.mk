@@ -11,7 +11,7 @@ OUTPUT_DIR ?= $(CURDIR)/bin
 
 # テストスクリプトのパス
 ifneq ($(strip $(TESTFW_DIR)),)
-    TESTSH := $(TESTFW_DIR)/cmnd/exec_test_dotnet.sh
+    TESTSH := $(TESTFW_DIR)/bin/exec_test_dotnet.sh
 endif
 
 # プロジェクト名 (カレントディレクトリ名から取得)
