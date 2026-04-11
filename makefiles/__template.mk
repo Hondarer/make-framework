@@ -12,9 +12,9 @@ find-up = \
 WORKSPACE_FOLDER := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
 
 # 準備処理 (ビルドテンプレートより前に include)
-include $(WORKSPACE_FOLDER)/makefw/makefiles/prepare.mk
+include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/prepare.mk
 
 ##### makepart.mk の内容は、このタイミングで処理される #####
 
 # ビルドテンプレートを include
-include $(WORKSPACE_FOLDER)/makefw/makefiles/makemain.mk
+include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makemain.mk

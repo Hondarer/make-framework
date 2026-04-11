@@ -73,12 +73,12 @@ export TESTFW_DIR
 
 # c_cpp_properties.json から defines を得る (get_config.sh に統合)
 # Get defines from c_cpp_properties.json (consolidated into get_config.sh)
-DEFINES := $(shell sh $(WORKSPACE_FOLDER)/makefw/cmnd/get_config.sh defines)
+DEFINES := $(shell sh $(WORKSPACE_FOLDER)/framework/makefw/cmnd/get_config.sh defines)
 
 #$(info DEFINES: $(DEFINES));
 
 # ソースファイルのエンコード指定から LANG を得る
-FILES_LANG := $(shell sh $(WORKSPACE_FOLDER)/makefw/cmnd/get_files_lang.sh)
+FILES_LANG := $(shell sh $(WORKSPACE_FOLDER)/framework/makefw/cmnd/get_files_lang.sh)
 
 #$(info FILES_LANG: $(FILES_LANG));
 

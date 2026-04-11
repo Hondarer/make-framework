@@ -2,7 +2,7 @@
 
 ## 概要
 
-makefile における OS 判定は、`makefw/makefiles/prepare.mk` が定義する `PLATFORM_WINDOWS` / `PLATFORM_LINUX` / `PLATFORM_UNKNOWN` に集約します。
+makefile における OS 判定は、`framework/makefw/makefiles/prepare.mk` が定義する `PLATFORM_WINDOWS` / `PLATFORM_LINUX` / `PLATFORM_UNKNOWN` に集約します。
 
 利用側の makefile は `$(OS)`、`Windows_NT`、`uname -s` を直接判定せず、`PLATFORM_*` ベースで分岐してください。
 
@@ -132,6 +132,6 @@ endef
 
 ## 例外
 
-`$(OS)` や `uname -s` を読んでよいのは、プラットフォームを一度だけ確定する `makefw/makefiles/prepare.mk` に限定します。
+`$(OS)` や `uname -s` を読んでよいのは、プラットフォームを一度だけ確定する `framework/makefw/makefiles/prepare.mk` に限定します。
 
 利用側の makefile は、その結果として export された `PLATFORM_*` のみを参照してください。

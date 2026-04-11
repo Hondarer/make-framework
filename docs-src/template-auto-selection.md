@@ -17,7 +17,7 @@ makefw では、すべての最終階層 makefile を統一テンプレート (`
 ### ファイル構成
 
 ```text
-makefw/makefiles/
+framework/makefw/makefiles/
 +-- __template.mk           # 統一テンプレート（すべての最終階層 makefile で使用）
 +-- prepare.mk              # 準備処理（コンパイラ設定、makepart.mk 読み込み）
 +-- makemain.mk             # テンプレート自動選択ロジック
@@ -102,12 +102,12 @@ find-up = \
 WORKSPACE_FOLDER := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
 
 # 準備処理 (ビルドテンプレートより前に include)
-include $(WORKSPACE_FOLDER)/makefw/makefiles/prepare.mk
+include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/prepare.mk
 
 ##### makepart.mk の内容は、このタイミングで処理される #####
 
 # ビルドテンプレートを include
-include $(WORKSPACE_FOLDER)/makefw/makefiles/makemain.mk
+include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makemain.mk
 ```
 
 ### 重要なポイント
@@ -135,17 +135,17 @@ include $(WORKSPACE_FOLDER)/makefw/makefiles/makemain.mk
 ifneq (,$(findstring /libsrc/,$(CURDIR)))
     # .csproj があれば .NET ライブラリ、なければ C/C++ ライブラリ
     ifneq ($(wildcard *.csproj),)
-        include $(WORKSPACE_FOLDER)/makefw/makefiles/makelibsrc_dotnet.mk
+        include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makelibsrc_dotnet.mk
     else
-        include $(WORKSPACE_FOLDER)/makefw/makefiles/makelibsrc_c_cpp.mk
+        include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makelibsrc_c_cpp.mk
     endif
 # パスに /src/ を含む場合は実行ファイル用テンプレート
 else ifneq (,$(findstring /src/,$(CURDIR)))
     # .csproj があれば .NET 実行体、なければ C/C++ 実行体
     ifneq ($(wildcard *.csproj),)
-        include $(WORKSPACE_FOLDER)/makefw/makefiles/makesrc_dotnet.mk
+        include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makesrc_dotnet.mk
     else
-        include $(WORKSPACE_FOLDER)/makefw/makefiles/makesrc_c_cpp.mk
+        include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makesrc_c_cpp.mk
     endif
 else
     $(error Cannot auto-select makefile template. Current path must contain /libsrc/ or /src/: $(CURDIR))
@@ -320,7 +320,7 @@ LIBSDIR += \
 
 ```bash
 # 例: prod/calc/libsrc/calcbase/makefile を更新
-cp makefw/makefiles/__template.mk prod/calc/libsrc/calcbase/makefile
+cp framework/makefw/makefiles/__template.mk prod/calc/libsrc/calcbase/makefile
 ```
 
 ### 2. 固有設定の移行
@@ -333,13 +333,13 @@ cp makefw/makefiles/__template.mk prod/calc/libsrc/calcbase/makefile
 find-up = ...
 WORKSPACE_FOLDER := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
 
-include $(WORKSPACE_FOLDER)/makefw/makefiles/prepare.mk
+include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/prepare.mk
 
 # 固有設定
 LIBS += calcbase
 LIB_TYPE = shared
 
-include $(WORKSPACE_FOLDER)/makefw/makefiles/makelibsrc.mk
+include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makelibsrc.mk
 ```
 
 **変更後:**
@@ -355,12 +355,12 @@ find-up = ...
 WORKSPACE_FOLDER := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
 
 # 準備処理 (ビルドテンプレートより前に include)
-include $(WORKSPACE_FOLDER)/makefw/makefiles/prepare.mk
+include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/prepare.mk
 
 ##### makepart.mk の内容は、このタイミングで処理される #####
 
 # ビルドテンプレートを include
-include $(WORKSPACE_FOLDER)/makefw/makefiles/makemain.mk
+include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makemain.mk
 ```
 
 **makepart.mk (固有設定):**

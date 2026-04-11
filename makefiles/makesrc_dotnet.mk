@@ -1,5 +1,5 @@
-include $(WORKSPACE_FOLDER)/makefw/makefiles/_flags.mk
-include $(WORKSPACE_FOLDER)/makefw/makefiles/_hooks.mk
+include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/_flags.mk
+include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/_hooks.mk
 
 # カレントディレクトリ配下の絶対パスを相対パスに変換する (make の出力を読みやすくする)
 # Convert absolute paths under $(CURDIR) to relative paths (for readable make output)
@@ -39,7 +39,7 @@ default: build
 
 # dotnet build ラッパースクリプト (warning/error のみ着色)
 # dotnet build wrapper script (colorizes only warnings/errors)
-DOTNET_BUILD := $(WORKSPACE_FOLDER)/makefw/cmnd/dotnet_build.sh
+DOTNET_BUILD := $(WORKSPACE_FOLDER)/framework/makefw/cmnd/dotnet_build.sh
 
 $(OUTPUT_ASSEMBLY): $(SOURCES) $(PROJECT_FILE)
     # dotnet_build.sh 側にてビルドコマンドは echo される
