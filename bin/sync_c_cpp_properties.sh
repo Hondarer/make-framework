@@ -125,7 +125,10 @@ eval_makepart_var() {
     local platform_flag
     local target_arch
     local tmp_makefile
+    local tmp_output
     local value
+    local marker_begin="__CMK_SYNC_BEGIN__"
+    local marker_end="__CMK_SYNC_END__"
 
     if [[ "$platform" == "Linux" ]]; then
         platform_flag="PLATFORM_LINUX := 1"
@@ -150,12 +153,27 @@ EOF
         write_sync_makepart_includes "$app"
         cat <<'EOF'
 print:
-	@:
+	@: $(info $(MARKER_BEGIN))$(info $($(PRINT_VAR)))$(info $(MARKER_END))
 EOF
     } > "$tmp_makefile"
 
-    value=$(make -f "$tmp_makefile" -pn print | sed -n "s/^$var_name := //p" | head -n 1)
-    rm -f "$tmp_makefile"
+    tmp_output=$(mktemp)
+    if ! make --no-print-directory -f "$tmp_makefile" \
+        print \
+        PRINT_VAR="$var_name" \
+        MARKER_BEGIN="$marker_begin" \
+        MARKER_END="$marker_end" \
+        > "$tmp_output"; then
+        rm -f "$tmp_makefile" "$tmp_output"
+        return 1
+    fi
+
+    value=$(awk -v marker_begin="$marker_begin" -v marker_end="$marker_end" '
+        $0 == marker_begin { capture = 1; next }
+        $0 == marker_end { capture = 0; exit }
+        capture { print }
+    ' "$tmp_output")
+    rm -f "$tmp_makefile" "$tmp_output"
 
     printf '%s\n' "$value"
 }
