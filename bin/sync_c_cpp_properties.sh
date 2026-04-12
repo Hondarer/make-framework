@@ -215,10 +215,6 @@ build_expected_defines() {
     done < "$tmp_file"
     rm -f "$tmp_file"
 
-    if [[ "$platform" == "Linux" ]]; then
-        printf '%s\n' "_DEFAULT_SOURCE"
-    fi
-
     printf '%s\n' 'TARGET_ARCH=\"\"'
     if (( ${#items[@]} > 0 )); then
         printf '%s\n' "${items[@]}" | LC_ALL=C sort
@@ -229,9 +225,6 @@ define_comment() {
     local define="$1"
 
     case "$define" in
-        '_DEFAULT_SOURCE')
-            printf '%s' ' // __USE_MISC を有効にしてインテリセンスを効かせるため'
-            ;;
         'TARGET_ARCH=\"\"')
             printf '%s' ' // framework/makefw/makefiles/prepare.mk で定義される TARGET_ARCH をインテリセンスで模擬するため (コンパイル時には環境に応じて適切な値が渡される)'
             ;;

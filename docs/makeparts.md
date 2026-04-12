@@ -148,7 +148,7 @@ INCDIR += \
 ```
 
 この `INCDIR` / `DEFINES` は make のビルド設定だけでなく、`.vscode/c_cpp_properties.json` を更新する際の正本としても扱います。  
-ただし `.vscode` の `defines` には IntelliSense 用の特殊条件があり、Linux の `_DEFAULT_SOURCE` と dummy の `TARGET_ARCH=\"\"` は同期スクリプト側で補われます。
+ただし `.vscode` の `defines` には `TARGET_ARCH=\"\"` の特殊条件があり、実ビルド時の値ではなく同期スクリプト側の dummy 値が使われます。
 
 ## makechild.mk
 
