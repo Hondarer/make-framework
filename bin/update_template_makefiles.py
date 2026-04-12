@@ -103,7 +103,7 @@ def main() -> int:
         current_content = makefile.read_text(encoding="utf-8")
 
         if current_content == template_content:
-            print(f"[スキップ] {rel_path} (既に最新)")
+            print(f"[スキップ] {rel_path} (すでに最新)")
             skipped += 1
             continue
 
