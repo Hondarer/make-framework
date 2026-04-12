@@ -3,10 +3,10 @@
 update_template_makefiles.py - テンプレート由来の makefile を最新版に同期する。
 
 【対象】
-  makefw ワークスペース配下の makefile で、先頭行が
-  "# makefile テンプレート" で始まるファイル。
+  makefw ワークスペース配下の makefile で、先頭行が既知の
+  テンプレート識別子で始まるファイル。
 
-  手書き makefile や中間ディレクトリの SUBDIRS 形式 makefile は対象外。
+  手書き makefile は対象外。
 
 【使い方】
   python framework/makefw/bin/update_template_makefiles.py [--dry-run]
@@ -19,8 +19,12 @@ import sys
 from pathlib import Path
 
 
-TEMPLATE_HEADER = "# makefile テンプレート"
-TEMPLATE_REL_PATH = Path("framework/makefw/makefiles/__template.mk")
+TEMPLATE_MAP = {
+    "# makefile テンプレート": Path("framework/makefw/makefiles/__template.mk"),
+    "# makefile サブディレクトリ走査テンプレート": Path(
+        "framework/makefw/makefiles/__subdir_template.mk"
+    ),
+}
 
 
 def find_workspace_root(start: Path) -> Path:
@@ -36,13 +40,25 @@ def find_workspace_root(start: Path) -> Path:
 
 
 def is_template_makefile(path: Path) -> bool:
-    """makefile の先頭行がテンプレート識別子かを判定する。"""
+    """makefile の先頭行が既知テンプレート識別子かを判定する。"""
     try:
         with path.open(encoding="utf-8") as file:
             first_line = file.readline()
-        return first_line.startswith(TEMPLATE_HEADER)
+        return any(first_line.startswith(header) for header in TEMPLATE_MAP)
     except (OSError, UnicodeDecodeError):
         return False
+
+
+def get_template_path_for_makefile(workspace: Path, makefile: Path) -> Path:
+    """makefile の先頭行から同期元テンプレートを返す。"""
+    with makefile.open(encoding="utf-8") as file:
+        first_line = file.readline()
+
+    for header, rel_path in TEMPLATE_MAP.items():
+        if first_line.startswith(header):
+            return workspace / rel_path
+
+    raise RuntimeError(f"未知のテンプレート識別子です: {makefile}")
 
 
 def iter_template_makefiles(workspace: Path):
@@ -64,19 +80,26 @@ def main() -> int:
     args = parser.parse_args()
 
     workspace = find_workspace_root(Path(__file__).parent)
-    template_path = workspace / TEMPLATE_REL_PATH
-
-    if not template_path.exists():
-        print(f"エラー: テンプレートファイルが見つかりません: {template_path}", file=sys.stderr)
+    missing_templates = [
+        workspace / rel_path
+        for rel_path in TEMPLATE_MAP.values()
+        if not (workspace / rel_path).exists()
+    ]
+    if missing_templates:
+        for template_path in missing_templates:
+            print(
+                f"エラー: テンプレートファイルが見つかりません: {template_path}",
+                file=sys.stderr,
+            )
         return 1
-
-    template_content = template_path.read_text(encoding="utf-8")
 
     updated = 0
     skipped = 0
 
     for makefile in iter_template_makefiles(workspace):
         rel_path = makefile.relative_to(workspace)
+        template_path = get_template_path_for_makefile(workspace, makefile)
+        template_content = template_path.read_text(encoding="utf-8")
         current_content = makefile.read_text(encoding="utf-8")
 
         if current_content == template_content:

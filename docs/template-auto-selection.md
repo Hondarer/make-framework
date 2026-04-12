@@ -314,6 +314,9 @@ LIBSDIR += \
 
 既存プロジェクトに makefile テンプレート自動選択機構を導入する手順を説明します。
 
+この章の対象は **最終階層 makefile** です。  
+`prod/test` 配下の中間階層走査 makefile は `__subdir_template.mk` を使用し、`SUBDIRS` は `makelocal.mk` で管理します。
+
 ### 1. 最終階層 makefile の更新
 
 すべての最終階層 makefile を `__template.mk` の内容で置き換えます。

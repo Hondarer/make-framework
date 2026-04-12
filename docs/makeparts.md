@@ -248,6 +248,19 @@ pre-build:
     python $(WORKSPACE_FOLDER)/tools/codegen.py
 ```
 
+**例3: 走査 makefile のローカル順序指定**
+
+```makefile
+# prod/myapp/makelocal.mk
+# このディレクトリの走査順のみを上書き
+SUBDIRS := \
+    libsrc \
+    src
+```
+
+`prod/test` 配下の中間階層走査 makefile では、`SUBDIRS` を `makelocal.mk` に置くことで
+継承なしで順序だけを制御できます。
+
 ## インクルード順序
 
 3 種類の設定ファイルは、`prepare.mk` 内で以下の順序でインクルードされます。
@@ -281,6 +294,7 @@ pre-build:
 | 子のみへの出力先設定 | makechild.mk | 自ディレクトリのビルドは別設定にしたい |
 | フックターゲット | makelocal.mk | 自ディレクトリのみに限定 |
 | ローカル変数 | makelocal.mk | 継承させたくない設定 |
+| `SUBDIRS` の順序指定 | makelocal.mk | 走査順を自ディレクトリだけで変えたい |
 
 ## 併用例
 
