@@ -33,6 +33,8 @@ WORKSPACE_DIR=$(find_workspace_root "$SCRIPT_DIR") || {
 APP_DIR="$WORKSPACE_DIR/app"
 VSCODE_FILE="$WORKSPACE_DIR/.vscode/c_cpp_properties.json"
 WARN_FILE="$APP_DIR/c_cpp_properties.warn"
+# --check では「設定差分あり」を warning として扱うため、内部エラーとは別の終了コードを使う
+SYNC_WARN_EXIT=3
 
 if [[ -d "$WORKSPACE_DIR/framework/testfw" ]]; then
     TESTFW_DIR="$WORKSPACE_DIR/framework/testfw"
@@ -110,12 +112,25 @@ normalize_define() {
     printf '%s=%s\n' "$key" "$value"
 }
 
+to_make_include_path() {
+    local platform="$1"
+    local path="$2"
+
+    if [[ "$platform" == "Win32" ]] && command -v cygpath >/dev/null 2>&1; then
+        cygpath -m "$path"
+        return 0
+    fi
+
+    printf '%s\n' "$path"
+}
+
 write_sync_makepart_includes() {
     local app="$1"
+    local platform="$2"
 
-    printf '%s\n' "-include $WORKSPACE_DIR/makepart.mk"
-    printf '%s\n' "-include $APP_DIR/makepart.mk"
-    printf '%s\n' "include $APP_DIR/$app/makepart.mk"
+    printf '%s\n' "-include $(to_make_include_path "$platform" "$WORKSPACE_DIR/makepart.mk")"
+    printf '%s\n' "-include $(to_make_include_path "$platform" "$APP_DIR/makepart.mk")"
+    printf '%s\n' "include $(to_make_include_path "$platform" "$APP_DIR/$app/makepart.mk")"
 }
 
 eval_makepart_var() {
@@ -150,7 +165,7 @@ TARGET_ARCH := $target_arch
 INCDIR :=
 DEFINES :=
 EOF
-        write_sync_makepart_includes "$app"
+        write_sync_makepart_includes "$app" "$platform"
         cat <<'EOF'
 print:
 	@: $(info $(MARKER_BEGIN))$(info $($(PRINT_VAR)))$(info $(MARKER_END))
@@ -380,7 +395,7 @@ compare_and_write_warn() {
 
     if (( diff_found )); then
         mv "$section_file" "$WARN_FILE"
-        return 1
+        return "$SYNC_WARN_EXIT"
     fi
 
     rm -f "$section_file" "$WARN_FILE"
