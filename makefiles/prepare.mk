@@ -272,6 +272,57 @@ CXX_STANDARD := 17
 
 # デフォルト設定 END ################################################################
 
+# MYAPP_FOLDER: app/<appname> のルート絶対パス
+# Define MYAPP_FOLDER: absolute path to the app/<appname> root directory
+# makepart.mk / makechild.mk / makelocal.mk から $(MYAPP_FOLDER) で自 app 内を参照可能にする
+# Allows makepart.mk / makechild.mk / makelocal.mk to reference within the app via $(MYAPP_FOLDER)
+#
+# 有効条件: CURDIR が $(WORKSPACE_FOLDER)/app/<appname>/... 配下であること
+# Valid when: CURDIR is under $(WORKSPACE_FOLDER)/app/<appname>/...
+# 無効条件: ワークスペースルート、$(WORKSPACE_FOLDER)/app 直下、app 外ディレクトリ
+# Invalid at: workspace root, directly under $(WORKSPACE_FOLDER)/app, or outside app/
+#
+# cross-app 参照は $(MYAPP_FOLDER)/../otherapp/... を使用する
+# Cross-app references use $(MYAPP_FOLDER)/../otherapp/...
+# 内部で realpath -m により正規化され、.. は除去される
+# Internally normalized via realpath -m to remove ..
+
+# CURDIR からワークスペースルートを除いた相対パスを取得
+# Get relative path from CURDIR by removing the workspace root prefix
+_MYAPP_REL_FROM_WS := $(patsubst $(WORKSPACE_FOLDER)/%,%,$(CURDIR))
+
+# app/ で始まるか判定
+# Check if the relative path starts with app/
+_MYAPP_STARTS_WITH_APP := $(filter app/%,$(_MYAPP_REL_FROM_WS))
+
+ifneq ($(_MYAPP_STARTS_WITH_APP),)
+    # app/ プレフィックスを除去して残りのパスを取得
+    # Remove app/ prefix to get the remaining path
+    _MYAPP_AFTER_APP := $(patsubst app/%,%,$(_MYAPP_REL_FROM_WS))
+
+    # 最初のパスセグメント (appname) を抽出
+    # Extract the first path segment (appname)
+    # word 1 of subst /,<space>,path → 最初のセグメント
+    _MYAPP_APPNAME := $(firstword $(subst /, ,$(_MYAPP_AFTER_APP)))
+
+    # app 直下 (appname のみ = セグメントが1つ) かどうかを判定
+    # Check if we're directly under app/ (only one segment = appname itself)
+    _MYAPP_SEGMENTS := $(words $(subst /, ,$(_MYAPP_AFTER_APP)))
+
+    ifneq ($(_MYAPP_APPNAME),)
+        MYAPP_FOLDER := $(WORKSPACE_FOLDER)/app/$(_MYAPP_APPNAME)
+        export MYAPP_FOLDER
+    else
+        # app/ 直下 (appname が空)
+        # Directly under app/ (appname is empty)
+        MYAPP_FOLDER = $(error MYAPP_FOLDER is not available at $(CURDIR). It is only valid under app/<appname>/ directories)
+    endif
+else
+    # app/ 配下でない (ワークスペースルート、framework/ 等)
+    # Not under app/ (workspace root, framework/, etc.)
+    MYAPP_FOLDER = $(error MYAPP_FOLDER is not available at $(CURDIR). It is only valid under app/<appname>/ directories)
+endif
+
 # makepart.mk の検索
 # dirname コマンドの代わりにシェルのパラメータ展開を使用してプロセス生成を削減
 # Use shell parameter expansion instead of dirname command to reduce process creation
@@ -346,6 +397,45 @@ $(foreach makepart, $(MAKEPART_MK), $(call _include_makepart_and_child,$(makepar
 # prepare.mk は各ディレクトリの makefile から include されるため、
 # ここでカレントディレクトリの makelocal.mk を読み込めばよい
 -include $(CURDIR)/makelocal.mk
+
+# パス系変数の一括正規化
+# Normalize path variables to absolute paths after all makepart/makechild/makelocal are loaded
+# - INCDIR: sort で重複除去 (既存動作維持)
+# - LIBSDIR, OUTPUT_DIR: sort で重複除去
+# - TEST_SRCS, ADD_SRCS: 順序保持 (strip のみ)
+ifdef PLATFORM_LINUX
+    ifneq ($(INCDIR),)
+        INCDIR := $(sort $(shell for d in $(INCDIR); do realpath -m "$$d" 2>/dev/null || echo "$$d"; done))
+    endif
+    ifneq ($(LIBSDIR),)
+        LIBSDIR := $(sort $(shell for d in $(LIBSDIR); do realpath -m "$$d" 2>/dev/null || echo "$$d"; done))
+    endif
+    ifneq ($(OUTPUT_DIR),)
+        OUTPUT_DIR := $(strip $(shell realpath -m "$(OUTPUT_DIR)" 2>/dev/null || echo "$(OUTPUT_DIR)"))
+    endif
+    ifneq ($(TEST_SRCS),)
+        TEST_SRCS := $(strip $(shell for f in $(TEST_SRCS); do realpath -m "$$f" 2>/dev/null || echo "$$f"; done))
+    endif
+    ifneq ($(ADD_SRCS),)
+        ADD_SRCS := $(strip $(shell for f in $(ADD_SRCS); do realpath -m "$$f" 2>/dev/null || echo "$$f"; done))
+    endif
+else ifdef PLATFORM_WINDOWS
+    ifneq ($(INCDIR),)
+        INCDIR := $(sort $(shell for d in $(INCDIR); do r=$$(realpath -m "$$d" 2>/dev/null || echo "$$d"); cygpath -m "$$r" 2>/dev/null || echo "$$r"; done))
+    endif
+    ifneq ($(LIBSDIR),)
+        LIBSDIR := $(sort $(shell for d in $(LIBSDIR); do r=$$(realpath -m "$$d" 2>/dev/null || echo "$$d"); cygpath -m "$$r" 2>/dev/null || echo "$$r"; done))
+    endif
+    ifneq ($(OUTPUT_DIR),)
+        OUTPUT_DIR := $(strip $(shell r=$$(realpath -m "$(OUTPUT_DIR)" 2>/dev/null || echo "$(OUTPUT_DIR)"); cygpath -m "$$r" 2>/dev/null || echo "$$r"))
+    endif
+    ifneq ($(TEST_SRCS),)
+        TEST_SRCS := $(strip $(shell for f in $(TEST_SRCS); do r=$$(realpath -m "$$f" 2>/dev/null || echo "$$f"); cygpath -m "$$r" 2>/dev/null || echo "$$r"; done))
+    endif
+    ifneq ($(ADD_SRCS),)
+        ADD_SRCS := $(strip $(shell for f in $(ADD_SRCS); do r=$$(realpath -m "$$f" 2>/dev/null || echo "$$f"); cygpath -m "$$r" 2>/dev/null || echo "$$r"; done))
+    endif
+endif
 
 # TARGET_ARCH をコンパイル時定数として C/C++ コードに渡す
 # Pass TARGET_ARCH as a compile-time string constant to C/C++ code

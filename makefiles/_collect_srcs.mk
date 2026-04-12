@@ -119,21 +119,8 @@ GCOVR_SRCS := $(foreach src,$(TEST_SRCS), \
 SRCS_C := $(sort $(wildcard *.c) $(notdir $(filter %.c,$(CP_SRCS) $(LINK_SRCS))))
 SRCS_CPP := $(sort $(wildcard *.cc) $(wildcard *.cpp) $(notdir $(filter %.cc,$(CP_SRCS) $(LINK_SRCS)) $(filter %.cpp,$(CP_SRCS) $(LINK_SRCS))))
 
-# INCDIR が指すディレクトリが同じであれば、間引く
-# Remove duplicate directories from INCDIR
-# 絶対パスに正規化してから重複削除
-# Normalize to absolute paths before removing duplicates
-# foreach で個別に realpath/cygpath を呼ぶ代わりに、1回のシェルで一括処理
-# Batch realpath/cygpath in single shell instead of per-directory foreach
-ifneq ($(INCDIR),)
-    ifdef PLATFORM_LINUX
-        INCDIR := $(sort $(shell for d in $(INCDIR); do realpath -m "$$d" 2>/dev/null || echo "$$d"; done))
-    else ifdef PLATFORM_WINDOWS
-        # cygpath -m を使って MSYS2 形式から Windows 形式に変換
-        # Convert from MSYS2 format to Windows format using cygpath -m
-        INCDIR := $(sort $(shell for d in $(INCDIR); do r=$$(realpath -m "$$d" 2>/dev/null || echo "$$d"); cygpath -m "$$r" 2>/dev/null || echo "$$r"; done))
-    endif
-endif
+# INCDIR は prepare.mk で正規化済み (realpath -m + sort による重複除去)
+# INCDIR is already normalized in prepare.mk (realpath -m + sort for dedup)
 
 # デバッグ出力
 #$(info ----)

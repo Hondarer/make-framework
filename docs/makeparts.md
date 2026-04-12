@@ -76,15 +76,15 @@ MAKEPART_MK := $(strip $(call _reverse,$(MAKEPART_MK)))
 | 変数 | 説明 | 例 |
 |------|------|-----|
 | `LIBS` | リンクするライブラリ | `LIBS += calcbase` |
-| `LIBSDIR` | ライブラリ検索パス | `LIBSDIR += $(WORKSPACE_FOLDER)/lib` |
-| `INCDIR` | インクルード検索パス | `INCDIR += $(WORKSPACE_FOLDER)/app/calc/prod/include` |
+| `LIBSDIR` | ライブラリ検索パス | `LIBSDIR += $(MYAPP_FOLDER)/test/lib` |
+| `INCDIR` | インクルード検索パス | `INCDIR += $(MYAPP_FOLDER)/prod/include` |
 | `DEFINES` | `-D` に変換される define 群 | `DEFINES += FEATURE_X` |
 | `CFLAGS` | C コンパイラフラグ | `CFLAGS += -DMYAPP_VERSION=\"1.0.0\"` |
 | `CXXFLAGS` | C++ コンパイラフラグ | `CXXFLAGS += -std=c++17` |
-| `OUTPUT_DIR` | 出力先ディレクトリ | `OUTPUT_DIR := $(WORKSPACE_FOLDER)/prod/calc/bin` |
+| `OUTPUT_DIR` | 出力先ディレクトリ | `OUTPUT_DIR := $(MYAPP_FOLDER)/prod/bin` |
 | `LIB_TYPE` | ライブラリ種別 | `LIB_TYPE = shared` (デフォルトは static) |
 | `LINK_TEST` | テストフレームワークリンク | `LINK_TEST = 1` |
-| `TEST_SRCS` | テスト対象ソースファイル | `TEST_SRCS := $(WORKSPACE_FOLDER)/prod/.../add.c` |
+| `TEST_SRCS` | テスト対象ソースファイル | `TEST_SRCS := $(MYAPP_FOLDER)/prod/.../add.c` |
 
 ### 記述例
 
@@ -107,14 +107,14 @@ LIB_TYPE = shared
 **例2: 実行体の出力先統一**
 
 ```makefile
-# prod/calc/src/makepart.mk
-OUTPUT_DIR := $(WORKSPACE_FOLDER)/prod/calc/bin
+# app/calc/prod/src/makepart.mk
+OUTPUT_DIR := $(MYAPP_FOLDER)/prod/bin
 ```
 
 **例3: テスト共通設定**
 
 ```makefile
-# test/makepart.mk
+# app/calc/test/makepart.mk
 LINK_TEST = 1
 
 ifeq ($(OS),Windows_NT)
@@ -123,16 +123,16 @@ ifeq ($(OS),Windows_NT)
 endif
 
 LIBSDIR += \
-    $(WORKSPACE_FOLDER)/framework/testfw/lib \
-    $(WORKSPACE_FOLDER)/test/lib
+    $(TESTFW_DIR)/lib \
+    $(MYAPP_FOLDER)/test/lib
 ```
 
 **例4: テスト対象ソースの指定**
 
 ```makefile
-# test/src/calc/libcalcbaseTest/addTest/makepart.mk
+# app/calc/test/src/libcalcbaseTest/addTest/makepart.mk
 TEST_SRCS := \
-    $(WORKSPACE_FOLDER)/prod/calc/libsrc/calcbase/add.c
+    $(MYAPP_FOLDER)/prod/libsrc/calcbase/add.c
 ```
 
 **例5: app 直下で IntelliSense 用の正本を持つ**
@@ -140,9 +140,9 @@ TEST_SRCS := \
 ```makefile
 # app/calc/makepart.mk
 INCDIR += \
-    $(WORKSPACE_FOLDER)/app/calc/prod/include \
-    $(WORKSPACE_FOLDER)/app/calc/test/include \
-    $(WORKSPACE_FOLDER)/app/com_util/prod/include \
+    $(MYAPP_FOLDER)/prod/include \
+    $(MYAPP_FOLDER)/test/include \
+    $(MYAPP_FOLDER)/../com_util/prod/include \
     $(TESTFW_DIR)/gtest/include \
     $(TESTFW_DIR)/include
 ```
@@ -277,6 +277,67 @@ SUBDIRS := \
 
 `prod/test` 配下の中間階層走査 makefile では、`SUBDIRS` を `makelocal.mk` に置くことで
 継承なしで順序だけを制御できます。
+
+## MYAPP_FOLDER
+
+### 概要
+
+`MYAPP_FOLDER` は、ビルド対象の app のルートディレクトリを指す変数です。  
+`app/{appname}/` 配下の `makepart.mk` / `makechild.mk` / `makelocal.mk` で使用でき、`$(WORKSPACE_FOLDER)/app/{appname}/...` の代わりに `$(MYAPP_FOLDER)/...` と記述できます。
+
+これにより、app 内の設定を「app 単位」で記述でき、将来 app 単位でサブモジュール化した場合も app 内の記述を変更せずに済みます。
+
+### 有効範囲
+
+| 場所 | MYAPP_FOLDER | 説明 |
+|------|:---:|------|
+| `app/calc/makepart.mk` | ✓ | `/path/to/workspace/app/calc` |
+| `app/calc/prod/libsrc/calcbase/makepart.mk` | ✓ | `/path/to/workspace/app/calc` |
+| `app/com_util/test/src/.../makepart.mk` | ✓ | `/path/to/workspace/app/com_util` |
+| `app/makepart.mk` | ✗ | app/ 直下 — `$(WORKSPACE_FOLDER)` を使用 |
+| `makepart.mk` (ルート) | ✗ | ルート — `$(WORKSPACE_FOLDER)` を使用 |
+| `framework/` 配下 | ✗ | フレームワーク — 対象外 |
+
+無効範囲で `$(MYAPP_FOLDER)` を参照すると、Make の `$(error ...)` により明示的なエラーが発生します。
+
+### 記述ルール
+
+#### 自 app 内の参照
+
+```makefile
+# app/calc/makepart.mk
+INCDIR += $(MYAPP_FOLDER)/prod/include
+OUTPUT_DIR := $(MYAPP_FOLDER)/prod/bin
+```
+
+#### 他 app の参照 (cross-app)
+
+```makefile
+# app/calc/makepart.mk
+INCDIR += $(MYAPP_FOLDER)/../com_util/prod/include
+```
+
+`$(MYAPP_FOLDER)/../com_util/...` の `..` は、ビルド時に `realpath -m` で正規化され、コンパイラには `..` を含まない絶対パスが渡されます。
+
+#### repo 全体の参照
+
+```makefile
+# app/makepart.mk (app/ 直下)
+# MYAPP_FOLDER は無効なため、WORKSPACE_FOLDER を使用
+INCDIR += $(WORKSPACE_FOLDER)/framework/testfw/include
+```
+
+### 内部動作
+
+1. `prepare.mk` が `CURDIR` から `app/<appname>` を抽出し、`MYAPP_FOLDER` に絶対パスを設定
+2. `makepart.mk` / `makechild.mk` / `makelocal.mk` の読み込み後、パス系変数 (`INCDIR`, `LIBSDIR`, `OUTPUT_DIR`, `TEST_SRCS`, `ADD_SRCS`) を一括正規化
+3. 正規化は `realpath -m` (Linux) / `realpath -m` + `cygpath -m` (Windows) で実行
+4. コンパイラに渡されるパスは常に `..` を含まない絶対パス
+
+### 後方互換性
+
+`$(WORKSPACE_FOLDER)/app/calc/...` の記述は引き続き動作します。  
+`$(MYAPP_FOLDER)/...` は推奨記法であり、既存の記述を壊しません。
 
 ## インクルード順序
 

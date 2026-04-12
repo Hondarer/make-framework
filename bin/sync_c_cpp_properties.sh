@@ -75,6 +75,11 @@ mapfile -t APPS < <(
 normalize_path() {
     local path="$1"
 
+    # Resolve .. segments to get a clean absolute path
+    if [[ "$path" == /* ]]; then
+        path="$(realpath -m "$path")"
+    fi
+
     if [[ "$path" == "$WORKSPACE_FOLDER"* ]]; then
         printf '%s\n' '${workspaceFolder}'"${path#$WORKSPACE_FOLDER}"
     else
@@ -134,6 +139,7 @@ eval_makepart_var() {
     {
         cat <<EOF
 WORKSPACE_FOLDER := $WORKSPACE_FOLDER
+MYAPP_FOLDER := $APP_DIR/$app
 TESTFW_DIR := $TESTFW_DIR
 PLATFORM := $platform
 $platform_flag
