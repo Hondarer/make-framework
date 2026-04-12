@@ -1,6 +1,6 @@
 # 各 makefile から呼び出され、
 # 1. プラットフォームの判定を行う
-# 2. c_cpp_properties.json から defines を設定する
+# 2. testfw の配置パスを解決する
 # 3. ソースファイルのエンコード指定から LANG を得る
 # 4. コンパイルコマンド関連を設定する
 # 5. 親階層から makefile の存在する階層までに存在する makepart.mk を
@@ -71,11 +71,7 @@ endif
 TESTFW_DIR_ERROR := testfw directory not found. Set TESTFW_DIR or place testfw under $(WORKSPACE_FOLDER)/framework/testfw or $(WORKSPACE_FOLDER)/testfw.
 export TESTFW_DIR
 
-# c_cpp_properties.json から defines を得る (get_config.sh に統合)
-# Get defines from c_cpp_properties.json (consolidated into get_config.sh)
-DEFINES := $(shell bash $(WORKSPACE_FOLDER)/framework/makefw/bin/get_config.sh defines)
-
-#$(info DEFINES: $(DEFINES));
+DEFINES :=
 
 # ソースファイルのエンコード指定から LANG を得る
 # FILES_LANG is stable across recursive make invocations in the same workspace
@@ -143,23 +139,6 @@ ifeq ($(origin MAKEFW_TARGET_ARCH), undefined)
 endif
 export MAKEFW_TARGET_ARCH
 TARGET_ARCH := $(MAKEFW_TARGET_ARCH)
-
-# TARGET_ARCH をコンパイル時定数として C/C++ コードに渡す
-# Pass TARGET_ARCH as a compile-time string constant to C/C++ code
-# DEFINES に追加することで CFLAGS/CXXFLAGS 両方に自動反映される
-# Add to DEFINES so it is automatically applied to both CFLAGS and CXXFLAGS
-# DEFINES に既存の TARGET_ARCH 定義 (代入・宣言のみを問わず) があれば除去してから追加
-# Remove any existing TARGET_ARCH definition from DEFINES (assignment or declaration) before adding
-DEFINES := $(filter-out TARGET_ARCH%,$(DEFINES)) TARGET_ARCH='"$(TARGET_ARCH)"'
-
-# DEFINES の各エントリを make 変数として定義する (makepart.mk などから参照可能にする)
-# キーのみ: KEY → KEY := 1
-# KEY=値 / KEY="値" / KEY='"値"' → KEY := 値 (シングル・ダブルクォートを除去)
-define _def_var_from_defines
-$(firstword $(subst =, ,$(1))) := $(if $(findstring =,$(1)),$(subst ',$(empty),$(subst ",,$(patsubst $(firstword $(subst =, ,$(1)))=%,%,$(1)))),1)
-endef
-$(foreach _d,$(DEFINES),$(eval $(call _def_var_from_defines,$(_d))))
-#$(foreach _d,$(DEFINES),$(info [DEFINES] $(firstword $(subst =, ,$(_d))) = $($(firstword $(subst =, ,$(_d))))))
 
 # デフォルト設定 START ##############################################################
 
@@ -367,3 +346,17 @@ $(foreach makepart, $(MAKEPART_MK), $(call _include_makepart_and_child,$(makepar
 # prepare.mk は各ディレクトリの makefile から include されるため、
 # ここでカレントディレクトリの makelocal.mk を読み込めばよい
 -include $(CURDIR)/makelocal.mk
+
+# TARGET_ARCH をコンパイル時定数として C/C++ コードに渡す
+# Pass TARGET_ARCH as a compile-time string constant to C/C++ code
+# DEFINES に既存の TARGET_ARCH 定義 (代入・宣言のみを問わず) があれば除去してから追加
+# Remove any existing TARGET_ARCH definition from DEFINES (assignment or declaration) before adding
+DEFINES := $(filter-out TARGET_ARCH%,$(DEFINES)) TARGET_ARCH='"$(TARGET_ARCH)"'
+
+# DEFINES の各エントリを make 変数として定義する (makepart.mk などから参照可能にする)
+# キーのみ: KEY → KEY := 1
+# KEY=値 / KEY="値" / KEY='"値"' → KEY := 値 (シングル・ダブルクォートを除去)
+define _def_var_from_defines
+$(firstword $(subst =, ,$(1))) := $(if $(findstring =,$(1)),$(subst ',$(empty),$(subst ",,$(patsubst $(firstword $(subst =, ,$(1)))=%,%,$(1)))),1)
+endef
+$(foreach _d,$(DEFINES),$(eval $(call _def_var_from_defines,$(_d))))

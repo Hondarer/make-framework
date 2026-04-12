@@ -14,8 +14,7 @@ ifdef PLATFORM_LINUX
     endif
 endif
 
-# c_cpp_properties.json の defines にある値を -D として追加する
-# DEFINES は prepare.mk で設定されている
+# DEFINES を -D として追加する
 CFLAGS   += $(addprefix -D,$(DEFINES))
 CXXFLAGS += $(addprefix -D,$(DEFINES))
 

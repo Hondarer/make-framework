@@ -77,6 +77,8 @@ MAKEPART_MK := $(strip $(call _reverse,$(MAKEPART_MK)))
 |------|------|-----|
 | `LIBS` | リンクするライブラリ | `LIBS += calcbase` |
 | `LIBSDIR` | ライブラリ検索パス | `LIBSDIR += $(WORKSPACE_FOLDER)/lib` |
+| `INCDIR` | インクルード検索パス | `INCDIR += $(WORKSPACE_FOLDER)/app/calc/prod/include` |
+| `DEFINES` | `-D` に変換される define 群 | `DEFINES += FEATURE_X` |
 | `CFLAGS` | C コンパイラフラグ | `CFLAGS += -DMYAPP_VERSION=\"1.0.0\"` |
 | `CXXFLAGS` | C++ コンパイラフラグ | `CXXFLAGS += -std=c++17` |
 | `OUTPUT_DIR` | 出力先ディレクトリ | `OUTPUT_DIR := $(WORKSPACE_FOLDER)/prod/calc/bin` |
@@ -132,6 +134,21 @@ LIBSDIR += \
 TEST_SRCS := \
     $(WORKSPACE_FOLDER)/prod/calc/libsrc/calcbase/add.c
 ```
+
+**例5: app 直下で IntelliSense 用の正本を持つ**
+
+```makefile
+# app/calc/makepart.mk
+INCDIR += \
+    $(WORKSPACE_FOLDER)/app/calc/prod/include \
+    $(WORKSPACE_FOLDER)/app/calc/test/include \
+    $(WORKSPACE_FOLDER)/app/com_util/prod/include \
+    $(TESTFW_DIR)/gtest/include \
+    $(TESTFW_DIR)/include
+```
+
+この `INCDIR` / `DEFINES` は make のビルド設定だけでなく、`.vscode/c_cpp_properties.json` を更新する際の正本としても扱います。  
+ただし `.vscode` の `defines` には IntelliSense 用の特殊条件があり、Linux の `_DEFAULT_SOURCE` と dummy の `TARGET_ARCH=\"\"` は同期スクリプト側で補われます。
 
 ## makechild.mk
 

@@ -4,7 +4,7 @@
 # - ADD_SRCS
 #   - フォルダ外にあるソースファイル
 # - INCDIR
-#   - c_cpp_properties.json に指定のない include
+#   - makepart.mk / makelocal.mk で定義した include
 
 # 出力 (コンパイラ区分)
 # - SRCS_C
@@ -26,7 +26,7 @@
 
 # 出力 (include)
 # - INCDIR
-#   - c_cpp_properties.json から得た include パスを追加
+#   - makepart.mk / makelocal.mk から得た include パスを正規化
 
 # 出力 (カバレッジ観点)
 # - GCOVR_SRCS
@@ -118,10 +118,6 @@ GCOVR_SRCS := $(foreach src,$(TEST_SRCS), \
 # Collect source files for compilation (auto-detect + specified files)
 SRCS_C := $(sort $(wildcard *.c) $(notdir $(filter %.c,$(CP_SRCS) $(LINK_SRCS))))
 SRCS_CPP := $(sort $(wildcard *.cc) $(wildcard *.cpp) $(notdir $(filter %.cc,$(CP_SRCS) $(LINK_SRCS)) $(filter %.cpp,$(CP_SRCS) $(LINK_SRCS))))
-
-# c_cpp_properties.json から include ディレクトリを得る (get_config.sh に統合)
-# Get include directories from c_cpp_properties.json (consolidated into get_config.sh)
-INCDIR += $(shell bash $(WORKSPACE_FOLDER)/framework/makefw/bin/get_config.sh include_paths)
 
 # INCDIR が指すディレクトリが同じであれば、間引く
 # Remove duplicate directories from INCDIR
