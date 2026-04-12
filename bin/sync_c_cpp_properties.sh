@@ -113,10 +113,10 @@ normalize_define() {
 }
 
 to_make_include_path() {
-    local platform="$1"
+    local make_platform="$1"
     local path="$2"
 
-    if [[ "$platform" == "Win32" ]] && command -v cygpath >/dev/null 2>&1; then
+    if [[ "$make_platform" == "Windows" ]] && command -v cygpath >/dev/null 2>&1; then
         cygpath -m "$path"
         return 0
     fi
@@ -126,17 +126,18 @@ to_make_include_path() {
 
 write_sync_makepart_includes() {
     local app="$1"
-    local platform="$2"
+    local make_platform="$2"
 
-    printf '%s\n' "-include $(to_make_include_path "$platform" "$WORKSPACE_DIR/makepart.mk")"
-    printf '%s\n' "-include $(to_make_include_path "$platform" "$APP_DIR/makepart.mk")"
-    printf '%s\n' "include $(to_make_include_path "$platform" "$APP_DIR/$app/makepart.mk")"
+    printf '%s\n' "-include $(to_make_include_path "$make_platform" "$WORKSPACE_DIR/makepart.mk")"
+    printf '%s\n' "-include $(to_make_include_path "$make_platform" "$APP_DIR/makepart.mk")"
+    printf '%s\n' "include $(to_make_include_path "$make_platform" "$APP_DIR/$app/makepart.mk")"
 }
 
 eval_makepart_var() {
     local app="$1"
-    local platform="$2"
+    local config_name="$2"
     local var_name="$3"
+    local make_platform
     local platform_flag
     local target_arch
     local tmp_makefile
@@ -145,10 +146,12 @@ eval_makepart_var() {
     local marker_begin="__CMK_SYNC_BEGIN__"
     local marker_end="__CMK_SYNC_END__"
 
-    if [[ "$platform" == "Linux" ]]; then
+    if [[ "$config_name" == "Linux" ]]; then
+        make_platform="Linux"
         platform_flag="PLATFORM_LINUX := 1"
         target_arch="linux-sync-x64"
     else
+        make_platform="Windows"
         platform_flag="PLATFORM_WINDOWS := 1"
         target_arch="windows-sync-x64"
     fi
@@ -159,13 +162,13 @@ eval_makepart_var() {
 WORKSPACE_DIR := $WORKSPACE_DIR
 MYAPP_DIR := $APP_DIR/$app
 TESTFW_DIR := $TESTFW_DIR
-PLATFORM := $platform
+PLATFORM := $make_platform
 $platform_flag
 TARGET_ARCH := $target_arch
 INCDIR :=
 DEFINES :=
 EOF
-        write_sync_makepart_includes "$app" "$platform"
+        write_sync_makepart_includes "$app" "$make_platform"
         cat <<'EOF'
 print:
 	@: $(info $(MARKER_BEGIN))$(info $($(PRINT_VAR)))$(info $(MARKER_END))
