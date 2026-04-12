@@ -113,10 +113,10 @@ normalize_define() {
 }
 
 to_make_include_path() {
-    local make_platform="$1"
+    local host_os="$1"
     local path="$2"
 
-    if [[ "$make_platform" == "Windows" ]] && command -v cygpath >/dev/null 2>&1; then
+    if [[ "$host_os" == "Windows_NT" ]] && command -v cygpath >/dev/null 2>&1; then
         cygpath -m "$path"
         return 0
     fi
@@ -126,11 +126,11 @@ to_make_include_path() {
 
 write_sync_makepart_includes() {
     local app="$1"
-    local make_platform="$2"
+    local host_os="$2"
 
-    printf '%s\n' "-include $(to_make_include_path "$make_platform" "$WORKSPACE_DIR/makepart.mk")"
-    printf '%s\n' "-include $(to_make_include_path "$make_platform" "$APP_DIR/makepart.mk")"
-    printf '%s\n' "include $(to_make_include_path "$make_platform" "$APP_DIR/$app/makepart.mk")"
+    printf '%s\n' "-include $(to_make_include_path "$host_os" "$WORKSPACE_DIR/makepart.mk")"
+    printf '%s\n' "-include $(to_make_include_path "$host_os" "$APP_DIR/makepart.mk")"
+    printf '%s\n' "include $(to_make_include_path "$host_os" "$APP_DIR/$app/makepart.mk")"
 }
 
 eval_makepart_var() {
@@ -138,6 +138,7 @@ eval_makepart_var() {
     local config_name="$2"
     local var_name="$3"
     local make_platform
+    local host_os="${OS:-}"
     local platform_flag
     local target_arch
     local tmp_makefile
@@ -168,7 +169,7 @@ TARGET_ARCH := $target_arch
 INCDIR :=
 DEFINES :=
 EOF
-        write_sync_makepart_includes "$app" "$make_platform"
+        write_sync_makepart_includes "$app" "$host_os"
         cat <<'EOF'
 print:
 	@: $(info $(MARKER_BEGIN))$(info $($(PRINT_VAR)))$(info $(MARKER_END))
