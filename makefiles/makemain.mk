@@ -75,7 +75,11 @@ ifneq ($(SUBDIRS),)
     .PHONY: $(SUBDIRS)
     $(SUBDIRS):
     #@echo "Making $(MAKECMDGOALS) in $@"
-	@$(MAKE) -C $@ $(MAKECMDGOALS)
+	@if [ -n "$(MAKECMDGOALS)" ]; then \
+		$(MAKE) -C $@ $(MAKECMDGOALS); \
+	else \
+		$(MAKE) -C $@; \
+	fi
 
     # 主要なターゲットにサブディレクトリ依存を追加 (サブディレクトリを先に処理)
     # Add subdirectory dependencies to main targets (process subdirectories first)
