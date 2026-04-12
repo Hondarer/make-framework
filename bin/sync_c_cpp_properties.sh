@@ -105,6 +105,14 @@ normalize_define() {
     printf '%s=%s\n' "$key" "$value"
 }
 
+write_sync_makepart_includes() {
+    local app="$1"
+
+    printf '%s\n' "-include $WORKSPACE_FOLDER/makepart.mk"
+    printf '%s\n' "-include $APP_DIR/makepart.mk"
+    printf '%s\n' "include $APP_DIR/$app/makepart.mk"
+}
+
 eval_makepart_var() {
     local app="$1"
     local platform="$2"
@@ -123,7 +131,8 @@ eval_makepart_var() {
     fi
 
     tmp_makefile=$(mktemp)
-    cat > "$tmp_makefile" <<EOF
+    {
+        cat <<EOF
 WORKSPACE_FOLDER := $WORKSPACE_FOLDER
 TESTFW_DIR := $TESTFW_DIR
 PLATFORM := $platform
@@ -131,10 +140,13 @@ $platform_flag
 TARGET_ARCH := $target_arch
 INCDIR :=
 DEFINES :=
-include $APP_DIR/$app/makepart.mk
+EOF
+        write_sync_makepart_includes "$app"
+        cat <<'EOF'
 print:
 	@:
 EOF
+    } > "$tmp_makefile"
 
     value=$(make -f "$tmp_makefile" -pn print | sed -n "s/^$var_name := //p" | head -n 1)
     rm -f "$tmp_makefile"
@@ -172,7 +184,9 @@ collect_expected() {
         done
     done
 
-    printf '%s\n' "${items[@]}"
+    if (( ${#items[@]} > 0 )); then
+        printf '%s\n' "${items[@]}" | LC_ALL=C sort
+    fi
 }
 
 build_expected_defines() {
@@ -207,7 +221,7 @@ build_expected_defines() {
 
     printf '%s\n' 'TARGET_ARCH=\"\"'
     if (( ${#items[@]} > 0 )); then
-        printf '%s\n' "${items[@]}"
+        printf '%s\n' "${items[@]}" | LC_ALL=C sort
     fi
 }
 
@@ -300,7 +314,7 @@ compare_and_write_warn() {
     section_file=$(mktemp)
 
     {
-        printf 'c_cpp_properties.json is out of sync with app/*/makepart.mk.\n'
+        printf 'c_cpp_properties.json is out of sync with makepart.mk, app/makepart.mk, and app/*/makepart.mk.\n'
         printf 'Run from workspace root:\n'
         printf '  bash framework/makefw/bin/sync_c_cpp_properties.sh --write\n'
         printf '\n'
