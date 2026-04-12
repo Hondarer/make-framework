@@ -286,6 +286,24 @@ CXX_STANDARD := 17
 # Cross-app references use $(MYAPP_FOLDER)/../otherapp/...
 # 内部で realpath -m により正規化され、.. は除去される
 # Internally normalized via realpath -m to remove ..
+#
+# 性能: 親 make が export した値を子 make が環境変数として継承した場合、
+#        CURDIR が同一 app 配下であれば再計算をスキップする
+# Performance: when inherited from parent via environment, skip re-evaluation
+#              if CURDIR is still under the same app directory
+
+# 親 make から継承した MYAPP_FOLDER が有効か判定
+# Check if MYAPP_FOLDER inherited from parent make is still valid
+_MYAPP_NEEDS_EVAL := 1
+ifeq ($(origin MYAPP_FOLDER),environment)
+    ifneq ($(findstring $(MYAPP_FOLDER)/,$(CURDIR)/),)
+        # CURDIR は継承された MYAPP_FOLDER 配下 — キャッシュヒット、再計算不要
+        # CURDIR is under inherited MYAPP_FOLDER — cache hit, skip re-evaluation
+        _MYAPP_NEEDS_EVAL :=
+    endif
+endif
+
+ifneq ($(_MYAPP_NEEDS_EVAL),)
 
 # CURDIR からワークスペースルートを除いた相対パスを取得
 # Get relative path from CURDIR by removing the workspace root prefix
@@ -322,6 +340,8 @@ else
     # Not under app/ (workspace root, framework/, etc.)
     MYAPP_FOLDER = $(error MYAPP_FOLDER is not available at $(CURDIR). It is only valid under app/<appname>/ directories)
 endif
+
+endif # _MYAPP_NEEDS_EVAL
 
 # makepart.mk の検索
 # dirname コマンドの代わりにシェルのパラメータ展開を使用してプロセス生成を削減
