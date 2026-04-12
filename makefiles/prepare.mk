@@ -60,15 +60,15 @@ endif
 # 2. 統合プロジェクト配下の framework/testfw
 # 3. 単独 CI / sibling 配置の testfw
 ifeq ($(strip $(TESTFW_DIR)),)
-    ifneq ($(wildcard $(WORKSPACE_FOLDER)/framework/testfw),)
-        TESTFW_DIR := $(WORKSPACE_FOLDER)/framework/testfw
-    else ifneq ($(wildcard $(WORKSPACE_FOLDER)/testfw),)
-        TESTFW_DIR := $(WORKSPACE_FOLDER)/testfw
+    ifneq ($(wildcard $(WORKSPACE_DIR)/framework/testfw),)
+        TESTFW_DIR := $(WORKSPACE_DIR)/framework/testfw
+    else ifneq ($(wildcard $(WORKSPACE_DIR)/testfw),)
+        TESTFW_DIR := $(WORKSPACE_DIR)/testfw
     endif
 else
     TESTFW_DIR := $(abspath $(TESTFW_DIR))
 endif
-TESTFW_DIR_ERROR := testfw directory not found. Set TESTFW_DIR or place testfw under $(WORKSPACE_FOLDER)/framework/testfw or $(WORKSPACE_FOLDER)/testfw.
+TESTFW_DIR_ERROR := testfw directory not found. Set TESTFW_DIR or place testfw under $(WORKSPACE_DIR)/framework/testfw or $(WORKSPACE_DIR)/testfw.
 export TESTFW_DIR
 
 DEFINES :=
@@ -76,7 +76,7 @@ DEFINES :=
 # ソースファイルのエンコード指定から LANG を得る
 # FILES_LANG is stable across recursive make invocations in the same workspace
 ifeq ($(origin MAKEFW_FILES_LANG), undefined)
-    MAKEFW_FILES_LANG := $(shell bash $(WORKSPACE_FOLDER)/framework/makefw/bin/get_files_lang.sh)
+    MAKEFW_FILES_LANG := $(shell bash $(WORKSPACE_DIR)/framework/makefw/bin/get_files_lang.sh)
 endif
 export MAKEFW_FILES_LANG
 FILES_LANG := $(MAKEFW_FILES_LANG)
@@ -272,18 +272,18 @@ CXX_STANDARD := 17
 
 # デフォルト設定 END ################################################################
 
-# MYAPP_FOLDER: app/<appname> のルート絶対パス
-# Define MYAPP_FOLDER: absolute path to the app/<appname> root directory
-# makepart.mk / makechild.mk / makelocal.mk から $(MYAPP_FOLDER) で自 app 内を参照可能にする
-# Allows makepart.mk / makechild.mk / makelocal.mk to reference within the app via $(MYAPP_FOLDER)
+# MYAPP_DIR: app/<appname> のルート絶対パス
+# Define MYAPP_DIR: absolute path to the app/<appname> root directory
+# makepart.mk / makechild.mk / makelocal.mk から $(MYAPP_DIR) で自 app 内を参照可能にする
+# Allows makepart.mk / makechild.mk / makelocal.mk to reference within the app via $(MYAPP_DIR)
 #
-# 有効条件: CURDIR が $(WORKSPACE_FOLDER)/app/<appname>/... 配下であること
-# Valid when: CURDIR is under $(WORKSPACE_FOLDER)/app/<appname>/...
-# 無効条件: ワークスペースルート、$(WORKSPACE_FOLDER)/app 直下、app 外ディレクトリ
-# Invalid at: workspace root, directly under $(WORKSPACE_FOLDER)/app, or outside app/
+# 有効条件: CURDIR が $(WORKSPACE_DIR)/app/<appname>/... 配下であること
+# Valid when: CURDIR is under $(WORKSPACE_DIR)/app/<appname>/...
+# 無効条件: ワークスペースルート、$(WORKSPACE_DIR)/app 直下、app 外ディレクトリ
+# Invalid at: workspace root, directly under $(WORKSPACE_DIR)/app, or outside app/
 #
-# cross-app 参照は $(MYAPP_FOLDER)/../otherapp/... を使用する
-# Cross-app references use $(MYAPP_FOLDER)/../otherapp/...
+# cross-app 参照は $(MYAPP_DIR)/../otherapp/... を使用する
+# Cross-app references use $(MYAPP_DIR)/../otherapp/...
 # 内部で realpath -m により正規化され、.. は除去される
 # Internally normalized via realpath -m to remove ..
 #
@@ -292,13 +292,13 @@ CXX_STANDARD := 17
 # Performance: when inherited from parent via environment, skip re-evaluation
 #              if CURDIR is still under the same app directory
 
-# 親 make から継承した MYAPP_FOLDER が有効か判定
-# Check if MYAPP_FOLDER inherited from parent make is still valid
+# 親 make から継承した MYAPP_DIR が有効か判定
+# Check if MYAPP_DIR inherited from parent make is still valid
 _MYAPP_NEEDS_EVAL := 1
-ifeq ($(origin MYAPP_FOLDER),environment)
-    ifneq ($(findstring $(MYAPP_FOLDER)/,$(CURDIR)/),)
-        # CURDIR は継承された MYAPP_FOLDER 配下 — キャッシュヒット、再計算不要
-        # CURDIR is under inherited MYAPP_FOLDER — cache hit, skip re-evaluation
+ifeq ($(origin MYAPP_DIR),environment)
+    ifneq ($(findstring $(MYAPP_DIR)/,$(CURDIR)/),)
+        # CURDIR は継承された MYAPP_DIR 配下 — キャッシュヒット、再計算不要
+        # CURDIR is under inherited MYAPP_DIR — cache hit, skip re-evaluation
         _MYAPP_NEEDS_EVAL :=
     endif
 endif
@@ -307,7 +307,7 @@ ifneq ($(_MYAPP_NEEDS_EVAL),)
 
 # CURDIR からワークスペースルートを除いた相対パスを取得
 # Get relative path from CURDIR by removing the workspace root prefix
-_MYAPP_REL_FROM_WS := $(patsubst $(WORKSPACE_FOLDER)/%,%,$(CURDIR))
+_MYAPP_REL_FROM_WS := $(patsubst $(WORKSPACE_DIR)/%,%,$(CURDIR))
 
 # app/ で始まるか判定
 # Check if the relative path starts with app/
@@ -328,17 +328,17 @@ ifneq ($(_MYAPP_STARTS_WITH_APP),)
     _MYAPP_SEGMENTS := $(words $(subst /, ,$(_MYAPP_AFTER_APP)))
 
     ifneq ($(_MYAPP_APPNAME),)
-        MYAPP_FOLDER := $(WORKSPACE_FOLDER)/app/$(_MYAPP_APPNAME)
-        export MYAPP_FOLDER
+        MYAPP_DIR := $(WORKSPACE_DIR)/app/$(_MYAPP_APPNAME)
+        export MYAPP_DIR
     else
         # app/ 直下 (appname が空)
         # Directly under app/ (appname is empty)
-        MYAPP_FOLDER = $(error MYAPP_FOLDER is not available at $(CURDIR). It is only valid under app/<appname>/ directories)
+        MYAPP_DIR = $(error MYAPP_DIR is not available at $(CURDIR). It is only valid under app/<appname>/ directories)
     endif
 else
     # app/ 配下でない (ワークスペースルート、framework/ 等)
     # Not under app/ (workspace root, framework/, etc.)
-    MYAPP_FOLDER = $(error MYAPP_FOLDER is not available at $(CURDIR). It is only valid under app/<appname>/ directories)
+    MYAPP_DIR = $(error MYAPP_DIR is not available at $(CURDIR). It is only valid under app/<appname>/ directories)
 endif
 
 endif # _MYAPP_NEEDS_EVAL

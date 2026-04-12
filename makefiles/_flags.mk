@@ -198,7 +198,7 @@ endif
 
 # 警告キャプチャスクリプト (コンパイラ/リンカ出力から .warn ファイルを生成)
 # Warning capture script (generates .warn files from compiler/linker output)
-CAPTURE_WARNINGS := "$(SHELL)" "$(WORKSPACE_FOLDER)/framework/makefw/bin/capture_warnings.sh"
+CAPTURE_WARNINGS := "$(SHELL)" "$(WORKSPACE_DIR)/framework/makefw/bin/capture_warnings.sh"
 
 # wrap-main
 ifeq ($(USE_WRAP_MAIN),1)

@@ -99,15 +99,15 @@ find-up = \
             $(call find-up,$(patsubst %/,%,$(dir $(1))),$(2))\
         )\
     )
-WORKSPACE_FOLDER := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
+WORKSPACE_DIR := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
 
 # 準備処理 (ビルドテンプレートより前に include)
-include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/prepare.mk
+include $(WORKSPACE_DIR)/framework/makefw/makefiles/prepare.mk
 
 ##### makepart.mk の内容は、このタイミングで処理される #####
 
 # ビルドテンプレートを include
-include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makemain.mk
+include $(WORKSPACE_DIR)/framework/makefw/makefiles/makemain.mk
 ```
 
 ### 重要なポイント
@@ -135,17 +135,17 @@ include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makemain.mk
 ifneq (,$(findstring /libsrc/,$(CURDIR)))
     # .csproj があれば .NET ライブラリ、なければ C/C++ ライブラリ
     ifneq ($(wildcard *.csproj),)
-        include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makelibsrc_dotnet.mk
+        include $(WORKSPACE_DIR)/framework/makefw/makefiles/makelibsrc_dotnet.mk
     else
-        include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makelibsrc_c_cpp.mk
+        include $(WORKSPACE_DIR)/framework/makefw/makefiles/makelibsrc_c_cpp.mk
     endif
 # パスに /src/ を含む場合は実行ファイル用テンプレート
 else ifneq (,$(findstring /src/,$(CURDIR)))
     # .csproj があれば .NET 実行体、なければ C/C++ 実行体
     ifneq ($(wildcard *.csproj),)
-        include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makesrc_dotnet.mk
+        include $(WORKSPACE_DIR)/framework/makefw/makefiles/makesrc_dotnet.mk
     else
-        include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makesrc_c_cpp.mk
+        include $(WORKSPACE_DIR)/framework/makefw/makefiles/makesrc_c_cpp.mk
     endif
 else
     $(error Cannot auto-select makefile template. Current path must contain /libsrc/ or /src/: $(CURDIR))
@@ -306,8 +306,8 @@ endif
 
 # ライブラリ検索パスの追加
 LIBSDIR += \
-    $(WORKSPACE_FOLDER)/framework/testfw/lib \
-    $(WORKSPACE_FOLDER)/test/lib
+    $(WORKSPACE_DIR)/framework/testfw/lib \
+    $(WORKSPACE_DIR)/test/lib
 ```
 
 ## 導入方法
@@ -334,15 +334,15 @@ cp framework/makefw/makefiles/__template.mk prod/calc/libsrc/calcbase/makefile
 ```makefile
 # ワークスペースのディレクトリ
 find-up = ...
-WORKSPACE_FOLDER := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
+WORKSPACE_DIR := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
 
-include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/prepare.mk
+include $(WORKSPACE_DIR)/framework/makefw/makefiles/prepare.mk
 
 # 固有設定
 LIBS += calcbase
 LIB_TYPE = shared
 
-include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makelibsrc.mk
+include $(WORKSPACE_DIR)/framework/makefw/makefiles/makelibsrc.mk
 ```
 
 **変更後:**
@@ -355,15 +355,15 @@ include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makelibsrc.mk
 
 # ワークスペースのディレクトリ
 find-up = ...
-WORKSPACE_FOLDER := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
+WORKSPACE_DIR := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
 
 # 準備処理 (ビルドテンプレートより前に include)
-include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/prepare.mk
+include $(WORKSPACE_DIR)/framework/makefw/makefiles/prepare.mk
 
 ##### makepart.mk の内容は、このタイミングで処理される #####
 
 # ビルドテンプレートを include
-include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makemain.mk
+include $(WORKSPACE_DIR)/framework/makefw/makefiles/makemain.mk
 ```
 
 **makepart.mk (固有設定):**
@@ -397,7 +397,7 @@ make
 
 **確認事項**:
 1. `makepart.mk` の内容が正しいか
-2. `WORKSPACE_FOLDER` が正しく設定されているか（`.workspaceRoot` ファイルの配置）
+2. `WORKSPACE_DIR` が正しく設定されているか（`.workspaceRoot` ファイルの配置）
 3. 依存ライブラリが正しくビルドされているか
 
 **デバッグ方法**:

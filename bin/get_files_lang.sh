@@ -30,13 +30,13 @@ find_workspace_root() {
 }
 
 # ワークスペースのディレクトリ
-WORKSPACE_FOLDER=$(find_workspace_root "$SCRIPT_DIR") || exit 0
+WORKSPACE_DIR=$(find_workspace_root "$SCRIPT_DIR") || exit 0
 
 # LANG 環境変数の言語指定部分を取得 (デフォルトは "ja_JP")
 default_lang=$(echo "$LANG" | sed -E 's/\..*//' | grep -E '^[a-zA-Z]+(-[a-zA-Z]+)?$' || echo "ja_JP")
 
 # ワークスペースの .vscode/settings.json のパス
-VSCODE_SETTINGS="$WORKSPACE_FOLDER/.vscode/settings.json"
+VSCODE_SETTINGS="$WORKSPACE_DIR/.vscode/settings.json"
 
 # グローバル settings.json のパス
 GLOBAL_SETTINGS="$HOME/.config/Code/User/settings.json"

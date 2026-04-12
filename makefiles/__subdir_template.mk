@@ -11,15 +11,15 @@ find-up = \
     )
 
 # 再帰 make 間でワークスペースルートは不変のため、内部キャッシュ変数で継承する
-ifeq ($(origin MAKEFW_WORKSPACE_FOLDER), undefined)
-    MAKEFW_WORKSPACE_FOLDER := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
+ifeq ($(origin MAKEFW_WORKSPACE_DIR), undefined)
+    MAKEFW_WORKSPACE_DIR := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
 endif
-export MAKEFW_WORKSPACE_FOLDER
+export MAKEFW_WORKSPACE_DIR
 
-WORKSPACE_FOLDER := $(MAKEFW_WORKSPACE_FOLDER)
+WORKSPACE_DIR := $(MAKEFW_WORKSPACE_DIR)
 
 # 準備処理 (走査テンプレートより前に include)
-include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/prepare.mk
+include $(WORKSPACE_DIR)/framework/makefw/makefiles/prepare.mk
 
 # サブディレクトリ走査テンプレートを include
-include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makesubdir.mk
+include $(WORKSPACE_DIR)/framework/makefw/makefiles/makesubdir.mk

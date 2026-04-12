@@ -1,6 +1,6 @@
 # .NET ライブラリ作成用 makefile
 
-include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/_hooks.mk
+include $(WORKSPACE_DIR)/framework/makefw/makefiles/_hooks.mk
 
 # カレントディレクトリ配下の絶対パスを相対パスに変換する (make の出力を読みやすくする)
 # Convert absolute paths under $(CURDIR) to relative paths (for readable make output)
@@ -32,7 +32,7 @@ default: build
 
 # dotnet build ラッパースクリプト (warning/error のみ着色)
 # dotnet build wrapper script (colorizes only warnings/errors)
-DOTNET_BUILD := $(WORKSPACE_FOLDER)/framework/makefw/bin/dotnet_build.sh
+DOTNET_BUILD := $(WORKSPACE_DIR)/framework/makefw/bin/dotnet_build.sh
 
 $(OUTPUT_ASSEMBLY): $(SOURCES) $(PROJECT_FILE)
     # dotnet_build.sh 側にてビルドコマンドは echo される

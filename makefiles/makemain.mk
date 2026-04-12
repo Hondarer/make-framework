@@ -51,17 +51,17 @@ SUBDIRS := $(foreach d,$(SUBDIRS),$(call _os_filter_subdir,$(d)))
 ifneq (,$(findstring /libsrc/,$(CURDIR)))
     # .csproj があれば .NET ライブラリ、なければ C/C++ ライブラリ
     ifneq ($(wildcard *.csproj),)
-        include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makelibsrc_dotnet.mk
+        include $(WORKSPACE_DIR)/framework/makefw/makefiles/makelibsrc_dotnet.mk
     else
-        include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makelibsrc_c_cpp.mk
+        include $(WORKSPACE_DIR)/framework/makefw/makefiles/makelibsrc_c_cpp.mk
     endif
 # パスに /src/ を含む場合は実行ファイル用テンプレート
 else ifneq (,$(findstring /src/,$(CURDIR)))
     # .csproj があれば .NET 実行体、なければ C/C++ 実行体
     ifneq ($(wildcard *.csproj),)
-        include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makesrc_dotnet.mk
+        include $(WORKSPACE_DIR)/framework/makefw/makefiles/makesrc_dotnet.mk
     else
-        include $(WORKSPACE_FOLDER)/framework/makefw/makefiles/makesrc_c_cpp.mk
+        include $(WORKSPACE_DIR)/framework/makefw/makefiles/makesrc_c_cpp.mk
     endif
 else
     $(error Cannot auto-select makefile template. Current path must contain /libsrc/ or /src/: $(CURDIR))

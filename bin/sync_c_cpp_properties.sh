@@ -26,20 +26,20 @@ Usage:
 EOF
 }
 
-WORKSPACE_FOLDER=$(find_workspace_root "$SCRIPT_DIR") || {
+WORKSPACE_DIR=$(find_workspace_root "$SCRIPT_DIR") || {
     echo "workspace root not found" >&2
     exit 2
 }
-APP_DIR="$WORKSPACE_FOLDER/app"
-VSCODE_FILE="$WORKSPACE_FOLDER/.vscode/c_cpp_properties.json"
+APP_DIR="$WORKSPACE_DIR/app"
+VSCODE_FILE="$WORKSPACE_DIR/.vscode/c_cpp_properties.json"
 WARN_FILE="$APP_DIR/c_cpp_properties.warn"
 
-if [[ -d "$WORKSPACE_FOLDER/framework/testfw" ]]; then
-    TESTFW_DIR="$WORKSPACE_FOLDER/framework/testfw"
-elif [[ -d "$WORKSPACE_FOLDER/testfw" ]]; then
-    TESTFW_DIR="$WORKSPACE_FOLDER/testfw"
+if [[ -d "$WORKSPACE_DIR/framework/testfw" ]]; then
+    TESTFW_DIR="$WORKSPACE_DIR/framework/testfw"
+elif [[ -d "$WORKSPACE_DIR/testfw" ]]; then
+    TESTFW_DIR="$WORKSPACE_DIR/testfw"
 else
-    TESTFW_DIR="$WORKSPACE_FOLDER/framework/testfw"
+    TESTFW_DIR="$WORKSPACE_DIR/framework/testfw"
 fi
 
 MODE="${1:-}"
@@ -80,8 +80,8 @@ normalize_path() {
         path="$(realpath -m "$path")"
     fi
 
-    if [[ "$path" == "$WORKSPACE_FOLDER"* ]]; then
-        printf '%s\n' '${workspaceFolder}'"${path#$WORKSPACE_FOLDER}"
+    if [[ "$path" == "$WORKSPACE_DIR"* ]]; then
+        printf '%s\n' '${workspaceFolder}'"${path#$WORKSPACE_DIR}"
     else
         printf '%s\n' "$path"
     fi
@@ -113,7 +113,7 @@ normalize_define() {
 write_sync_makepart_includes() {
     local app="$1"
 
-    printf '%s\n' "-include $WORKSPACE_FOLDER/makepart.mk"
+    printf '%s\n' "-include $WORKSPACE_DIR/makepart.mk"
     printf '%s\n' "-include $APP_DIR/makepart.mk"
     printf '%s\n' "include $APP_DIR/$app/makepart.mk"
 }
@@ -138,8 +138,8 @@ eval_makepart_var() {
     tmp_makefile=$(mktemp)
     {
         cat <<EOF
-WORKSPACE_FOLDER := $WORKSPACE_FOLDER
-MYAPP_FOLDER := $APP_DIR/$app
+WORKSPACE_DIR := $WORKSPACE_DIR
+MYAPP_DIR := $APP_DIR/$app
 TESTFW_DIR := $TESTFW_DIR
 PLATFORM := $platform
 $platform_flag
