@@ -132,9 +132,9 @@ ifeq ($(origin MAKEFW_TARGET_ARCH), undefined)
             # Other Linux distributions
             OS_ID := $(shell . /etc/os-release 2>/dev/null && echo $$ID || echo linux)
         endif
-        MAKEFW_TARGET_ARCH := linux-$(OS_ID)-$(ARCH)
+        MAKEFW_TARGET_ARCH := linux_$(OS_ID)_$(ARCH)
     else ifdef PLATFORM_WINDOWS
-        MAKEFW_TARGET_ARCH := windows-$(ARCH)
+        MAKEFW_TARGET_ARCH := windows_$(ARCH)
     endif
 endif
 export MAKEFW_TARGET_ARCH
@@ -458,10 +458,12 @@ else ifdef PLATFORM_WINDOWS
 endif
 
 # TARGET_ARCH をコンパイル時定数として C/C++ コードに渡す
-# Pass TARGET_ARCH as a compile-time string constant to C/C++ code
+# Pass TARGET_ARCH as a compile-time constant to C/C++ code
+# 値はアンダースコア区切り (例: windows_x64, linux_el8_x64) でクォート不要なシンプルな識別子
+# Value uses underscore separators (e.g. windows_x64, linux_el8_x64) — no quoting needed
 # DEFINES に既存の TARGET_ARCH 定義 (代入・宣言のみを問わず) があれば除去してから追加
 # Remove any existing TARGET_ARCH definition from DEFINES (assignment or declaration) before adding
-DEFINES := $(filter-out TARGET_ARCH%,$(DEFINES)) TARGET_ARCH='"$(TARGET_ARCH)"'
+DEFINES := $(filter-out TARGET_ARCH%,$(DEFINES)) TARGET_ARCH=$(TARGET_ARCH)
 
 # DEFINES の各エントリを make 変数として定義する (makepart.mk などから参照可能にする)
 # キーのみ: KEY → KEY := 1
