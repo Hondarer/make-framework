@@ -17,6 +17,22 @@ if (-not $target -or -not $source -or -not $depfile) {
     exit 1
 }
 
+# エンコード設定
+# [Console]::InputEncoding / OutputEncoding は変更しない。
+# stdin をシステムの ANSI コードページのバイトストリームとして直接読む。
+# cl.exe の出力エンコーディングは Windows の ANSI コードページ (GetACP()) に従う。
+if ($PSVersionTable.PSEdition -eq 'Core') {
+    # .NET Core: Encoding.Default が UTF-8 のため ANSICodePage から明示取得し登録
+    [System.Text.Encoding]::RegisterProvider([System.Text.CodePagesEncodingProvider]::Instance)
+    $ansiEncoding = [System.Text.Encoding]::GetEncoding(
+        [System.Globalization.CultureInfo]::CurrentCulture.TextInfo.ANSICodePage
+    )
+} else {
+    # .NET Framework: Encoding.Default が GetACP() ベースのシステム ANSI エンコーディング
+    $ansiEncoding = [System.Text.Encoding]::Default
+}
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+
 # 警告行の収集用リスト
 # List to collect warning lines
 $warnLines = @()
@@ -28,63 +44,75 @@ $deps = @()
 $sb = [System.Text.StringBuilder]::new()
 [void]$sb.Append("${target}: ${source}")
 
-# パイプからの入力を 1 行ずつ処理
-foreach ($line in $input) {
-    $header = $null
+# パイプからの入力を 1 行ずつ処理 (ANSI コードページのバイト列を直接デコード)
+$reader = $null
+try {
+    $reader = [System.IO.StreamReader]::new(
+        [Console]::OpenStandardInput(), $ansiEncoding, $false, 4096, $true
+    )
 
-    if ($line -match '^メモ: インクルード ファイル:\s*(.+)$') {
-        $header = $Matches[1]
-    }
-    elseif ($line -match '^Note: including file:\s*(.+)$') {
-        $header = $Matches[1]
-    }
+    while ($true) {
+        $line = $reader.ReadLine()
+        if ($null -eq $line) { break }
 
-    if ($null -ne $header) {
-        # バックスラッシュをスラッシュに統一
-        $header = $header.Replace('\', '/')
+        $header = $null
 
-        # スペースをエスケープ (Make の依存関係ファイルではスペースは特殊文字)
-        $header = $header.Replace(' ', '\ ')
-
-        # 依存関係を追加 ( ` \<LF>  header` 形式)
-        [void]$sb.Append(' \')
-        [void]$sb.Append("`n  ${header}")
-
-        # 空ルール生成用に保存
-        $deps += $header
-    }
-    else {
-        # ソースファイル名のみの行はスキップ (MSVC がコンパイル開始時に出力するファイル名)
-        $sourceName = [System.IO.Path]::GetFileName($source)
-        if ($line.Trim() -eq $sourceName) {
-            continue
+        if ($line -match '^メモ: インクルード ファイル:\s*(.+)$') {
+            $header = $Matches[1]
+        }
+        elseif ($line -match '^Note: including file:\s*(.+)$') {
+            $header = $Matches[1]
         }
 
-        # MSVC 診断メッセージのファイルパスをフルパスに変換 (VS Code でクリック可能にする)
-        $outputLine = $line
-        if ($line -match '^(.+?)(\(\d+(?:,\d+)?\)\s*:.*)$') {
-            $filePart = $Matches[1]
-            $rest     = $Matches[2]
-            if (-not [System.IO.Path]::IsPathRooted($filePart)) {
-                $fullPath = [System.IO.Path]::GetFullPath($filePart)
-                if (Test-Path $fullPath) {
-                    $outputLine = "${fullPath}${rest}"
-                }
-            }
-        }
+        if ($null -ne $header) {
+            # バックスラッシュをスラッシュに統一
+            $header = $header.Replace('\', '/')
 
-        # 依存関係解析対象でない行を出力 (error/warning は色分け)
-        if ($outputLine -match '\berror\b') {
-            Write-Host $outputLine -ForegroundColor Red
-        }
-        elseif ($outputLine -match '\bwarning\b') {
-            Write-Host $outputLine -ForegroundColor Yellow
-            if ($warnfile) { $warnLines += $outputLine }
+            # スペースをエスケープ (Make の依存関係ファイルではスペースは特殊文字)
+            $header = $header.Replace(' ', '\ ')
+
+            # 依存関係を追加 ( ` \<LF>  header` 形式)
+            [void]$sb.Append(' \')
+            [void]$sb.Append("`n  ${header}")
+
+            # 空ルール生成用に保存
+            $deps += $header
         }
         else {
-            Write-Host $outputLine
+            # ソースファイル名のみの行はスキップ (MSVC がコンパイル開始時に出力するファイル名)
+            $sourceName = [System.IO.Path]::GetFileName($source)
+            if ($line.Trim() -eq $sourceName) {
+                continue
+            }
+
+            # MSVC 診断メッセージのファイルパスをフルパスに変換 (VS Code でクリック可能にする)
+            $outputLine = $line
+            if ($line -match '^(.+?)(\(\d+(?:,\d+)?\)\s*:.*)$') {
+                $filePart = $Matches[1]
+                $rest     = $Matches[2]
+                if (-not [System.IO.Path]::IsPathRooted($filePart)) {
+                    $fullPath = [System.IO.Path]::GetFullPath($filePart)
+                    if (Test-Path $fullPath) {
+                        $outputLine = "${fullPath}${rest}"
+                    }
+                }
+            }
+
+            # 依存関係解析対象でない行を出力 (error/warning は色分け)
+            if ($outputLine -match '\berror\b') {
+                Write-Host $outputLine -ForegroundColor Red
+            }
+            elseif ($outputLine -match '\bwarning\b') {
+                Write-Host $outputLine -ForegroundColor Yellow
+                if ($warnfile) { $warnLines += $outputLine }
+            }
+            else {
+                Write-Host $outputLine
+            }
         }
     }
+} finally {
+    if ($null -ne $reader) { $reader.Dispose() }
 }
 
 # 末尾に改行を追加

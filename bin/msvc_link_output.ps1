@@ -1,47 +1,40 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 # MSVC link.exe の出力を UTF-8 に正規化してそのまま流す
 # Normalize MSVC link.exe output to UTF-8 and pass it through unchanged
 
-$cp932     = [System.Text.Encoding]::GetEncoding(932)
+# [Console]::InputEncoding / OutputEncoding は変更しない。
+# stdin をシステムの ANSI コードページで読み、stdout を UTF-8 (BOM なし) として書く。
+# link.exe の出力エンコーディングは Windows の ANSI コードページ (GetACP()) に従う。
+if ($PSVersionTable.PSEdition -eq 'Core') {
+    # .NET Core: Encoding.Default が UTF-8 のため ANSICodePage から明示取得し登録
+    [System.Text.Encoding]::RegisterProvider([System.Text.CodePagesEncodingProvider]::Instance)
+    $ansiEncoding = [System.Text.Encoding]::GetEncoding(
+        [System.Globalization.CultureInfo]::CurrentCulture.TextInfo.ANSICodePage
+    )
+} else {
+    # .NET Framework: Encoding.Default が GetACP() ベースのシステム ANSI エンコーディング
+    $ansiEncoding = [System.Text.Encoding]::Default
+}
 $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 
-[Console]::InputEncoding = $utf8NoBom
-[Console]::OutputEncoding = $utf8NoBom
-$OutputEncoding = $utf8NoBom
+$reader = $null
+$writer = $null
+try {
+    $reader = [System.IO.StreamReader]::new(
+        [Console]::OpenStandardInput(), $ansiEncoding, $false, 4096, $true
+    )
+    $writer = [System.IO.StreamWriter]::new(
+        [Console]::OpenStandardOutput(), $utf8NoBom, 4096, $true
+    )
+    $writer.NewLine   = "`n"    # 下流の bash/grep に LF で渡す
+    $writer.AutoFlush = $true   # パイプ詰まりを防ぐ
 
-function Get-JapaneseScore([string]$text) {
-    if ([string]::IsNullOrEmpty($text)) {
-        return 0
+    while ($true) {
+        $line = $reader.ReadLine()
+        if ($null -eq $line) { break }
+        $writer.WriteLine($line)
     }
-
-    $score = 0
-    foreach ($ch in $text.ToCharArray()) {
-        $code = [int][char]$ch
-        if (($code -ge 0x3040 -and $code -le 0x30FF) -or ($code -ge 0x4E00 -and $code -le 0x9FFF)) {
-            $score++
-        }
-    }
-
-    return $score
-}
-
-function Repair-Utf8AsCp932Mojibake([string]$line) {
-    if ([string]::IsNullOrEmpty($line)) {
-        return $line
-    }
-
-    try {
-        $repaired = [System.Text.Encoding]::UTF8.GetString($cp932.GetBytes($line))
-        if ((Get-JapaneseScore $repaired) -gt (Get-JapaneseScore $line)) {
-            return $repaired
-        }
-    }
-    catch {
-    }
-
-    return $line
-}
-
-foreach ($line in $input) {
-    Write-Output (Repair-Utf8AsCp932Mojibake $line)
+} finally {
+    if ($null -ne $writer) { $writer.Dispose() }
+    if ($null -ne $reader) { $reader.Dispose() }
 }
