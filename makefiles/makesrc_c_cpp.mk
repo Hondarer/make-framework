@@ -36,7 +36,7 @@ ifeq ($(LINK_TEST), 1)
         # MSVC_CRT_SUBDIR は prepare.mk で CONFIG と MSVC_CRT から計算される
         # MSVC_CRT_SUBDIR is calculated in prepare.mk from CONFIG and MSVC_CRT
         # TARGET_ARCH を使用してプラットフォーム固有のパスを指定
-        # Use TARGET_ARCH for platform-specific path (e.g., windows-x64/md)
+        # Use TARGET_ARCH for platform-specific path (e.g., windows_x64/md)
         LIBSDIR += $(TESTFW_DIR)/gtest/lib/$(TARGET_ARCH)/$(MSVC_CRT_SUBDIR)
     endif
 
