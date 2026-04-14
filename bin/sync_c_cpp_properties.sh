@@ -258,7 +258,7 @@ build_expected_defines() {
     done < "$tmp_file"
     rm -f "$tmp_file"
 
-    printf '%s\n' 'TARGET_ARCH=\"\"'
+    printf '%s\n' 'TARGET_ARCH=target_arch'
     if (( ${#items[@]} > 0 )); then
         printf '%s\n' "${items[@]}" | LC_ALL=C sort
     fi
