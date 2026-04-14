@@ -220,13 +220,19 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
 				fi; \
 				if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi
         else ifdef PLATFORM_WINDOWS
+            # DLL 副産物 (.lib, .pdb) の存在チェック条件を組み立てる
+            # Build existence-check condition for DLL side products (.lib, .pdb)
+            _DLL_SIDE_CHECK := [ ! -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.lib,$(TARGET))" ]
+            ifneq ($(filter /DEBUG /DEBUG:FULL /DEBUG:FASTLINK,$(LDFLAGS)),)
+                _DLL_SIDE_CHECK += || [ ! -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET))" ]
+            endif
 $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
 			@all_objs="$(OBJS)"; \
 			sub_objs=$$(find . -name "*.obj" -not -path "./obj/*"); \
 			if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
 			all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
 			newest=$$(ls -t $$all_objs $(STATIC_LIBS) $@ 2>/dev/null | head -1); \
-			if [ "$$newest" != "$@" ]; then \
+			if [ "$$newest" != "$@" ] || $(_DLL_SIDE_CHECK); then \
 				echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
 				set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_link_output.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 			fi; \
@@ -252,6 +258,12 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
 				sub_objs=$$(find . -name "*.obj" -not -path "./obj/*"); \
 				if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
 				all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
+				pdb_file="$(OUTPUT_DIR)/$(basename $(TARGET)).pdb"; \
+				if [ -z "$(MAKE_RERUN)" ] && [ ! -f "$$pdb_file" ]; then \
+					echo "[REBUILD] PDB missing: $$pdb_file -- removing obj to force recompile"; \
+					rm -f $(OBJDIR)/*.obj; \
+					$(MAKE) $(MAKEFLAGS) MAKE_RERUN=1 $@ && exit 0 || exit $$?; \
+				fi; \
 				newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
 				if [ "$$newest" != "$@" ]; then \
 					echo "$(strip $(AR) /NOLOGO /OUT:$(call _relpath,$@) $$all_objs)"; \
