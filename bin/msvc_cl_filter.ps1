@@ -3,7 +3,7 @@
 # Convert MSVC /showIncludes output to GNU Make .d format
 #
 # 使用方法 (Usage):
-#   cl /showIncludes ... 2>&1 | powershell -ExecutionPolicy Bypass -File msvc_dep.ps1 target.obj source.c target.d
+#   cl /showIncludes ... 2>&1 | powershell -ExecutionPolicy Bypass -File msvc_cl_filter.ps1 target.obj source.c target.d
 
 $target   = $args[0]
 $source   = $args[1]
@@ -13,7 +13,7 @@ $warnfile = if ($args.Count -gt 3) { $args[3] } else { $null }
 # 引数チェック
 if (-not $target -or -not $source -or -not $depfile) {
     Write-Host "Error: Required arguments not provided" -ForegroundColor Red
-    Write-Host "Usage: powershell -File msvc_dep.ps1 target.obj source.c target.d [warn_file]"
+    Write-Host "Usage: powershell -File msvc_cl_filter.ps1 target.obj source.c target.d [warn_file]"
     exit 1
 }
 
