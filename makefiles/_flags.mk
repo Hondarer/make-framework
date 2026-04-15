@@ -143,8 +143,9 @@ ifdef PLATFORM_LINUX
     endif
 else ifdef PLATFORM_WINDOWS
     # 共通フラグ
-    CFLAGS   += /EHsc /MP
-    CXXFLAGS += /EHsc /MP
+    # /FS は共有 PDB への同時書き込みをコンパイラ側で直列化し、静的ライブラリの並列ビルドで C1041 を防ぐ
+    CFLAGS   += /EHsc /MP /FS
+    CXXFLAGS += /EHsc /MP /FS
 
     # ランタイムライブラリフラグの設定
     # Set runtime library flags based on MSVC_CRT (defined in prepare.mk)
