@@ -11,6 +11,13 @@ ifneq ($(strip $(TESTFW_DIR)),)
     TESTSH := $(TESTFW_DIR)/bin/exec_test_c_cpp.sh
 endif
 
+# $(MYAPP_DIR)/test/include_override が存在する場合だけ、テスト対象用優先 include override パスとして使用する
+ifneq ($(filter $(WORKSPACE_DIR)/app/%,$(CURDIR)),)
+    ifneq ($(wildcard $(MYAPP_DIR)/test/include_override),)
+        MYAPP_INCLUDE_OVERRIDE := -I$(MYAPP_DIR)/test/include_override
+    endif
+endif
+
 ifeq ($(LINK_TEST), 1)
     ifeq ($(strip $(TESTFW_DIR)),)
         $(error $(TESTFW_DIR_ERROR))
@@ -79,8 +86,8 @@ CXXFLAGS += $(addprefix -D,$(DEFINES))
 
 # テスト対象
 # For test targets
-CFLAGS_TEST := $(CFLAGS) $(TESTFW_INCLUDE_OVERRIDE) -I$(WORKSPACE_DIR)/test/include_override $(addprefix -I, $(INCDIR))
-CXXFLAGS_TEST := $(CXXFLAGS) $(TESTFW_INCLUDE_OVERRIDE) -I$(WORKSPACE_DIR)/test/include_override $(addprefix -I, $(INCDIR))
+CFLAGS_TEST := $(CFLAGS) $(TESTFW_INCLUDE_OVERRIDE) $(MYAPP_INCLUDE_OVERRIDE) $(addprefix -I, $(INCDIR))
+CXXFLAGS_TEST := $(CXXFLAGS) $(TESTFW_INCLUDE_OVERRIDE) $(MYAPP_INCLUDE_OVERRIDE) $(addprefix -I, $(INCDIR))
 ifdef PLATFORM_LINUX
     # ステップ実行/カバレッジに支障となるオプションを除去
     #   -O1, -O2, -O3, -Os, -Ofast: 最適化レベル
