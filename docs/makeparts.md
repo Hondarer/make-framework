@@ -48,13 +48,17 @@ prod/
 
 ### 検索と読み込みの仕組み
 
-`prepare.mk` 内で、カレントディレクトリからワークスペースルート (`.workspaceRoot` ファイルが存在するディレクトリ) まで遡って `makepart.mk` を検索し、逆順 (親階層から) にインクルードします。
+`prepare.mk` 内で、カレントディレクトリからワークスペースルート (`.workspaceRoot` ファイルが存在するディレクトリ) まで遡って `makepart.mk` / `makechild.mk` を検索し、逆順 (親階層から) にインクルードします。
 
 ```makefile
 # prepare.mk 内の処理 (概要)
-MAKEPART_MK := $(shell \
-    dir=`pwd`; \
+MAKE_INCLUDE_MK := $(shell \
+    cur=`pwd`; \
+    dir=$$cur; \
     while [ "$$dir" != "/" ]; do \
+        if [ "$$dir" != "$$cur" ] && [ -f "$$dir/makechild.mk" ]; then \
+            echo "$$dir/makechild.mk"; \
+        fi; \
         if [ -f "$$dir/makepart.mk" ]; then \
             echo "$$dir/makepart.mk"; \
         fi; \
@@ -68,7 +72,7 @@ MAKEPART_MK := $(shell \
 
 # 逆順にして親階層から順次 include
 _reverse = $(if $(1),$(call _reverse,$(wordlist 2,$(words $(1)),$(1))) $(firstword $(1)))
-MAKEPART_MK := $(strip $(call _reverse,$(MAKEPART_MK)))
+MAKE_INCLUDE_MK := $(strip $(call _reverse,$(MAKE_INCLUDE_MK)))
 ```
 
 ### 主な設定項目
@@ -189,21 +193,21 @@ prod/
 
 ### 実装
 
-各 `makepart.mk` のインクルード直後に、同ディレクトリの `makechild.mk` が存在すれば続けてインクルードされます。
+各ディレクトリレベルごとに、`makepart.mk`、`makechild.mk` の順でインクルードされます。
 ただしカレントディレクトリの `makechild.mk` は除外されます。
 
 ```makefile
 # prepare.mk 内の処理
-define _include_makepart_and_child
-$(eval include $(1))$(if $(filter-out $(CURDIR)/makepart.mk,$(1)),$(eval -include $(patsubst %/makepart.mk,%/makechild.mk,$(1))))
+define _include_make_config
+$(eval include $(1))
 endef
 
-$(foreach makepart, $(MAKEPART_MK), $(call _include_makepart_and_child,$(makepart)))
+$(foreach make_config, $(MAKE_INCLUDE_MK), $(call _include_make_config,$(make_config)))
 ```
 
-- `$(filter-out $(CURDIR)/makepart.mk,$(1))` でカレントディレクトリを除外
-- `$(patsubst %/makepart.mk,%/makechild.mk,$(1))` でパスを `makechild.mk` に変換
-- `-include` を使用することで、ファイルが存在しない場合もエラーにならない
+- `makechild.mk` は検索時点でカレントディレクトリを除外
+- `makepart.mk` と `makechild.mk` は実在するファイルだけを include
+- 同一階層では `makepart.mk` の直後に `makechild.mk` を include
 
 ### 記述例
 
@@ -341,9 +345,9 @@ INCDIR += $(WORKSPACE_DIR)/framework/testfw/include
 ```
 1. prepare.mk
    +-- /a/makepart.mk          (親: 自ディレクトリ含む継承)
-   +-- /a/makechild.mk         (親: 子階層以降に適用 ← makepart.mk の直後)
+   +-- /a/makechild.mk         (親: 子階層以降に適用)
    +-- /a/b/makepart.mk        (中間: 継承)
-   +-- /a/b/makechild.mk       (中間: 子階層以降に適用 ← makepart.mk の直後)
+   +-- /a/b/makechild.mk       (中間: 子階層以降に適用)
    +-- /a/b/c/makepart.mk      (カレント: 継承)
    ※ /a/b/c/makechild.mk は除く (カレントディレクトリのため)
    +-- makelocal.mk            (自ディレクトリのみ、継承なし)

@@ -343,12 +343,20 @@ endif
 
 endif # _MYAPP_NEEDS_EVAL
 
-# makepart.mk の検索
+# makepart.mk / makechild.mk の検索
 # dirname コマンドの代わりにシェルのパラメータ展開を使用してプロセス生成を削減
 # Use shell parameter expansion instead of dirname command to reduce process creation
-MAKEPART_MK := $(shell \
-	dir=`pwd`; \
+MAKE_INCLUDE_MK := $(shell \
+	cur=`pwd`; \
+	dir=$$cur; \
 	while [ "$$dir" != "/" ]; do \
+		if [ "$$dir" != "$$cur" ] && [ -f "$$dir/makechild.mk" ]; then \
+			if command -v cygpath > /dev/null 2>&1; then \
+				cygpath -m "$$dir/makechild.mk"; \
+			else \
+				echo "$$dir/makechild.mk"; \
+			fi; \
+		fi; \
 		if [ -f "$$dir/makepart.mk" ]; then \
 			if command -v cygpath > /dev/null 2>&1; then \
 				cygpath -m "$$dir/makepart.mk"; \
@@ -367,7 +375,7 @@ MAKEPART_MK := $(shell \
 # 逆順にする (seq コマンドの代わりに Make の関数で実現してプロセス生成を削減)
 # Reverse order using Make functions instead of seq command to reduce process creation
 _reverse = $(if $(1),$(call _reverse,$(wordlist 2,$(words $(1)),$(1))) $(firstword $(1)))
-MAKEPART_MK := $(strip $(call _reverse,$(MAKEPART_MK)))
+MAKE_INCLUDE_MK := $(strip $(call _reverse,$(MAKE_INCLUDE_MK)))
 
 # Windows の場合、MSVC C ランタイムライブラリの設定
 # Set MSVC C runtime library configuration for Windows
@@ -403,15 +411,15 @@ ifdef PLATFORM_WINDOWS
     endif
 endif
 
-# makepart.mk をインクルードし、カレントディレクトリ以外では直後に makechild.mk もインクルード
-# Include makepart.mk, and for non-current directories, immediately include makechild.mk afterward
+# makepart.mk / makechild.mk をインクルード
+# Include makepart.mk / makechild.mk
 # (カレントディレクトリの makechild.mk は子階層以降のみに適用するため除く)
 # (The current directory's makechild.mk applies only to child directories, so it is excluded here)
-define _include_makepart_and_child
-$(eval include $(1))$(if $(filter-out $(CURDIR)/makepart.mk,$(1)),$(eval -include $(patsubst %/makepart.mk,%/makechild.mk,$(1))))
+define _include_make_config
+$(eval include $(1))
 endef
 
-$(foreach makepart, $(MAKEPART_MK), $(call _include_makepart_and_child,$(makepart)))
+$(foreach make_config, $(MAKE_INCLUDE_MK), $(call _include_make_config,$(make_config)))
 
 # makelocal.mk の読み込み (カレントディレクトリのみ)
 # prepare.mk は各ディレクトリの makefile から include されるため、
