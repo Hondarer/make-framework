@@ -201,6 +201,23 @@ endif
 # Warning capture script (generates .warn files from compiler/linker output)
 CAPTURE_WARNINGS := "$(SHELL)" "$(WORKSPACE_DIR)/framework/makefw/bin/capture_warnings.sh"
 
+# std::filesystem サポート (GCC < 9 では -lstdc++fs が必須)
+ifdef PLATFORM_LINUX
+    ifdef CXX_STDFLAG
+        # GCC のバージョンを検出
+        _GCC_VERSION := $(shell gcc -dumpversion 2>/dev/null || echo "0")
+        _GCC_MAJOR := $(word 1,$(subst ., ,$(_GCC_VERSION)))
+        
+        # GCC < 9 では C++17/20 の std::filesystem 使用時に -lstdc++fs が必須
+        # (GCC 9.0 以降では libstdc++.so に統合されている)
+        ifeq ($(shell [ $(_GCC_MAJOR) -lt 9 ] 2>/dev/null && echo 1),1)
+            ifneq ($(filter -std=c++17 -std=c++20 -std=gnu++17 -std=gnu++20,$(CXX_STDFLAG)),)
+                LIBS += stdc++fs
+            endif
+        endif
+    endif
+endif
+
 # wrap-main
 ifeq ($(USE_WRAP_MAIN),1)
     # リンクオプションの追加
