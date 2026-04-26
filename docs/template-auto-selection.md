@@ -4,12 +4,13 @@
 
 ## 概要
 
-makefw では、すべての最終階層 makefile を統一テンプレート (`__template.mk`) に統一し、ディレクトリパスと言語の自動判定により、適切なビルドテンプレートを自動的に選択します。
+makefw では、すべての makefile（最終ビルド層・中間走査層）を統一テンプレート (`__template.mk`) に統一します。ビルドを行うかどうかは `MAKEFW_BUILD` フラグで制御し、フラグが設定されている場合のみディレクトリパスと言語の自動判定でビルドテンプレートを選択します。
 
 これにより、以下のメリットが得られます：
 
 - **完全な統一**: すべての makefile が同一内容になり、メンテナンスが容易
-- **自動判定**: ディレクトリパスと .csproj の有無で自動的に適切なテンプレートを選択
+- **ビルド/走査の分離**: `MAKEFW_BUILD := 1` を `makechild.mk` に記述することでビルド対象を明示
+- **自動判定**: ディレクトリパスと .csproj の有無で自動的に適切なビルドテンプレートを選択
 - **柔軟性**: プロジェクト固有の設定は makepart.mk で管理
 
 ## アーキテクチャ
@@ -18,10 +19,9 @@ makefw では、すべての最終階層 makefile を統一テンプレート (`
 
 ```text
 framework/makefw/makefiles/
-+-- __template.mk           # 統一テンプレート（すべての最終階層 makefile で使用）
-+-- prepare.mk              # 準備処理（コンパイラ設定、makepart.mk 読み込み）
-+-- makemain.mk             # テンプレート自動選択ロジック
-+-- auto-select.mk          # パス判定による分岐（makemain.mk と同じ）
++-- __template.mk           # 統一テンプレート（すべての makefile で使用）
++-- prepare.mk              # 準備処理（コンパイラ設定、makepart.mk / makechild.mk / makelocal.mk 読み込み）
++-- makemain.mk             # MAKEFW_BUILD フラグに基づくビルドテンプレート選択ロジック
 +-- makelibsrc_c_cpp.mk     # C/C++ ライブラリビルド用テンプレート
 +-- makelibsrc_dotnet.mk    # .NET ライブラリビルド用テンプレート
 +-- makesrc_c_cpp.mk        # C/C++ 実行体ビルド用テンプレート
@@ -33,12 +33,14 @@ framework/makefw/makefiles/
 ```plantuml
 @startuml
 start
-:最終階層 makefile (__template.mk);
+:makefile (__template.mk);
 :(1) ワークスペース検索 (find-up 関数);
 :(2) prepare.mk を include;
 note right
   - コンパイラ設定 (CC, CXX, LD, AR)
+  - makechild.mk の読み込み（親階層から順次、自身を除く）
   - makepart.mk の読み込み（親階層から順次）
+  - makelocal.mk の読み込み（カレントディレクトリのみ）
 end note
 :(3) makemain.mk を include;
 :(4) サブディレクトリ検出;
@@ -54,38 +56,44 @@ note right
   "shared" / その他 → 両 OS で有効
   詳細: os-subdirectory-filtering.md
 end note
-:(6) パス判定による分岐;
+:(6) MAKEFW_BUILD フラグの確認;
 
-if (パスに /libsrc/ を含む?) then (yes)
-  :ライブラリ;
-  if (.csproj が存在?) then (yes)
-    :makelibsrc_dotnet.mk;
-    stop
-  else (no)
-    :makelibsrc_c_cpp.mk;
-    stop
-  endif
-else (no)
-  if (パスに /src/ を含む?) then (yes)
-    :実行体;
+if (MAKEFW_BUILD = 1 ?) then (yes)
+  :(7) パス判定による分岐;
+  if (パスに /libsrc/ を含む?) then (yes)
+    :ライブラリ;
     if (.csproj が存在?) then (yes)
-      :makesrc_dotnet.mk;
+      :makelibsrc_dotnet.mk;
       stop
     else (no)
-      :makesrc_c_cpp.mk;
+      :makelibsrc_c_cpp.mk;
       stop
     endif
   else (no)
-    :エラー: パスに /libsrc/ または /src/ が必要;
-    stop
+    if (パスに /src/ を含む?) then (yes)
+      :実行体;
+      if (.csproj が存在?) then (yes)
+        :makesrc_dotnet.mk;
+        stop
+      else (no)
+        :makesrc_c_cpp.mk;
+        stop
+      endif
+    else (no)
+      :エラー: /libsrc/ または /src/ が必要;
+      stop
+    endif
   endif
+else (no)
+  :サブディレクトリ走査のみ;
+  stop
 endif
 @enduml
 ```
 
 ## 統一テンプレート (__template.mk)
 
-すべての最終階層 makefile で使用する標準テンプレートです。
+すべての makefile（最終ビルド層・中間走査層）で使用する標準テンプレートです。
 
 ```makefile
 # makefile テンプレート
@@ -99,7 +107,14 @@ find-up = \
             $(call find-up,$(patsubst %/,%,$(dir $(1))),$(2))\
         )\
     )
-WORKSPACE_DIR := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
+
+# 再帰 make 間でワークスペースルートは不変のため、内部キャッシュ変数で継承する
+ifeq ($(origin MAKEFW_WORKSPACE_DIR), undefined)
+    MAKEFW_WORKSPACE_DIR := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
+endif
+export MAKEFW_WORKSPACE_DIR
+
+WORKSPACE_DIR := $(MAKEFW_WORKSPACE_DIR)
 
 # 準備処理 (ビルドテンプレートより前に include)
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/prepare.mk
@@ -112,28 +127,23 @@ include $(WORKSPACE_DIR)/framework/makefw/makefiles/makemain.mk
 
 ### 重要なポイント
 
-1. **統一性**: すべての最終階層 makefile が完全に同一
-2. **編集禁止**: 固有の設定は makepart.mk に記述
-3. **処理順序**: prepare.mk → makepart.mk → makemain.mk
+1. **統一性**: 最終ビルド層・中間走査層のすべての makefile が完全に同一
+2. **編集禁止**: 固有の設定は makepart.mk / makechild.mk / makelocal.mk に記述
+3. **処理順序**: prepare.mk → makechild.mk / makepart.mk / makelocal.mk → makemain.mk
 
 ## 自動選択ロジック (makemain.mk)
 
 ディレクトリパスと .csproj の有無により、適切なビルドテンプレートを自動選択します。
+`MAKEFW_BUILD := 1` が設定されている場合のみビルドを実行します（未設定はサブディレクトリ走査のみ）。
 
 ```makefile
 # カレントディレクトリのパス判定による自動テンプレート選択
-#
-# ディレクトリパターン:
-#   /libsrc/ を含む → ライブラリ用テンプレート (makelibsrc_*.mk)
-#   /src/    を含む → 実行体用テンプレート (makesrc_*.mk)
-#
-# 言語判定:
-#   .csproj が存在 → .NET 用テンプレート (*_dotnet.mk)
-#   .csproj が無い → C/C++ 用テンプレート (*_c_cpp.mk)
+# MAKEFW_BUILD := 1 が設定されている場合のみビルドを実行する (デフォルト: サブディレクトリ走査のみ)
+
+ifeq ($(MAKEFW_BUILD),1)
 
 # パスに /libsrc/ を含む場合はライブラリ用テンプレート
 ifneq (,$(findstring /libsrc/,$(CURDIR)))
-    # .csproj があれば .NET ライブラリ、なければ C/C++ ライブラリ
     ifneq ($(wildcard *.csproj),)
         include $(WORKSPACE_DIR)/framework/makefw/makefiles/makelibsrc_dotnet.mk
     else
@@ -141,18 +151,21 @@ ifneq (,$(findstring /libsrc/,$(CURDIR)))
     endif
 # パスに /src/ を含む場合は実行ファイル用テンプレート
 else ifneq (,$(findstring /src/,$(CURDIR)))
-    # .csproj があれば .NET 実行体、なければ C/C++ 実行体
     ifneq ($(wildcard *.csproj),)
         include $(WORKSPACE_DIR)/framework/makefw/makefiles/makesrc_dotnet.mk
     else
         include $(WORKSPACE_DIR)/framework/makefw/makefiles/makesrc_c_cpp.mk
     endif
 else
-    $(error Cannot auto-select makefile template. Current path must contain /libsrc/ or /src/: $(CURDIR))
+    $(error Cannot auto-select makefile template. MAKEFW_BUILD=1 requires /libsrc/ or /src/ in path: $(CURDIR))
 endif
+
+endif  # MAKEFW_BUILD
 ```
 
 ### 判定ルール
+
+`MAKEFW_BUILD := 1` の場合のみ以下の判定が行われます。未設定の場合はサブディレクトリ走査のみを行います。
 
 | ディレクトリパス | .csproj | 選択されるテンプレート |
 |--------------|---------|-------------------|
@@ -161,6 +174,18 @@ endif
 | `/src/` を含む | 無し | `makesrc_c_cpp.mk` |
 | `/src/` を含む | 有り | `makesrc_dotnet.mk` |
 | 上記以外 | - | エラー |
+
+### MAKEFW_BUILD フラグ
+
+`MAKEFW_BUILD` は `makechild.mk` または `makelocal.mk` に記述します。
+
+| ファイル | 設定例 | 効果範囲 |
+|--------|--------|---------|
+| `libsrc/makechild.mk` | `MAKEFW_BUILD := 1` | `libsrc/` 配下の全ディレクトリに継承 |
+| `src/makechild.mk` | `MAKEFW_BUILD := 1` | `src/` 配下の全ディレクトリに継承 |
+| `src/<subdir>/makelocal.mk` | `MAKEFW_BUILD := 0` | そのディレクトリのみ走査に戻す |
+
+`prepare.mk` は `makechild.mk`（親階層から継承）を先に読み込み、その後に `makelocal.mk`（カレントのみ）を読み込むため、`makelocal.mk` による上書きが正しく機能します。
 
 ## サブディレクトリの OS フィルタリング
 
@@ -171,13 +196,14 @@ endif
 ### C/C++ ライブラリ
 
 ```text
-ディレクトリ: prod/calc/libsrc/calcbase/
+ディレクトリ: app/calc/prod/libsrc/calc/
 ファイル構成:
   - makefile (__template.mk の内容)
   - add.c, subtract.c, multiply.c, divide.c
   - makepart.mk (固有設定、必要な場合のみ)
 
 判定結果:
+  MAKEFW_BUILD: 1 (app/calc/prod/libsrc/makechild.mk で設定)
   パス: /libsrc/ を含む → ライブラリ
   .csproj: 無し → C/C++
   → makelibsrc_c_cpp.mk を使用
@@ -186,7 +212,7 @@ endif
 ### .NET ライブラリ
 
 ```text
-ディレクトリ: prod/calc.net/libsrc/CalcLib/
+ディレクトリ: app/calc.net/prod/libsrc/CalcLib/
 ファイル構成:
   - makefile (__template.mk の内容)
   - CalcLib.csproj
@@ -194,6 +220,7 @@ endif
   - makepart.mk (固有設定、必要な場合のみ)
 
 判定結果:
+  MAKEFW_BUILD: 1 (app/calc.net/prod/libsrc/makechild.mk で設定)
   パス: /libsrc/ を含む → ライブラリ
   .csproj: 有り → .NET
   → makelibsrc_dotnet.mk を使用
@@ -202,13 +229,14 @@ endif
 ### C/C++ 実行体
 
 ```text
-ディレクトリ: prod/calc/src/add/
+ディレクトリ: app/calc/prod/src/add/
 ファイル構成:
   - makefile (__template.mk の内容)
   - add.c
   - makepart.mk (固有設定、必要な場合のみ)
 
 判定結果:
+  MAKEFW_BUILD: 1 (app/calc/prod/src/makechild.mk で設定)
   パス: /src/ を含む → 実行体
   .csproj: 無し → C/C++
   → makesrc_c_cpp.mk を使用
@@ -217,7 +245,7 @@ endif
 ### .NET 実行体
 
 ```text
-ディレクトリ: prod/calc.net/src/CalcApp/
+ディレクトリ: app/calc.net/prod/src/CalcApp/
 ファイル構成:
   - makefile (__template.mk の内容)
   - CalcApp.csproj
@@ -225,6 +253,7 @@ endif
   - makepart.mk (固有設定、必要な場合のみ)
 
 判定結果:
+  MAKEFW_BUILD: 1 (app/calc.net/prod/src/makechild.mk で設定)
   パス: /src/ を含む → 実行体
   .csproj: 有り → .NET
   → makesrc_dotnet.mk を使用
@@ -242,38 +271,20 @@ makepart.mk は、以下の階層に配置できます：
 2. **親ディレクトリ（複数）** - ワークスペースルートまで遡って検索
 3. **複数の階層** - 親階層から順次読み込まれる
 
-### makepart.mk の読み込みタイミング
+### makepart.mk / makechild.mk / makelocal.mk の読み込みタイミング
 
-prepare.mk 内で、親階層からワークスペースルートに向かって順次読み込まれます。
+`prepare.mk` 内で、以下の順序で読み込まれます：
 
-```makefile
-# prepare.mk 内の処理
-MAKEPART_MK := $(shell \
-    dir=`pwd`; \
-    while [ "$$dir" != "/" ]; do \
-        if [ -f "$$dir/makepart.mk" ]; then \
-            echo "$$dir/makepart.mk"; \
-        fi; \
-        if [ -f "$$dir/.workspaceRoot" ]; then \
-            break; \
-        fi; \
-        dir=$${dir%/*}; \
-        if [ -z "$$dir" ]; then dir=/; fi; \
-    done \
-)
-
-# 逆順にして親階層から順次 include (Make 関数で実現)
-_reverse = $(if $(1),$(call _reverse,$(wordlist 2,$(words $(1)),$(1))) $(firstword $(1)))
-MAKEPART_MK := $(strip $(call _reverse,$(MAKEPART_MK)))
-$(foreach makepart, $(MAKEPART_MK), $(eval include $(makepart)))
-```
+1. **makechild.mk + makepart.mk**: ワークスペースルートからカレントディレクトリまでの各階層を走査。
+   `makechild.mk` はカレントディレクトリ自身を除外（子階層以降にのみ適用）。
+2. **makelocal.mk**: カレントディレクトリのみ。`makechild.mk` より後に読み込まれるため、フラグの上書きに使用。
 
 ### makepart.mk の記述例
 
 **例1: 動的ライブラリの指定**
 
 ```makefile
-# prod/calc/libsrc/calc/makepart.mk
+# app/calc/prod/libsrc/calc/makepart.mk
 
 # ライブラリの追加
 LIBS += calcbase
@@ -292,7 +303,7 @@ LIB_TYPE = shared
 **例2: テスト共通設定**
 
 ```makefile
-# test/makepart.mk
+# app/calc/test/makepart.mk
 
 # テストフレームワークをリンク
 LINK_TEST = 1
@@ -307,78 +318,86 @@ endif
 # ライブラリ検索パスの追加
 LIBSDIR += \
     $(WORKSPACE_DIR)/framework/testfw/lib \
-    $(WORKSPACE_DIR)/test/lib
+    $(WORKSPACE_DIR)/app/calc/test/lib
 ```
 
 ## 導入方法
 
 既存プロジェクトに makefile テンプレート自動選択機構を導入する手順を説明します。
 
-この章の対象は **最終階層 makefile** です。  
-`prod/test` 配下の中間階層走査 makefile は `__subdir_template.mk` を使用し、`SUBDIRS` は `makelocal.mk` で管理します。
+すべての階層の makefile（最終ビルド層・中間走査層）が `__template.mk` と同一内容になります。
+ビルドを行うかどうかは `makechild.mk` の `MAKEFW_BUILD := 1` で制御します。
 
-### 1. 最終階層 makefile の更新
+### 1. すべての makefile を更新
 
-すべての最終階層 makefile を `__template.mk` の内容で置き換えます。
+すべての makefile を `__template.mk` の内容で置き換えます。
 
 ```bash
-# 例: prod/calc/libsrc/calcbase/makefile を更新
-cp framework/makefw/makefiles/__template.mk prod/calc/libsrc/calcbase/makefile
+# 例: app/calc/prod/libsrc/calc/makefile を更新
+cp framework/makefw/makefiles/__template.mk app/calc/prod/libsrc/calc/makefile
+
+# 一括更新には保守コマンドを使用
+python framework/makefw/bin/update_template_makefiles.py
 ```
 
-### 2. 固有設定の移行
+### 2. MAKEFW_BUILD の設定
+
+ビルドを実行するには、`libsrc/` または `src/` コンテナディレクトリに `makechild.mk` を作成します。
+
+```makefile
+# app/calc/prod/libsrc/makechild.mk
+MAKEFW_BUILD := 1
+```
+
+`makechild.mk` は配下のすべてのディレクトリに継承されます（`prepare.mk` がコンテナ自身を除外するため、コンテナは走査のみになります）。
+
+`/src/<something>/` のようなサブ中間走査層が存在する場合は、そのディレクトリに `makelocal.mk` で `MAKEFW_BUILD := 0` を指定して走査に戻します。
+
+```makefile
+# app/calc/test/src/libcalcbaseTest/makelocal.mk
+MAKEFW_BUILD := 0
+```
+
+### 3. 固有設定の移行
 
 既存の makefile に固有設定（LIBS, CFLAGS など）がある場合、`makepart.mk` に移行します。
 
 **変更前 (makefile):**
 ```makefile
-# ワークスペースのディレクトリ
-find-up = ...
-WORKSPACE_DIR := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
-
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/prepare.mk
 
 # 固有設定
 LIBS += calcbase
 LIB_TYPE = shared
 
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/makelibsrc.mk
+include $(WORKSPACE_DIR)/framework/makefw/makefiles/makelibsrc_c_cpp.mk
 ```
 
 **変更後:**
 
-**makefile (__template.mk の内容):**
+**makefile（`__template.mk` の内容）:**
 ```makefile
 # makefile テンプレート
 # すべての最終階層 makefile で使用する標準テンプレート
 # 本ファイルの編集は禁止する。makepart.mk を作成して拡張・カスタマイズすること。
 
-# ワークスペースのディレクトリ
-find-up = ...
-WORKSPACE_DIR := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
-
-# 準備処理 (ビルドテンプレートより前に include)
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/prepare.mk
 
 ##### makepart.mk の内容は、このタイミングで処理される #####
 
-# ビルドテンプレートを include
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/makemain.mk
 ```
 
-**makepart.mk (固有設定):**
+**makepart.mk（固有設定）:**
 ```makefile
-# ライブラリの追加
 LIBS += calcbase
-
-# 動的ライブラリとして固定
 LIB_TYPE = shared
 ```
 
-### 3. 動作確認
+### 4. 動作確認
 
 ```bash
-cd prod/calc/libsrc/calcbase
+cd app/calc/prod/libsrc/calc
 make clean
 make
 ```
@@ -387,11 +406,17 @@ make
 
 ### エラー: "Cannot auto-select makefile template"
 
-**原因**: ディレクトリパスに `/libsrc/` も `/src/` も含まれていない
+**原因**: `MAKEFW_BUILD := 1` が設定されているが、ディレクトリパスに `/libsrc/` も `/src/` も含まれていない
 
 **解決策**:
 1. ディレクトリ構造を見直し、`libsrc` または `src` の下に配置する
-2. または、makefile で直接テンプレートを指定する（自動選択を使わない）
+2. または、当該ディレクトリの `makelocal.mk` に `MAKEFW_BUILD := 0` を設定して走査のみに戻す
+
+### ビルドが実行されない（サブディレクトリ走査のみになる）
+
+**確認事項**:
+1. `libsrc/` または `src/` コンテナに `makechild.mk`（`MAKEFW_BUILD := 1`）が存在するか
+2. サブ中間走査層の `makelocal.mk` で `MAKEFW_BUILD := 0` が上書きされていないか
 
 ### ビルドが失敗する
 
@@ -409,9 +434,10 @@ make debug  # 変数の内容を表示
 
 makefile テンプレート自動選択機構により、以下が実現されます：
 
-- **統一性**: すべての makefile が同一内容
+- **完全な統一**: ビルド層・走査層を問わずすべての makefile が同一内容
+- **ビルド/走査の分離**: `MAKEFW_BUILD := 1`（`makechild.mk`）と `MAKEFW_BUILD := 0`（`makelocal.mk`）で責務を明示
 - **自動化**: ディレクトリパスと言語の自動判定
-- **保守性**: 固有設定は makepart.mk で管理
+- **保守性**: 固有設定は makepart.mk / makechild.mk / makelocal.mk で管理
 - **拡張性**: 新しい言語やビルドタイプの追加が容易
 
 この機構により、プロジェクト全体のビルドシステムが統一され、メンテナンスが大幅に容易になります。

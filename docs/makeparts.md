@@ -95,7 +95,7 @@ MAKE_INCLUDE_MK := $(strip $(call _reverse,$(MAKE_INCLUDE_MK)))
 **例1: 動的ライブラリの指定**
 
 ```makefile
-# prod/calc/libsrc/calc/makepart.mk
+# app/calc/prod/libsrc/calc/makepart.mk
 LIBS += calcbase
 
 ifeq ($(OS),Windows_NT)
@@ -227,6 +227,19 @@ CFLAGS += -DMYAPP_CHILD_BUILD
 OUTPUT_DIR := $(WORKSPACE_DIR)/bin/myapp
 ```
 
+**例3: ビルドテンプレートの有効化**
+
+```makefile
+# app/calc/prod/libsrc/makechild.mk
+# libsrc/ の子ディレクトリ（各ライブラリ）でビルドを実行する
+MAKEFW_BUILD := 1
+```
+
+`MAKEFW_BUILD := 1` を `makechild.mk` に設定することで、カレントディレクトリ (`libsrc/`) は走査のみとなり、
+子ディレクトリ (`libsrc/calcbase/` 等の実際のライブラリ) でビルドテンプレートが選択・実行されます。
+カレントに `makepart.mk` 等で `MAKEFW_BUILD := 1` を設定してしまうと自身でもビルドが実行されてしまうため、
+`makechild.mk` を使用して「子のみに有効」にします。
+
 ## makelocal.mk
 
 ### 役割
@@ -353,7 +366,8 @@ INCDIR += $(WORKSPACE_DIR)/framework/testfw/include
    +-- makelocal.mk            (自ディレクトリのみ、継承なし)
 
 2. makemain.mk
-   +-- テンプレート (makelibsrc_c_cpp.mk など)
+   +-- テンプレート (makelibsrc_c_cpp.mk など)  ※ MAKEFW_BUILD=1 の場合のみ
+   ※ MAKEFW_BUILD 未設定の場合はテンプレートを include しない (サブディレクトリ走査のみ)
 ```
 
 各ディレクトリレベルごとに `makepart.mk` → `makechild.mk` の順でインクルードされ、最後にカレントディレクトリの `makelocal.mk` が読み込まれます。

@@ -1,6 +1,6 @@
 # サブディレクトリの検出 (GNUmakefile/makefile/Makefileを含むディレクトリのみ)
 # Detect subdirectories containing GNUmakefile/makefile
-SUBDIRS := $(sort $(dir $(wildcard */GNUmakefile */makefile */Makefile)))
+SUBDIRS ?= $(sort $(dir $(wildcard */GNUmakefile */makefile */Makefile)))
 
 # サブディレクトリの OS フィルタリング
 # OS-based subdirectory filtering
@@ -38,18 +38,12 @@ endef
 SUBDIRS := $(foreach d,$(SUBDIRS),$(call _os_filter_subdir,$(d)))
 
 # カレントディレクトリのパス判定による自動テンプレート選択
-#
-# ディレクトリパターン:
-#   /libsrc/ を含む → ライブラリ用テンプレート (makelibsrc_*.mk)
-#   /src/    を含む → 実行体用テンプレート (makesrc_*.mk)
-#
-# 言語判定:
-#   .csproj が存在 → .NET 用テンプレート (*_dotnet.mk)
-#   .csproj が無い → C/C++ 用テンプレート (*_c_cpp.mk)
+# MAKEFW_BUILD := 1 が設定されている場合のみビルドを実行する (デフォルト: サブディレクトリ走査のみ)
+
+ifeq ($(MAKEFW_BUILD),1)
 
 # パスに /libsrc/ を含む場合はライブラリ用テンプレート
 ifneq (,$(findstring /libsrc/,$(CURDIR)))
-    # .csproj があれば .NET ライブラリ、なければ C/C++ ライブラリ
     ifneq ($(wildcard *.csproj),)
         include $(WORKSPACE_DIR)/framework/makefw/makefiles/makelibsrc_dotnet.mk
     else
@@ -57,15 +51,16 @@ ifneq (,$(findstring /libsrc/,$(CURDIR)))
     endif
 # パスに /src/ を含む場合は実行ファイル用テンプレート
 else ifneq (,$(findstring /src/,$(CURDIR)))
-    # .csproj があれば .NET 実行体、なければ C/C++ 実行体
     ifneq ($(wildcard *.csproj),)
         include $(WORKSPACE_DIR)/framework/makefw/makefiles/makesrc_dotnet.mk
     else
         include $(WORKSPACE_DIR)/framework/makefw/makefiles/makesrc_c_cpp.mk
     endif
 else
-    $(error Cannot auto-select makefile template. Current path must contain /libsrc/ or /src/: $(CURDIR))
+    $(error Cannot auto-select makefile template. MAKEFW_BUILD=1 requires /libsrc/ or /src/ in path: $(CURDIR))
 endif
+
+endif  # MAKEFW_BUILD
 
 # サブディレクトリの再帰的 make 処理
 # Recursive make for subdirectories

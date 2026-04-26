@@ -15,15 +15,13 @@
 | 先頭行 | 同期元 |
 |-------|--------|
 | `# makefile テンプレート` | `framework/makefw/makefiles/__template.mk` |
-| `# makefile サブディレクトリ走査テンプレート` | `framework/makefw/makefiles/__subdir_template.mk` |
 
-これらの先頭行は「この `makefile` はテンプレートの実体コピーであり、内容差分を持たせない」という識別子として扱います。
+この先頭行は「この `makefile` はテンプレートの実体コピーであり、内容差分を持たせない」という識別子として扱います。
 
 ## 背景
 
-makefw では、最終階層の `makefile` を統一テンプレートに寄せ、個別設定は `makepart.mk` へ分離します。  
-また、`prod/test` 配下の中間階層走査 `makefile` も走査テンプレートに寄せ、ディレクトリ固有の `SUBDIRS` は `makelocal.mk` へ分離します。  
-この方針により保守性は上がりますが、各テンプレートを更新したあと、すでに配置済みの `makefile` は自動では追従しません。
+makefw では、すべての階層（最終ビルド層・中間走査層）の `makefile` を統一テンプレート (`__template.mk`) に統一し、個別設定は `makepart.mk` / `makechild.mk` / `makelocal.mk` へ分離します。  
+この方針により保守性は上がりますが、テンプレートを更新したあと、すでに配置済みの `makefile` は自動では追従しません。
 
 Linux ではシンボリックリンクで吸収できる場合がありますが、Windows を含むワークスペースでは実体ファイル運用が必要です。  
 そのため、テンプレートの実体コピーを一括で再同期するコマンドが必要になります。
@@ -51,9 +49,7 @@ python framework/makefw/bin/update_template_makefiles.py
 
 ### 対象
 
-- 最終階層に置かれたテンプレート由来 `makefile`
-- 中間階層に置かれた走査テンプレート由来 `makefile`
-- 対応する同期元テンプレートと常に同一であるべき `makefile`
+- 対応する同期元テンプレートと常に同一であるべきテンプレート由来 `makefile`
 
 ### 対象外
 

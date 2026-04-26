@@ -21,9 +21,6 @@ from pathlib import Path
 
 TEMPLATE_MAP = {
     "# makefile テンプレート": Path("framework/makefw/makefiles/__template.mk"),
-    "# makefile サブディレクトリ走査テンプレート": Path(
-        "framework/makefw/makefiles/__subdir_template.mk"
-    ),
 }
 
 
