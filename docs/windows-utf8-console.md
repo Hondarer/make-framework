@@ -119,7 +119,7 @@ WIN32_MANIFEST = path/to/custom.manifest
 
 ### 効果の範囲
 
-`makepart.mk` を配置するディレクトリ以下のすべての EXE に継承されます。例えば `prod/porter/src/makepart.mk` に設定すれば `send`、`recv`、`tcpServer` のすべてが対象になります。
+`makepart.mk` を配置するディレクトリ以下のすべての EXE に継承されます。例えば `app/porter/prod/src/makepart.mk` に設定すれば `send`、`recv`、`tcpServer` のすべてが対象になります。
 
 Linux 環境ではビルドシステムが `ifeq ($(OS),Windows_NT)` で保護しているため、`WIN32_MANIFEST` の設定は無視されます。
 
