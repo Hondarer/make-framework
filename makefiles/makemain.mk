@@ -65,6 +65,12 @@ endif  # MAKEFW_BUILD
 # サブディレクトリの再帰的 make 処理
 # Recursive make for subdirectories
 ifneq ($(SUBDIRS),)
+    # 中間階層では引数なし `make` を default に向ける
+    # Leaf build directories set their own default goal in make*_{c_cpp,dotnet}.mk
+    ifneq ($(MAKEFW_BUILD),1)
+        .DEFAULT_GOAL := default
+    endif
+
     # サブディレクトリ自体をターゲット化し、指定されたターゲットを伝播
     # Make subdirectories as targets and propagate the specified goal
     .PHONY: $(SUBDIRS)
