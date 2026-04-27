@@ -60,7 +60,7 @@ ifdef PLATFORM_LINUX
         CXX_STDFLAG += -Wpedantic
     endif
 else ifdef PLATFORM_WINDOWS
-    CXX_STDFLAG := $(call _cxx_std_msvc,$(CXX_STANDARD)) /Zc:__cplusplus
+    CXX_STDFLAG := $(call _cxx_std_msvc,$(CXX_STANDARD)) /Zc:__cplusplus /Zc:preprocessor
     ifeq ($(STRICT),ON)
         CXX_STDFLAG += /permissive-
     endif
