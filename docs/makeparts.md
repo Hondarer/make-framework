@@ -143,12 +143,10 @@ TEST_SRCS := \
 
 ```makefile
 # app/calc/makepart.mk
+# インクルードパス
 INCDIR += \
-    $(MYAPP_DIR)/prod/include \
-    $(MYAPP_DIR)/test/include \
     $(MYAPP_DIR)/../com_util/prod/include \
-    $(TESTFW_DIR)/gtest/include \
-    $(TESTFW_DIR)/include
+    $(MYAPP_DIR)/prod/include
 ```
 
 この `INCDIR` / `DEFINES` は make のビルド設定だけでなく、`.vscode/c_cpp_properties.json` を更新する際の正本としても扱います。  
