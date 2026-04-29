@@ -124,13 +124,30 @@ to_make_include_path() {
     printf '%s\n' "$path"
 }
 
+list_app_makeparts_for_sync() {
+    local app="$1"
+    local var_name="$2"
+
+    if [[ "$var_name" == "INCDIR" ]]; then
+        find "$APP_DIR/$app" -name makepart.mk -print | LC_ALL=C sort
+        return 0
+    fi
+
+    printf '%s\n' "$APP_DIR/$app/makepart.mk"
+}
+
 write_sync_makepart_includes() {
     local app="$1"
     local host_os="$2"
+    local var_name="$3"
+    local makepart_path
 
     printf '%s\n' "-include $(to_make_include_path "$host_os" "$WORKSPACE_DIR/makepart.mk")"
     printf '%s\n' "-include $(to_make_include_path "$host_os" "$APP_DIR/makepart.mk")"
-    printf '%s\n' "include $(to_make_include_path "$host_os" "$APP_DIR/$app/makepart.mk")"
+
+    while IFS= read -r makepart_path; do
+        printf '%s\n' "include $(to_make_include_path "$host_os" "$makepart_path")"
+    done < <(list_app_makeparts_for_sync "$app" "$var_name")
 }
 
 eval_makepart_var() {
@@ -169,7 +186,7 @@ TARGET_ARCH := $target_arch
 INCDIR :=
 DEFINES :=
 EOF
-        write_sync_makepart_includes "$app" "$host_os"
+        write_sync_makepart_includes "$app" "$host_os" "$var_name"
         cat <<'EOF'
 print:
 	@: $(info $(MARKER_BEGIN))$(info $($(PRINT_VAR)))$(info $(MARKER_END))
@@ -268,7 +285,7 @@ define_comment() {
     local define="$1"
 
     case "$define" in
-        'TARGET_ARCH=\"\"')
+        'TARGET_ARCH=target_arch')
             printf '%s' ' // framework/makefw/makefiles/prepare.mk で定義される TARGET_ARCH をインテリセンスで模擬するため (コンパイル時には環境に応じて適切な値が渡される)'
             ;;
         *)
@@ -350,7 +367,9 @@ compare_and_write_warn() {
     section_file=$(mktemp)
 
     {
-        printf 'c_cpp_properties.json is out of sync with makepart.mk, app/makepart.mk, and app/*/makepart.mk.\n'
+        printf 'c_cpp_properties.json is out of sync with sync sources.\n'
+        printf '  INCDIR  : makepart.mk, app/makepart.mk, and app/*/**/makepart.mk\n'
+        printf '  DEFINES : makepart.mk, app/makepart.mk, and app/*/makepart.mk\n'
         printf 'Run from workspace root:\n'
         printf '  bash framework/makefw/bin/sync_c_cpp_properties.sh --write\n'
         printf '\n'

@@ -150,7 +150,8 @@ INCDIR += \
 ```
 
 この `INCDIR` / `DEFINES` は make のビルド設定だけでなく、`.vscode/c_cpp_properties.json` を更新する際の正本としても扱います。  
-ただし `.vscode` の `defines` には `TARGET_ARCH=target_arch` の特殊条件があり、実ビルド時の値ではなく同期スクリプト側の dummy 値が使われます。
+ただし同期対象の範囲は同一ではありません。`INCDIR` は `app/<name>` 配下のすべての `makepart.mk` が対象で、下位 `makepart.mk` の追加 include も `.vscode/c_cpp_properties.json` に反映されます。  
+`DEFINES` は `makepart.mk`、`app/makepart.mk`、`app/<name>/makepart.mk` を正本として扱い、`.vscode` の `defines` には `TARGET_ARCH=target_arch` の特殊条件があるため、実ビルド時の値ではなく同期スクリプト側の dummy 値が使われます。
 
 ## makechild.mk
 
