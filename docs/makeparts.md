@@ -143,7 +143,7 @@ TEST_SRCS := \
 
 ```makefile
 # app/calc/makepart.mk
-# インクルードパス
+# インクルードの検索パス
 INCDIR += \
     $(MYAPP_DIR)/../com_util/prod/include \
     $(MYAPP_DIR)/prod/include
