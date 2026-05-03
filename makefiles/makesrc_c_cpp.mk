@@ -53,8 +53,9 @@ ifeq ($(LINK_TEST), 1)
             # gtest_main 有効 && wrap_main 有効
             LIBS += gtest_wrapmain
         else
-            # gtest_main 有効 && wrap_main 無効
-            LIBS += gtest_main
+            # testfw_gtest_main 有効 && wrap_main 無効
+            # gtest_main は利用しない。(Windows 環境のコンソール初期化を testfw で行うため)
+            LIBS += testfw_gtest_main
         endif
     endif
 endif
