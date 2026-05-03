@@ -29,7 +29,7 @@ ifeq ($(LINK_TEST), 1)
     LIBS += test_com gtest gmock
 
     ifdef PLATFORM_LINUX
-        LIBS += pthread gcov
+        LIBS += pthread gcov dl
         # ステップ実行/カバレッジに支障となるオプションを除去
         #   -flto: リンク時最適化 (GCC の LTO)
         LDFLAGS := $(filter-out -flto,$(LDFLAGS))
