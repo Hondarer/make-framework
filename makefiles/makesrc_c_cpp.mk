@@ -26,8 +26,6 @@ ifeq ($(LINK_TEST), 1)
         $(error $(TESTFW_DIR_ERROR))
     endif
 
-    LIBS += test_com gtest gmock
-
     ifdef PLATFORM_LINUX
         LIBS += pthread gcov dl
         # ステップ実行/カバレッジに支障となるオプションを除去
@@ -58,6 +56,8 @@ ifeq ($(LINK_TEST), 1)
             LIBS += testfw_gtest_main
         endif
     endif
+
+    LIBS += test_com gtest gmock
 endif
 
 # ライブラリディレクトリ内のファイル一覧を収集する (LINK_TEST ブロック後なので gtest のパスも含まれる)
