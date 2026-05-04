@@ -60,13 +60,27 @@ ifeq ($(LINK_TEST), 1)
     LIBS += test_com gtest gmock
 endif
 
-# ライブラリディレクトリ内のファイル一覧を収集する (LINK_TEST ブロック後なので gtest のパスも含まれる)
-# Collect library files from all lib dirs (after LINK_TEST block so gtest path is included).
-# wildcard はディレクトリも返すため、拡張子フィルタでライブラリファイルのみを残す。
-# Filter to library files only via extension: cross-platform, avoids wildcard trailing-slash issues.
-# (On Windows, $(wildcard path/) returns the path even for plain files, so cannot detect dirs reliably.)
-_LIBSFILES_ALL := $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/*))
-LIBSFILES := $(filter %.lib %.a %.so %.dylib %.dll %.pdb,$(_LIBSFILES_ALL))
+# LIBS で要求されたライブラリの実体パスのみを解決する (.a/.so/.lib)
+# LINK_TEST ブロック後なので gtest のパスも含まれる。
+# Resolve LIBSFILES from only the libraries requested by LIBS (.a/.so/.lib).
+# (After LINK_TEST block so gtest path is included.)
+ifdef PLATFORM_LINUX
+    # .a を優先し、なければ .so にフォールバック (.a → .so はリンカの探索順と一致)
+    # Prefer .a; fall back to .so if not found (mirrors linker search order)
+    LIBSFILES := $(foreach lib,$(LIBS),\
+        $(or \
+            $(firstword $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/lib$(lib).a))),\
+            $(firstword $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/lib$(lib).so)))))
+else ifdef PLATFORM_WINDOWS
+    # まず lib なしで検索、なければ lib 付きで再検索
+    # (advapi32 等のフレームワークライブラリは lib が付かないための対策)
+    # First search without lib prefix, then retry with lib prefix
+    # (because framework libraries like advapi32 don't have lib prefix)
+    LIBSFILES := $(foreach lib,$(LIBS),\
+        $(or \
+            $(firstword $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/$(lib).lib))),\
+            $(firstword $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/lib$(lib).lib)))))
+endif
 
 #$(info NO_GTEST_MAIN: $(NO_GTEST_MAIN))
 #$(info USE_WRAP_MAIN: $(USE_WRAP_MAIN))
