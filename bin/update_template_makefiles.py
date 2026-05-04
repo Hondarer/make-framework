@@ -20,7 +20,12 @@ from pathlib import Path
 
 
 TEMPLATE_MAP = {
-    "# makefile テンプレート": Path("framework/makefw/makefiles/__template.mk"),
+    "# app 配下 makefile テンプレート": Path(
+        "framework/makefw/makefiles/__template.mk"
+    ),
+    "# app 直下 makefile テンプレート": Path(
+        "framework/makefw/makefiles/__app_root_template.mk"
+    ),
 }
 
 
@@ -36,26 +41,58 @@ def find_workspace_root(start: Path) -> Path:
         current = parent
 
 
-def is_template_makefile(path: Path) -> bool:
-    """makefile の先頭行が既知テンプレート識別子かを判定する。"""
+def get_template_header(path: Path) -> str | None:
+    """makefile の先頭行を返す。読めない場合は None。"""
     try:
         with path.open(encoding="utf-8") as file:
-            first_line = file.readline()
-        return any(first_line.startswith(header) for header in TEMPLATE_MAP)
+            return file.readline().rstrip("\n")
     except (OSError, UnicodeDecodeError):
+        return None
+
+
+def is_app_root_makefile(workspace: Path, path: Path) -> bool:
+    """path が app/<app_name>/makefile かを判定する。"""
+    try:
+        relative_parts = path.relative_to(workspace).parts
+    except ValueError:
         return False
+
+    return (
+        len(relative_parts) == 3
+        and relative_parts[0] == "app"
+        and relative_parts[2] == "makefile"
+    )
+
+
+def validate_template_location(workspace: Path, makefile: Path, header: str) -> str | None:
+    """テンプレート識別子と配置場所の整合性エラーを返す。問題なければ None。"""
+    if header == "# app 直下 makefile テンプレート" and not is_app_root_makefile(
+        workspace, makefile
+    ):
+        return (
+            "app 直下テンプレートは app/<app_name>/makefile にのみ配置できます"
+        )
+
+    return None
+
+
+def is_template_makefile(path: Path) -> bool:
+    """makefile の先頭行が既知テンプレート識別子かを判定する。"""
+    first_line = get_template_header(path)
+    return first_line in TEMPLATE_MAP
 
 
 def get_template_path_for_makefile(workspace: Path, makefile: Path) -> Path:
     """makefile の先頭行から同期元テンプレートを返す。"""
-    with makefile.open(encoding="utf-8") as file:
-        first_line = file.readline()
+    first_line = get_template_header(makefile)
+    if first_line is None or first_line not in TEMPLATE_MAP:
+        raise RuntimeError(f"未知のテンプレート識別子です: {makefile}")
 
-    for header, rel_path in TEMPLATE_MAP.items():
-        if first_line.startswith(header):
-            return workspace / rel_path
+    location_error = validate_template_location(workspace, makefile, first_line)
+    if location_error is not None:
+        raise RuntimeError(f"{location_error}: {makefile}")
 
-    raise RuntimeError(f"未知のテンプレート識別子です: {makefile}")
+    return workspace / TEMPLATE_MAP[first_line]
 
 
 def iter_template_makefiles(workspace: Path):
@@ -92,10 +129,16 @@ def main() -> int:
 
     updated = 0
     skipped = 0
+    errors = 0
 
     for makefile in iter_template_makefiles(workspace):
         rel_path = makefile.relative_to(workspace)
-        template_path = get_template_path_for_makefile(workspace, makefile)
+        try:
+            template_path = get_template_path_for_makefile(workspace, makefile)
+        except RuntimeError as exc:
+            print(f"エラー: {exc}", file=sys.stderr)
+            errors += 1
+            continue
         template_content = template_path.read_text(encoding="utf-8")
         current_content = makefile.read_text(encoding="utf-8")
 
@@ -115,6 +158,10 @@ def main() -> int:
         print(f"\n合計: {updated} 件が更新対象, {skipped} 件はスキップ予定 (--dry-run モード)")
     else:
         print(f"\n完了: {updated} 件更新, {skipped} 件スキップ")
+
+    if errors:
+        print(f"エラー: {errors} 件の makefile は配置が不正です。", file=sys.stderr)
+        return 1
 
     return 0
 
