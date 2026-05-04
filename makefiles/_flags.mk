@@ -9,6 +9,45 @@ CXX_EXTENSIONS    ?= OFF            # ON or OFF (GNU 拡張)
 STRICT            ?= ON             # 規格準拠を強める補助フラグ
 CONFIG            ?= RelWithDebInfo # ビルド構成
 
+# 並列ジョブ数の既定値
+# 明示的な -j / jobserver の解決は recipe 実行時に行い、
+# 再帰 make では JOBS_EFFECTIVE をコマンドライン変数として明示的に伝播する。
+JOBS           ?= 4
+JOBS_EFFECTIVE ?= $(JOBS)
+MAKEFW_IS_LEAF := $(if $(strip $(SUBDIRS)),1,)
+MAKEFW_AUTO_DEFAULT_PARALLEL := $(if $(strip $(MAKECMDGOALS)),$(if $(filter 1,$(words $(MAKECMDGOALS))),$(if $(filter default clean,$(MAKECMDGOALS)),1,),),1)
+_MAKEFW_USER_SET_ORIGIN = $(filter command line environment environment override,$(1))
+MAKEFW_HAS_USER_JOBS := $(if $(call _MAKEFW_USER_SET_ORIGIN,$(origin JOBS)),1,)
+MAKEFW_HAS_USER_JOBS_EFFECTIVE := $(if $(call _MAKEFW_USER_SET_ORIGIN,$(origin JOBS_EFFECTIVE)),1,)
+MAKEFW_ALLOW_JOB_FALLBACK := $(or $(MAKEFW_AUTO_DEFAULT_PARALLEL),$(MAKEFW_HAS_USER_JOBS),$(MAKEFW_HAS_USER_JOBS_EFFECTIVE))
+
+define _MAKEFW_LEAF_PARALLEL_RECIPE
+	@makeflags="$${MAKEFLAGS:-} $${MFLAGS:-}"; \
+	jobs=""; \
+	has_parallel=""; \
+	allow_job_fallback="$(MAKEFW_ALLOW_JOB_FALLBACK)"; \
+	for arg in $$makeflags; do \
+		case "$$arg" in \
+			-j|--jobs) \
+				has_parallel=1 ;; \
+			-j[0-9]*) \
+				has_parallel=1; \
+				jobs="$${arg#-j}" ;; \
+			--jobs=[0-9]*) \
+				has_parallel=1; \
+				jobs="$${arg#--jobs=}" ;; \
+			--jobserver-auth=*|--jobserver-fds=*) \
+				has_parallel=1 ;; \
+		esac; \
+	done; \
+	if [ -z "$$jobs" ] && [ -n "$$allow_job_fallback" ] && [ -n "$(JOBS_EFFECTIVE)" ]; then jobs="$(JOBS_EFFECTIVE)"; fi; \
+	if [ -z "$$jobs" ] && [ -n "$$allow_job_fallback" ] && [ -n "$(JOBS)" ]; then jobs="$(JOBS)"; fi; \
+	if [ -z "$(MAKEFW_PARALLEL_BOOTSTRAP)" ] && [ -z "$$has_parallel" ] && [ -n "$$jobs" ] && [ -n "$$allow_job_fallback" ]; then \
+		$(MAKE) -j$$jobs MAKEFW_PARALLEL_BOOTSTRAP=1 JOBS_EFFECTIVE=$$jobs $(1) && exit 0 || exit $$?; \
+	fi; \
+	$(MAKE) MAKEFW_PARALLEL_BOOTSTRAP=1 JOBS_EFFECTIVE=$$jobs $(2)
+endef
+
 # 標準フラグ生成 (C)
 ifeq ($(C_EXTENSIONS),ON)
     GNU_C_PREFIX := gnu

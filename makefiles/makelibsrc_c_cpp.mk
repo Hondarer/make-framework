@@ -102,12 +102,17 @@ skip_build:
 .PHONY: default
 default: build
 
-.PHONY: build _build_main
+.PHONY: build _build_impl _build_main
 ifeq ($(call should_skip,$(SKIP_BUILD)),true)
 build: skip_build
+else ifeq ($(MAKEFW_IS_LEAF),1)
+build:
+	$(call _MAKEFW_LEAF_PARALLEL_RECIPE,build,_build_impl)
 else
-build: _pre_build_hook _build_main _post_build_hook
+build: _build_impl
 endif
+
+_build_impl: _pre_build_hook _build_main _post_build_hook
 
 # 実際のビルド処理
 # Actual build process

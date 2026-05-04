@@ -260,12 +260,17 @@ skip_build:
 .PHONY: default
 default: build
 
-.PHONY: build _build_main
+.PHONY: build _build_impl _build_main
 ifeq ($(call should_skip,$(SKIP_BUILD)),true)
 build: skip_build
+else ifeq ($(MAKEFW_IS_LEAF),1)
+build:
+	$(call _MAKEFW_LEAF_PARALLEL_RECIPE,build,_build_impl)
 else
-build: _pre_build_hook _build_main _post_build_hook
+build: _build_impl
 endif
+
+_build_impl: _pre_build_hook _build_main _post_build_hook
 
 # 実際のビルド処理
 # Actual build process
@@ -489,20 +494,22 @@ _clean_main:
     # obj は Windows のみ存在するが、コマンドを表に見せないのでそのまま実行
 	@rmdir "$(call _relpath,$(OUTPUT_DIR))" obj 2>/dev/null; true
 
-.PHONY: test _test_main
+.PHONY: test _test_impl _test_main
+test: _test_impl
+
 ifeq ($(call should_skip,$(SKIP_TEST)),true)
     # テストのスキップ
     # Skip tests
     # test スキップ時は、ビルドスキップもチェックする
     ifeq ($(call should_skip,$(SKIP_BUILD)),true)
         # test もビルドもスキップ
-test:
+_test_impl:
 			@echo "Build & Test skipped (SKIP_BUILD=$(SKIP_BUILD), SKIP_TEST=$(SKIP_TEST))"
 _test_main:
 			@:
     else
         # test はスキップするがビルドはする
-test: _pre_test_hook _test_main _post_test_hook
+_test_impl: _pre_test_hook _test_main _post_test_hook
         ifndef NO_LINK
 _test_main: $(OUTPUT_DIR)/$(TARGET)
 				@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
@@ -515,13 +522,13 @@ _test_main: $(OBJS)
 else
     ifeq ($(call should_skip,$(SKIP_BUILD)),true)
         # そもそもビルドがスキップ
-test:
+_test_impl:
 			@echo "Test skipped because it is not included in the build (SKIP_BUILD=$(SKIP_BUILD))"
 _test_main:
 			@:
     else
         # スキップしない
-test: _pre_test_hook _test_main _post_test_hook
+_test_impl: _pre_test_hook _test_main _post_test_hook
         ifndef NO_LINK
             # テストの実行
             # Run tests

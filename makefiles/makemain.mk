@@ -76,10 +76,37 @@ ifneq ($(SUBDIRS),)
     .PHONY: $(SUBDIRS)
     $(SUBDIRS):
     #@echo "Making $(MAKECMDGOALS) in $@"
-	@if [ -n "$(MAKECMDGOALS)" ]; then \
-		$(MAKE) -C $@ $(MAKECMDGOALS); \
+	@makeflags="$${MAKEFLAGS:-} $${MFLAGS:-}"; \
+	jobs=""; \
+	has_parallel=""; \
+	allow_job_fallback="$(MAKEFW_ALLOW_JOB_FALLBACK)"; \
+	for arg in $$makeflags; do \
+		case "$$arg" in \
+			-j|--jobs) \
+				has_parallel=1 ;; \
+			-j[0-9]*) \
+				has_parallel=1; \
+				jobs="$${arg#-j}" ;; \
+			--jobs=[0-9]*) \
+				has_parallel=1; \
+				jobs="$${arg#--jobs=}" ;; \
+			--jobserver-auth=*|--jobserver-fds=*) \
+				has_parallel=1 ;; \
+		esac; \
+	done; \
+	if [ -z "$$jobs" ] && [ -n "$$allow_job_fallback" ] && [ -n "$(JOBS_EFFECTIVE)" ]; then jobs="$(JOBS_EFFECTIVE)"; fi; \
+	if [ -z "$$jobs" ] && [ -n "$$allow_job_fallback" ] && [ -n "$(JOBS)" ]; then jobs="$(JOBS)"; fi; \
+	if [ -z "$$has_parallel" ] && [ -n "$$jobs" ] && [ -n "$$allow_job_fallback" ]; then \
+		extra_make_args="-j$$jobs JOBS_EFFECTIVE=$$jobs"; \
+	elif [ -n "$$jobs" ]; then \
+		extra_make_args="JOBS_EFFECTIVE=$$jobs"; \
 	else \
-		$(MAKE) -C $@; \
+		extra_make_args=""; \
+	fi; \
+	if [ -n "$(MAKECMDGOALS)" ]; then \
+		$(MAKE) $$extra_make_args -C $@ $(MAKECMDGOALS); \
+	else \
+		$(MAKE) $$extra_make_args -C $@; \
 	fi
 
     # 主要なターゲットにサブディレクトリ依存を追加 (サブディレクトリを先に処理)

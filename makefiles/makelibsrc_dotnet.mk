@@ -1,5 +1,6 @@
 # .NET ライブラリ作成用 makefile
 
+include $(WORKSPACE_DIR)/framework/makefw/makefiles/_flags.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_hooks.mk
 
 # カレントディレクトリ配下の絶対パスを相対パスに変換する (make の出力を読みやすくする)
@@ -36,7 +37,20 @@ DOTNET_BUILD := $(WORKSPACE_DIR)/framework/makefw/bin/dotnet_build.sh
 
 $(OUTPUT_ASSEMBLY): $(SOURCES) $(PROJECT_FILE)
     # dotnet_build.sh 側にてビルドコマンドは echo される
-	@WARN_FILE="$(OUTPUT_DIR)/$(TARGET).warn" DOTNET="$(DOTNET)" "$(SHELL)" "$(DOTNET_BUILD)" -c $(CONFIG) -o $(OUTPUT_DIR)
+	@makeflags="$${MAKEFLAGS:-} $${MFLAGS:-}"; \
+	jobs=""; \
+	allow_job_fallback="$(MAKEFW_ALLOW_JOB_FALLBACK)"; \
+	for arg in $$makeflags; do \
+		case "$$arg" in \
+			-j[0-9]*) jobs="$${arg#-j}" ;; \
+			--jobs=[0-9]*) jobs="$${arg#--jobs=}" ;; \
+		esac; \
+	done; \
+	if [ -z "$$jobs" ] && [ -n "$$allow_job_fallback" ] && [ -n "$(JOBS_EFFECTIVE)" ]; then jobs="$(JOBS_EFFECTIVE)"; fi; \
+	if [ -z "$$jobs" ] && [ -n "$$allow_job_fallback" ] && [ -n "$(JOBS)" ]; then jobs="$(JOBS)"; fi; \
+	msbuild_parallel_arg=""; \
+	if [ -n "$$jobs" ]; then msbuild_parallel_arg="-m:$$jobs"; fi; \
+	WARN_FILE="$(OUTPUT_DIR)/$(TARGET).warn" DOTNET="$(DOTNET)" "$(SHELL)" "$(DOTNET_BUILD)" $$msbuild_parallel_arg -c $(CONFIG) -o $(OUTPUT_DIR)
 
 .PHONY: build _build_main
 build: _pre_build_hook _build_main _post_build_hook
