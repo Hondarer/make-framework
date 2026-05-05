@@ -431,38 +431,27 @@ $(foreach make_config, $(MAKE_INCLUDE_MK), $(call _include_make_config,$(make_co
 # - INCDIR: sort で重複除去 (既存動作維持)
 # - LIBSDIR, OUTPUT_DIR: sort で重複除去
 # - TEST_SRCS, ADD_SRCS: 順序保持 (strip のみ)
-ifdef PLATFORM_LINUX
-    ifneq ($(INCDIR),)
-        INCDIR := $(sort $(shell for d in $(INCDIR); do realpath -m "$$d" 2>/dev/null || echo "$$d"; done))
-    endif
-    ifneq ($(LIBSDIR),)
-        LIBSDIR := $(sort $(shell for d in $(LIBSDIR); do realpath -m "$$d" 2>/dev/null || echo "$$d"; done))
-    endif
-    ifneq ($(OUTPUT_DIR),)
-        OUTPUT_DIR := $(strip $(shell realpath -m "$(OUTPUT_DIR)" 2>/dev/null || echo "$(OUTPUT_DIR)"))
-    endif
-    ifneq ($(TEST_SRCS),)
-        TEST_SRCS := $(strip $(shell for f in $(TEST_SRCS); do realpath -m "$$f" 2>/dev/null || echo "$$f"; done))
-    endif
-    ifneq ($(ADD_SRCS),)
-        ADD_SRCS := $(strip $(shell for f in $(ADD_SRCS); do realpath -m "$$f" 2>/dev/null || echo "$$f"; done))
-    endif
-else ifdef PLATFORM_WINDOWS
-    ifneq ($(INCDIR),)
-        INCDIR := $(sort $(shell for d in $(INCDIR); do r=$$(realpath -m "$$d" 2>/dev/null || echo "$$d"); cygpath -m "$$r" 2>/dev/null || echo "$$r"; done))
-    endif
-    ifneq ($(LIBSDIR),)
-        LIBSDIR := $(sort $(shell for d in $(LIBSDIR); do r=$$(realpath -m "$$d" 2>/dev/null || echo "$$d"); cygpath -m "$$r" 2>/dev/null || echo "$$r"; done))
-    endif
-    ifneq ($(OUTPUT_DIR),)
-        OUTPUT_DIR := $(strip $(shell r=$$(realpath -m "$(OUTPUT_DIR)" 2>/dev/null || echo "$(OUTPUT_DIR)"); cygpath -m "$$r" 2>/dev/null || echo "$$r"))
-    endif
-    ifneq ($(TEST_SRCS),)
-        TEST_SRCS := $(strip $(shell for f in $(TEST_SRCS); do r=$$(realpath -m "$$f" 2>/dev/null || echo "$$f"); cygpath -m "$$r" 2>/dev/null || echo "$$r"; done))
-    endif
-    ifneq ($(ADD_SRCS),)
-        ADD_SRCS := $(strip $(shell for f in $(ADD_SRCS); do r=$$(realpath -m "$$f" 2>/dev/null || echo "$$f"); cygpath -m "$$r" 2>/dev/null || echo "$$r"; done))
-    endif
+# パス正規化ヘルパースクリプト (子プロセス生成を削減)
+MAKEFW_NORMALIZE_PATHS := $(WORKSPACE_DIR)/framework/makefw/bin/normalize_paths.sh
+
+# 各パス変数を一括正規化
+# - INCDIR, LIBSDIR: sort で重複除去
+# - OUTPUT_DIR: 単一パス
+# - TEST_SRCS, ADD_SRCS: 順序保持
+ifneq ($(INCDIR),)
+    INCDIR := $(sort $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(INCDIR)))
+endif
+ifneq ($(LIBSDIR),)
+    LIBSDIR := $(sort $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(LIBSDIR)))
+endif
+ifneq ($(OUTPUT_DIR),)
+    OUTPUT_DIR := $(strip $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(OUTPUT_DIR)))
+endif
+ifneq ($(TEST_SRCS),)
+    TEST_SRCS := $(strip $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(TEST_SRCS)))
+endif
+ifneq ($(ADD_SRCS),)
+    ADD_SRCS := $(strip $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(ADD_SRCS)))
 endif
 
 # TARGET_ARCH をコンパイル時定数として C/C++ コードに渡す
