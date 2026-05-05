@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 # MSVC グループコンパイルスクリプト
 # 複数ソースファイルを一度に cl.exe に渡し、MSYS プロセス起動オーバーヘッドを削減する
 #
@@ -98,7 +98,8 @@ $output = $stdout + $stderr
 # ソースファイルごとに依存関係を抽出
 # cl.exe は各ソースファイルの処理開始時にファイル名を出力する
 $currentSource = $null
-$deps = @{}  # source -> includes のハッシュテーブル
+$deps = @{}      # source -> includes のハッシュテーブル
+$warnings = @{}  # source -> warning lines のハッシュテーブル
 
 foreach ($line in $output -split "`r?`n") {
     # ソースファイル名の行を検出 (拡張子のみの行)
@@ -140,15 +141,35 @@ foreach ($line in $output -split "`r?`n") {
             }
         }
         if (-not $isSourceName) {
-            # エラー/警告を色付きで出力
-            if ($trimmedLine -match '\berror\b') {
-                Write-Host $trimmedLine -ForegroundColor Red
+            # MSVC 診断メッセージのファイルパスをフルパスに変換 (VS Code でクリック可能にする)
+            $outputLine = $trimmedLine
+            if ($trimmedLine -match '^(.+?)(\(\d+(?:,\d+)?\)\s*:.*)$') {
+                $filePart = $Matches[1]
+                $rest = $Matches[2]
+                if (-not [System.IO.Path]::IsPathRooted($filePart)) {
+                    $fullPath = [System.IO.Path]::GetFullPath($filePart)
+                    if (Test-Path $fullPath) {
+                        $outputLine = "${fullPath}${rest}"
+                    }
+                }
             }
-            elseif ($trimmedLine -match '\bwarning\b') {
-                Write-Host $trimmedLine -ForegroundColor Yellow
+
+            # エラー/警告を色付きで出力
+            if ($outputLine -match '\berror\b') {
+                Write-Host $outputLine -ForegroundColor Red
+            }
+            elseif ($outputLine -match '\bwarning\b') {
+                Write-Host $outputLine -ForegroundColor Yellow
+                # 警告を収集
+                if ($null -ne $currentSource) {
+                    if (-not $warnings.ContainsKey($currentSource)) {
+                        $warnings[$currentSource] = @()
+                    }
+                    $warnings[$currentSource] += $outputLine
+                }
             }
             else {
-                Write-Host $trimmedLine
+                Write-Host $outputLine
             }
         }
     }
@@ -183,6 +204,14 @@ foreach ($src in $sourceList) {
     if (Test-Path $objPath) {
         $objTime = (Get-Item $objPath).LastWriteTime
         (Get-Item $dPath).LastWriteTime = $objTime
+    }
+
+    # .warn ファイルを生成 (警告がなければ削除)
+    $warnPath = "$src.warn"
+    if ($warnings.ContainsKey($src) -and $warnings[$src].Count -gt 0) {
+        [System.IO.File]::WriteAllLines($warnPath, $warnings[$src], $utf8NoBom)
+    } else {
+        Remove-Item -Path $warnPath -Force -ErrorAction SilentlyContinue
     }
 }
 

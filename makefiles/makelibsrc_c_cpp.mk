@@ -329,11 +329,11 @@ else ifdef PLATFORM_WINDOWS
     ifeq ($$(LIB_TYPE),shared)
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
 		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(patsubst %.obj,%.pdb,$$@) /c /Fo:$$@ $$<
-		@set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(patsubst %.obj,%.pdb,$$@) /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_DIR)/framework/makefw/bin/msvc_cl_filter.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$<.warn
+		@set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(patsubst %.obj,%.pdb,$$@) /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_DIR)/framework/makefw/bin/msvc_cl_filter.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$<.warn $$(WORKSPACE_DIR)
     else
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
 		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OUTPUT_DIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$<
-		@set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OUTPUT_DIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_DIR)/framework/makefw/bin/msvc_cl_filter.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$<.warn
+		@set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OUTPUT_DIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_DIR)/framework/makefw/bin/msvc_cl_filter.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$<.warn $$(WORKSPACE_DIR)
     endif
   endif
 endif

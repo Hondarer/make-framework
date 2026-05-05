@@ -377,10 +377,10 @@ else ifdef PLATFORM_WINDOWS
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR)
 		@set -o pipefail; if echo $$(TEST_SRCS) | grep -q $$(notdir $$<); then \
 			echo $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) /Fd:$$(patsubst %.obj,%.pdb,$$@) -D_IN_TEST_SRC /c /Fo$$@ $$<; \
-			MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) /Fd:$$(patsubst %.obj,%.pdb,$$@) -D_IN_TEST_SRC /c /Fo$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_DIR)/framework/makefw/bin/msvc_cl_filter.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$<.warn; \
+			MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) /Fd:$$(patsubst %.obj,%.pdb,$$@) -D_IN_TEST_SRC /c /Fo$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_DIR)/framework/makefw/bin/msvc_cl_filter.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$<.warn $$(WORKSPACE_DIR); \
 		else \
 			echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(patsubst %.obj,%.pdb,$$@) /c /Fo$$@ $$<; \
-			MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(patsubst %.obj,%.pdb,$$@) /c /Fo$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_DIR)/framework/makefw/bin/msvc_cl_filter.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$<.warn; \
+			MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(patsubst %.obj,%.pdb,$$@) /c /Fo$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_DIR)/framework/makefw/bin/msvc_cl_filter.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$<.warn $$(WORKSPACE_DIR); \
 		fi
   endif
 endif

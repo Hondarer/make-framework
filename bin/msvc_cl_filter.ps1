@@ -5,10 +5,11 @@
 # 使用方法 (Usage):
 #   cl /showIncludes ... 2>&1 | powershell -ExecutionPolicy Bypass -File msvc_cl_filter.ps1 target.obj source.c target.d
 
-$target   = $args[0]
-$source   = $args[1]
-$depfile  = $args[2]
-$warnfile = if ($args.Count -gt 3) { $args[3] } else { $null }
+$target       = $args[0]
+$source       = $args[1]
+$depfile      = $args[2]
+$warnfile     = if ($args.Count -gt 3) { $args[3] } else { $null }
+$workspaceDir = if ($args.Count -gt 4) { $args[4].Replace('\', '/') } else { "" }
 
 # 引数チェック
 if (-not $target -or -not $source -or -not $depfile) {
@@ -71,12 +72,15 @@ try {
             # スペースをエスケープ (Make の依存関係ファイルではスペースは特殊文字)
             $header = $header.Replace(' ', '\ ')
 
-            # 依存関係を追加 ( ` \<LF>  header` 形式)
-            [void]$sb.Append(' \')
-            [void]$sb.Append("`n  ${header}")
+            # workspaceDir が指定されている場合、ワークスペース内のみ追加
+            if ($workspaceDir -eq "" -or $header.StartsWith($workspaceDir, [System.StringComparison]::OrdinalIgnoreCase)) {
+                # 依存関係を追加 ( ` \<LF>  header` 形式)
+                [void]$sb.Append(' \')
+                [void]$sb.Append("`n  ${header}")
 
-            # 空ルール生成用に保存
-            $deps += $header
+                # 空ルール生成用に保存
+                $deps += $header
+            }
         }
         else {
             # ソースファイル名のみの行はスキップ (MSVC がコンパイル開始時に出力するファイル名)
