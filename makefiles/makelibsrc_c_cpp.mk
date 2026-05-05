@@ -107,7 +107,7 @@ ifeq ($(call should_skip,$(SKIP_BUILD)),true)
 build: skip_build
 else ifeq ($(MAKEFW_IS_LEAF),1)
 build:
-	$(call _MAKEFW_LEAF_PARALLEL_RECIPE,build,_build_impl)
+	+$(call _MAKEFW_LEAF_PARALLEL_RECIPE,build,_build_impl)
 else
 build: _build_impl
 endif
