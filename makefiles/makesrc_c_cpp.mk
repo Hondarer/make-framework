@@ -335,9 +335,11 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
 			all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
 			newest=$$(ls -t $$all_objs $(LIBSFILES) $@ 2>/dev/null | head -1); \
 			if [ "$$newest" != "$@" ]; then \
-				echo "$(strip $(basename $(notdir $(LD))) $(LDFLAGS) /PDB:$(call _relpath,$(patsubst %.exe,%.pdb,$@)) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$(call _relpath,$@) $$all_objs $(LIBS))"; \
-				set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ $$all_objs $(LIBS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_link_filter.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
-				_rc=$$?; \
+				rsp_file=$(OBJDIR)/link_$$.rsp; \
+				printf '%s\n' $$all_objs > $$rsp_file; \
+				echo "$(strip $(basename $(notdir $(LD))) $(LDFLAGS) /PDB:$(call _relpath,$(patsubst %.exe,%.pdb,$@)) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$(call _relpath,$@) $$all_objs $(LIBS))" | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_format_cmd.ps1; \
+				set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ @$$rsp_file $(LIBS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_link_filter.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
+				_rc=$$?; rm -f $$rsp_file; \
 			else \
 				_rc=0; \
 			fi; \

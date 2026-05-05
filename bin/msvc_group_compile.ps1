@@ -23,57 +23,12 @@ param(
     [switch]$DryRun
 )
 
-function Write-WrappedCommandLine {
-    param(
-        [string[]]$Tokens,
-        [int]$MaxWidth = 120,
-        [string]$Indent = "   ",
-        [string]$Continuation = " \"
-    )
+. "$PSScriptRoot/_msvc_utils.ps1"
 
-    if ($Tokens.Count -eq 0) {
-        return
-    }
-
-    $lines = [System.Collections.Generic.List[string]]::new()
-    $currentLine = ""
-
-    foreach ($token in $Tokens) {
-        if ([string]::IsNullOrEmpty($currentLine)) {
-            $currentLine = $token
-            continue
-        }
-
-        $candidate = "$currentLine $token"
-        if ($candidate.Length -le $MaxWidth) {
-            $currentLine = $candidate
-            continue
-        }
-
-        $lines.Add($currentLine)
-        $currentLine = "${Indent}${token}"
-    }
-
-    if (-not [string]::IsNullOrEmpty($currentLine)) {
-        $lines.Add($currentLine)
-    }
-
-    for ($i = 0; $i -lt $lines.Count; $i++) {
-        $suffix = if ($i -lt ($lines.Count - 1)) { $Continuation } else { "" }
-        Write-Host ($lines[$i] + $suffix)
-    }
-}
-
-# エンコード設定 (cl.exe 出力は ANSI コードページ)
-if ($PSVersionTable.PSEdition -eq 'Core') {
-    [System.Text.Encoding]::RegisterProvider([System.Text.CodePagesEncodingProvider]::Instance)
-    $ansiEncoding = [System.Text.Encoding]::GetEncoding(
-        [System.Globalization.CultureInfo]::CurrentCulture.TextInfo.ANSICodePage
-    )
-} else {
-    $ansiEncoding = [System.Text.Encoding]::Default
-}
-$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+# エンコード設定 (MSVC ツールの出力は ANSI コードページ)
+$enc          = Get-AnsiUtf8Encoding
+$ansiEncoding = $enc.Ansi
+$utf8NoBom    = $enc.Utf8NoBom
 
 # ソースファイルリストをパース
 $sourceList = $Sources -split '\s+' | Where-Object { $_ }
@@ -172,33 +127,14 @@ foreach ($line in $output -split "`r?`n") {
         }
         if (-not $isSourceName) {
             # MSVC 診断メッセージのファイルパスをフルパスに変換 (VS Code でクリック可能にする)
-            $outputLine = $trimmedLine
-            if ($trimmedLine -match '^(.+?)(\(\d+(?:,\d+)?\)\s*:.*)$') {
-                $filePart = $Matches[1]
-                $rest = $Matches[2]
-                if (-not [System.IO.Path]::IsPathRooted($filePart)) {
-                    $fullPath = [System.IO.Path]::GetFullPath($filePart)
-                    if (Test-Path $fullPath) {
-                        $outputLine = "${fullPath}${rest}"
-                    }
-                }
-            }
+            $outputLine = Resolve-MsvcDiagnosticPath $trimmedLine
 
-            # エラー/警告を色付きで出力
-            if ($outputLine -match '\berror\b') {
-                Write-Host $outputLine -ForegroundColor Red
-            }
-            elseif ($outputLine -match '\bwarning\b') {
-                Write-Host $outputLine -ForegroundColor Yellow
-                if ($null -ne $currentSource) {
-                    if (-not $warnings.ContainsKey($currentSource)) {
-                        $warnings[$currentSource] = @()
-                    }
-                    $warnings[$currentSource] += $outputLine
+            $kind = Write-MsvcDiagnosticLine $outputLine
+            if ($kind -eq 'warning' -and $null -ne $currentSource) {
+                if (-not $warnings.ContainsKey($currentSource)) {
+                    $warnings[$currentSource] = @()
                 }
-            }
-            else {
-                Write-Host $outputLine
+                $warnings[$currentSource] += $outputLine
             }
         }
     }

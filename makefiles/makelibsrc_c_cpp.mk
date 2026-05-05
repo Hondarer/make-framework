@@ -252,9 +252,11 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJ
 			all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
 			newest=$$(ls -t $$all_objs $(STATIC_LIBS) $@ 2>/dev/null | head -1); \
 			if [ "$$newest" != "$@" ] || $(_DLL_SIDE_CHECK); then \
-				echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
-				set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_link_filter.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
-				_rc=$$?; \
+				rsp_file=$(OBJDIR)/link_$$.rsp; \
+				printf '%s\n' $$all_objs > $$rsp_file; \
+				echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))" | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_format_cmd.ps1; \
+				set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ @$$rsp_file $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_link_filter.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
+				_rc=$$?; rm -f $$rsp_file; \
 			else \
 				_rc=0; \
 			fi; \
@@ -297,9 +299,11 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
 				fi; \
 				newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
 				if [ "$$newest" != "$@" ]; then \
-					echo "$(strip $(AR) /NOLOGO /OUT:$(call _relpath,$@) $$all_objs)"; \
-					set -o pipefail; MSYS_NO_PATHCONV=1 "$(AR)" /NOLOGO /OUT:$@ $$all_objs 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_lib_filter.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
-					_rc=$$?; \
+					rsp_file=$(OBJDIR)/lib_$$.rsp; \
+					printf '%s\n' $$all_objs > $$rsp_file; \
+					echo "$(strip $(AR) /NOLOGO /OUT:$(call _relpath,$@) $$all_objs)" | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_format_cmd.ps1; \
+					set -o pipefail; MSYS_NO_PATHCONV=1 "$(AR)" /NOLOGO /OUT:$@ @$$rsp_file 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_lib_filter.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
+					_rc=$$?; rm -f $$rsp_file; \
 				else \
 					_rc=0; \
 				fi; \
