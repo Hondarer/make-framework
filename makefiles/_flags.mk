@@ -12,7 +12,7 @@ CONFIG            ?= RelWithDebInfo # ビルド構成
 # 並列ジョブ数の既定値
 # 明示的な -j / jobserver の解決は recipe 実行時に行い、
 # 再帰 make では JOBS_EFFECTIVE をコマンドライン変数として明示的に伝播する。
-JOBS           ?= 4
+JOBS           ?= 6
 JOBS_EFFECTIVE ?= $(JOBS)
 MAKEFW_IS_LEAF := $(if $(strip $(SUBDIRS)),1,)
 MAKEFW_AUTO_DEFAULT_PARALLEL := $(if $(strip $(MAKECMDGOALS)),$(if $(filter 1,$(words $(MAKECMDGOALS))),$(if $(filter default clean,$(MAKECMDGOALS)),1,),),1)
@@ -24,7 +24,7 @@ _MAKEFW_MAKEFLAGS_ALL := $(strip $(MAKEFLAGS) $(MFLAGS))
 _MAKEFW_MAKEFLAGS_JOBS_SHORT := $(patsubst -j%,%,$(filter -j%,$(_MAKEFW_MAKEFLAGS_ALL)))
 _MAKEFW_MAKEFLAGS_JOBS_LONG := $(patsubst --jobs=%,%,$(filter --jobs=%,$(_MAKEFW_MAKEFLAGS_ALL)))
 _MAKEFW_MAKEFLAGS_JOBS := $(firstword $(filter-out j,$(_MAKEFW_MAKEFLAGS_JOBS_SHORT)) $(_MAKEFW_MAKEFLAGS_JOBS_LONG))
-MAKEFW_CL_MP_JOBS ?= $(or $(_MAKEFW_MAKEFLAGS_JOBS),$(JOBS_EFFECTIVE),$(JOBS),4)
+MAKEFW_CL_MP_JOBS ?= $(or $(_MAKEFW_MAKEFLAGS_JOBS),$(JOBS_EFFECTIVE),$(JOBS))
 MAKEFW_CL_MPFLAG := /MP$(MAKEFW_CL_MP_JOBS)
 
 define _MAKEFW_LEAF_PARALLEL_RECIPE
