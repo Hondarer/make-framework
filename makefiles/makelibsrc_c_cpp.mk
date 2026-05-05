@@ -2,6 +2,7 @@ include $(WORKSPACE_DIR)/framework/makefw/makefiles/_collect_srcs.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_flags.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_should_skip.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_hooks.mk
+include $(WORKSPACE_DIR)/framework/makefw/makefiles/_batch_compile.mk
 
 # -fPIC オプションが含まれていない場合に追加
 # Add -fPIC option if not already included
@@ -116,14 +117,15 @@ _build_impl: _pre_build_hook _build_main _post_build_hook
 
 # 実際のビルド処理
 # Actual build process
+# _batch_compile が完了してから _build_main を実行
 ifeq ($(call should_skip,$(SKIP_BUILD)),true)
-_build_main:
+_build_main: _batch_compile
 	@:
 else
     ifndef NO_LINK
-_build_main: $(OUTPUT_DIR)/$(TARGET)
+_build_main: _batch_compile $(OUTPUT_DIR)/$(TARGET)
     else
-_build_main: $(OBJS)
+_build_main: _batch_compile $(OBJS)
     endif
 endif
 
@@ -276,7 +278,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
 				if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
 				all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
 				pdb_file="$(OUTPUT_DIR)/$(basename $(TARGET)).pdb"; \
-				if [ -z "$(MAKE_RERUN)" ] && [ ! -f "$$pdb_file" ]; then \
+				if [ -z "$(MAKE_RERUN)" ] && [ "$(BATCH_COMPILE)" != "1" ] && [ ! -f "$$pdb_file" ]; then \
 					echo "[REBUILD] PDB missing: $$pdb_file -- removing obj to force recompile"; \
 					rm -f $(OBJDIR)/*.obj; \
 					$(MAKE) $(MAKEFLAGS) MAKE_RERUN=1 $@ && exit 0 || exit $$?; \
@@ -302,12 +304,14 @@ endif
 # コンパイルルールのテンプレート定義
 # Compile rule template definition
 # 引数: $(1)=拡張子 (c/cc/cpp), $(2)=コンパイラ変数名 (CC/CXX), $(3)=フラグ変数名 (CFLAGS/CXXFLAGS)
+# Windows でバッチコンパイル有効時はパターンルールを定義しない (_batch_compile で処理)
 define compile_rule_template
 ifdef PLATFORM_LINUX
 $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
 		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$<
 		@set -o pipefail; LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV) | $$(CAPTURE_WARNINGS) $$<.warn
 else ifdef PLATFORM_WINDOWS
+  ifneq ($$(BATCH_COMPILE),1)
     # 静的ライブラリの場合は OUTPUT_DIR に統合 PDB を生成、動的ライブラリの場合は個別 PDB を生成
     # For static libraries, generate a unified PDB in OUTPUT_DIR; for shared libraries, generate individual PDBs
     ifeq ($$(LIB_TYPE),shared)
@@ -319,6 +323,7 @@ $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP
 		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OUTPUT_DIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$<
 		@set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OUTPUT_DIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_DIR)/framework/makefw/bin/msvc_cl_filter.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$<.warn
     endif
+  endif
 endif
 endef
 
