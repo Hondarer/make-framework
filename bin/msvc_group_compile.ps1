@@ -1,11 +1,11 @@
-﻿#!/usr/bin/env pwsh
-# MSVC バッチコンパイルスクリプト
+#!/usr/bin/env pwsh
+# MSVC グループコンパイルスクリプト
 # 複数ソースファイルを一度に cl.exe に渡し、MSYS プロセス起動オーバーヘッドを削減する
 #
 # /showIncludes を使用して依存関係を抽出し、各ソースファイルの .d を生成
 #
 # 使用方法:
-#   powershell -ExecutionPolicy Bypass -File msvc_batch_compile.ps1 `
+#   powershell -ExecutionPolicy Bypass -File msvc_group_compile.ps1 `
 #       -Compiler "cl" -Flags "/EHsc /MP /FS" -ObjDir "obj/md" `
 #       -Sources "foo.c bar.c baz.c" [-ExtraFlags "-D_IN_TEST_SRC"]
 
@@ -43,7 +43,7 @@ if (-not (Test-Path $ObjDir)) {
 }
 
 # レスポンスファイルを作成 (並列ビルド対応で一意のファイル名を使用)
-$rspFile = Join-Path $ObjDir "batch_compile_$([guid]::NewGuid().ToString('N').Substring(0,8)).rsp"
+$rspFile = Join-Path $ObjDir "group_compile_$([guid]::NewGuid().ToString('N').Substring(0,8)).rsp"
 
 # レスポンスファイルの内容を構築
 $rspContent = @()

@@ -2,7 +2,7 @@ include $(WORKSPACE_DIR)/framework/makefw/makefiles/_collect_srcs.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_flags.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_should_skip.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_hooks.mk
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_batch_compile.mk
+include $(WORKSPACE_DIR)/framework/makefw/makefiles/_group_compile.mk
 
 # テストライブラリの設定
 # Set test libraries
@@ -275,15 +275,19 @@ _build_impl: _pre_build_hook _build_main _post_build_hook
 
 # 実際のビルド処理
 # Actual build process
-# _batch_compile が完了してから _build_main を実行
+# _group_compile が完了してから _build_main を実行
 ifeq ($(call should_skip,$(SKIP_BUILD)),true)
-_build_main: _batch_compile
+_build_main: _group_compile
 	@:
 else
     ifndef NO_LINK
-_build_main: _batch_compile $(OUTPUT_DIR)/$(TARGET)
+_build_main: _group_compile $(OUTPUT_DIR)/$(TARGET)
     else
-_build_main: _batch_compile $(OBJS) $(LIBSFILES)
+        ifeq ($(GROUP_COMPILE),1)
+_build_main: _group_compile $(LIBSFILES)
+        else
+_build_main: _group_compile $(OBJS) $(LIBSFILES)
+        endif
     endif
 endif
 
@@ -320,8 +324,8 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
 			if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
 			exit $$_rc
     else ifdef PLATFORM_WINDOWS
-        ifeq ($(BATCH_COMPILE),1)
-$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) _batch_compile $(LIBSFILES) | $(OUTPUT_DIR)
+        ifeq ($(GROUP_COMPILE),1)
+$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) _group_compile $(LIBSFILES) | $(OUTPUT_DIR)
         else
 $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR)
         endif
@@ -357,7 +361,7 @@ show-exepath:
 # コンパイルルールのテンプレート定義
 # Compile rule template definition
 # 引数: $(1)=拡張子 (c/cc/cpp), $(2)=コンパイラ変数名 (CC/CXX), $(3)=フラグ変数名 (CFLAGS/CXXFLAGS)
-# Windows でバッチコンパイル有効時はパターンルールを定義しない (_batch_compile で処理)
+# Windows でグループコンパイル有効時はパターンルールを定義しない (_group_compile で処理)
 define compile_rule_template
 ifdef PLATFORM_LINUX
 $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR)
@@ -369,7 +373,7 @@ $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_S
 			LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV) | $$(CAPTURE_WARNINGS) $$<.warn; \
 		fi
 else ifdef PLATFORM_WINDOWS
-  ifneq ($$(BATCH_COMPILE),1)
+  ifneq ($$(GROUP_COMPILE),1)
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR)
 		@set -o pipefail; if echo $$(TEST_SRCS) | grep -q $$(notdir $$<); then \
 			echo $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) /Fd:$$(patsubst %.obj,%.pdb,$$@) -D_IN_TEST_SRC /c /Fo$$@ $$<; \
