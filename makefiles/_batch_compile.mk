@@ -70,7 +70,7 @@ define _run_batch_compile
 			if [ $$(($${#chunk} + $${#src} + 1)) -gt 8000 ]; then \
 				powershell -ExecutionPolicy Bypass -File $(BATCH_COMPILE_SCRIPT) \
 					-Compiler "$(1)" -Flags "$(2)" -ObjDir "$(3)" \
-					-Sources "$$chunk" $(5) || exit $$?; \
+					-Sources "$$chunk" -WorkspaceDir "$(WORKSPACE_DIR)" $(5) || exit $$?; \
 				chunk="$$src"; \
 			else \
 				if [ -n "$$chunk" ]; then chunk="$$chunk $$src"; else chunk="$$src"; fi; \
@@ -79,7 +79,7 @@ define _run_batch_compile
 		if [ -n "$$chunk" ]; then \
 			powershell -ExecutionPolicy Bypass -File $(BATCH_COMPILE_SCRIPT) \
 				-Compiler "$(1)" -Flags "$(2)" -ObjDir "$(3)" \
-				-Sources "$$chunk" $(5) || exit $$?; \
+				-Sources "$$chunk" -WorkspaceDir "$(WORKSPACE_DIR)" $(5) || exit $$?; \
 		fi; \
 	fi
 endef

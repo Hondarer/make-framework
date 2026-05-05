@@ -15,6 +15,7 @@ param(
     [string]$ObjDir = "obj",
     [string]$Sources = "",
     [string]$ExtraFlags = "",
+    [string]$WorkspaceDir = "",
     [switch]$DryRun
 )
 
@@ -124,7 +125,10 @@ foreach ($line in $output -split "`r?`n") {
     if ($null -ne $header -and $null -ne $currentSource) {
         # バックスラッシュをスラッシュに変換、スペースをエスケープ
         $header = $header.Replace('\', '/').Replace(' ', '\ ')
-        $deps[$currentSource] += $header
+        # WorkspaceDir が指定されている場合、ワークスペース内のみ追加
+        if ($WorkspaceDir -eq "" -or $header.StartsWith($WorkspaceDir.Replace('\', '/'), [System.StringComparison]::OrdinalIgnoreCase)) {
+            $deps[$currentSource] += $header
+        }
     }
     elseif ($null -eq $header -and $trimmedLine -ne "" -and $null -ne $currentSource) {
         # ソースファイル名以外の通常出力 (エラー、警告など)
