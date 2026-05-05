@@ -43,7 +43,7 @@ define _MAKEFW_LEAF_PARALLEL_RECIPE
 	if [ -z "$$jobs" ] && [ -n "$$allow_job_fallback" ] && [ -n "$(JOBS_EFFECTIVE)" ]; then jobs="$(JOBS_EFFECTIVE)"; fi; \
 	if [ -z "$$jobs" ] && [ -n "$$allow_job_fallback" ] && [ -n "$(JOBS)" ]; then jobs="$(JOBS)"; fi; \
 	if [ -z "$(MAKEFW_PARALLEL_BOOTSTRAP)" ] && [ -z "$$has_parallel" ] && [ -n "$$jobs" ] && [ -n "$$allow_job_fallback" ]; then \
-		$(MAKE) -j$$jobs MAKEFW_PARALLEL_BOOTSTRAP=1 JOBS_EFFECTIVE=$$jobs $(1) && exit 0 || exit $$?; \
+		$(MAKE) -j$$jobs MAKEFW_PARALLEL_BOOTSTRAP=1 JOBS_EFFECTIVE=$$jobs $(2) && exit 0 || exit $$?; \
 	fi; \
 	$(MAKE) MAKEFW_PARALLEL_BOOTSTRAP=1 JOBS_EFFECTIVE=$$jobs $(2)
 endef
