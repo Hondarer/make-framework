@@ -2,7 +2,10 @@
 # MSVC ビルド スクリプト共有ユーティリティ
 # Shared utility functions for MSVC build scripts
 
-function Write-WrappedCommandLine {
+$script:MsvcConsoleMutexName = 'Local\c-modernization-kit.makefw.msvc.console'
+$script:MsvcConsoleMutexTimeoutMs = 60000
+
+function Get-WrappedCommandLineLines {
     param(
         [string[]]$Tokens,
         [int]$MaxWidth = 120,
@@ -11,7 +14,7 @@ function Write-WrappedCommandLine {
     )
 
     if ($Tokens.Count -eq 0) {
-        return
+        return @()
     }
 
     $lines = [System.Collections.Generic.List[string]]::new()
@@ -37,10 +40,44 @@ function Write-WrappedCommandLine {
         $lines.Add($currentLine)
     }
 
+    $wrapped = [System.Collections.Generic.List[string]]::new()
     for ($i = 0; $i -lt $lines.Count; $i++) {
         $suffix = if ($i -lt ($lines.Count - 1)) { $Continuation } else { "" }
-        Write-Host ($lines[$i] + $suffix)
+        $wrapped.Add($lines[$i] + $suffix)
     }
+
+    return $wrapped.ToArray()
+}
+
+function New-MsvcOutputRecord {
+    param(
+        [string]$Text,
+        [string]$Kind = 'info'
+    )
+
+    return [PSCustomObject]@{
+        Text = $Text
+        Kind = $Kind
+    }
+}
+
+function Get-MsvcDiagnosticKind {
+    param([string]$Line)
+
+    if ($Line -match '\bfatal error\b' -or $Line -match '\berror\b') {
+        return 'error'
+    }
+    if ($Line -match '\bwarning\b') {
+        return 'warning'
+    }
+    return 'info'
+}
+
+function ConvertTo-MsvcOutputRecord {
+    param([string]$Line)
+
+    $kind = Get-MsvcDiagnosticKind -Line $Line
+    return (New-MsvcOutputRecord -Text $Line -Kind $kind)
 }
 
 function Get-AnsiUtf8Encoding {
@@ -78,48 +115,88 @@ function Resolve-MsvcDiagnosticPath {
     return $Line
 }
 
-function Write-MsvcDiagnosticLine {
-    param([string]$Line)
+function Write-MsvcOutputRecord {
+    param($Record)
 
-    # エラー/警告を色付きで出力し、診断種別 ('error'|'warning'|'info') を返す
-    if ($Line -match '\berror\b') {
-        Write-Host $Line -ForegroundColor Red
-        return 'error'
-    }
-    elseif ($Line -match '\bwarning\b') {
-        Write-Host $Line -ForegroundColor Yellow
-        return 'warning'
-    }
-    else {
-        Write-Host $Line
-        return 'info'
+    switch ($Record.Kind) {
+        'error'   { Write-Host $Record.Text -ForegroundColor Red }
+        'warning' { Write-Host $Record.Text -ForegroundColor Yellow }
+        default   { Write-Host $Record.Text }
     }
 }
 
-function Invoke-AnsiToUtf8Passthrough {
-    # [Console]::InputEncoding / OutputEncoding は変更しない。
-    # stdin をシステムの ANSI コードページで読み、stdout を UTF-8 (BOM なし) として書く。
-    $enc = Get-AnsiUtf8Encoding
+function Write-MsvcOutputRecordsUnlocked {
+    param([object[]]$Records)
 
+    foreach ($record in $Records) {
+        Write-MsvcOutputRecord -Record $record
+    }
+}
+
+function Write-MsvcOutputRecords {
+    param(
+        [object[]]$Records,
+        [string]$MutexName = $script:MsvcConsoleMutexName,
+        [int]$TimeoutMs = $script:MsvcConsoleMutexTimeoutMs
+    )
+
+    if ($null -eq $Records -or $Records.Count -eq 0) {
+        return
+    }
+
+    $mutex = $null
+    $lockTaken = $false
+    try {
+        $mutex = [System.Threading.Mutex]::new($false, $MutexName)
+        try {
+            $lockTaken = $mutex.WaitOne($TimeoutMs)
+        }
+        catch [System.Threading.AbandonedMutexException] {
+            $lockTaken = $true
+        }
+
+        if (-not $lockTaken) {
+            Write-Host "Warning: Timed out waiting for MSVC console mutex after $TimeoutMs ms. Falling back to unlocked output." -ForegroundColor Yellow
+            Write-MsvcOutputRecordsUnlocked -Records $Records
+            return
+        }
+
+        Write-MsvcOutputRecordsUnlocked -Records $Records
+    }
+    finally {
+        if ($lockTaken -and $null -ne $mutex) {
+            $mutex.ReleaseMutex()
+        }
+        if ($null -ne $mutex) {
+            $mutex.Dispose()
+        }
+    }
+}
+
+function Read-AnsiLinesFromStdIn {
+    $enc = Get-AnsiUtf8Encoding
     $reader = $null
-    $writer = $null
+    $lines = [System.Collections.Generic.List[string]]::new()
     try {
         $reader = [System.IO.StreamReader]::new(
             [Console]::OpenStandardInput(), $enc.Ansi, $false, 4096, $true
         )
-        $writer = [System.IO.StreamWriter]::new(
-            [Console]::OpenStandardOutput(), $enc.Utf8NoBom, 4096, $true
-        )
-        $writer.NewLine   = "`n"    # 下流の bash/grep に LF で渡す
-        $writer.AutoFlush = $true   # パイプ詰まりを防ぐ
 
         while ($true) {
             $line = $reader.ReadLine()
             if ($null -eq $line) { break }
-            $writer.WriteLine($line)
+            $lines.Add($line)
         }
     } finally {
-        if ($null -ne $writer) { $writer.Dispose() }
         if ($null -ne $reader) { $reader.Dispose() }
     }
+
+    return $lines.ToArray()
+}
+
+function Invoke-MsvcPassthroughWithMutex {
+    $records = foreach ($line in Read-AnsiLinesFromStdIn) {
+        ConvertTo-MsvcOutputRecord -Line $line
+    }
+    Write-MsvcOutputRecords -Records $records
 }

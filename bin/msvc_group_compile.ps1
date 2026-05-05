@@ -70,9 +70,13 @@ $rspContent += $sourceList
 
 # 従来の cl コマンド風表示を保ちつつ、CI の 1 行制限に当たらないよう複数行に分割
 $displayTokens = @($Compiler) + $allFlags + @("/c", "/Fo:$objDirWin\", "/sourceDependencies $objDirWin\") + $sourceList
-Write-WrappedCommandLine -Tokens $displayTokens
+$outputRecords = [System.Collections.Generic.List[object]]::new()
+foreach ($wrappedLine in Get-WrappedCommandLineLines -Tokens $displayTokens) {
+    $outputRecords.Add((New-MsvcOutputRecord -Text $wrappedLine))
+}
 
 if ($DryRun) {
+    Write-MsvcOutputRecords -Records $outputRecords.ToArray()
     exit 0
 }
 
@@ -129,7 +133,9 @@ foreach ($line in $output -split "`r?`n") {
             # MSVC 診断メッセージのファイルパスをフルパスに変換 (VS Code でクリック可能にする)
             $outputLine = Resolve-MsvcDiagnosticPath $trimmedLine
 
-            $kind = Write-MsvcDiagnosticLine $outputLine
+            $record = ConvertTo-MsvcOutputRecord -Line $outputLine
+            $outputRecords.Add($record)
+            $kind = $record.Kind
             if ($kind -eq 'warning' -and $null -ne $currentSource) {
                 if (-not $warnings.ContainsKey($currentSource)) {
                     $warnings[$currentSource] = @()
@@ -166,7 +172,7 @@ foreach ($src in $sourceList) {
             }
         }
         catch {
-            Write-Host "Warning: Failed to parse $jsonPath : $_" -ForegroundColor Yellow
+            $outputRecords.Add((New-MsvcOutputRecord -Text "Warning: Failed to parse $jsonPath : $_" -Kind 'warning'))
         }
     }
 
@@ -201,10 +207,12 @@ foreach ($src in $sourceList) {
 }
 
 if ($compileExitCode -ne 0) {
-    Write-Host "Compilation failed with exit code $compileExitCode" -ForegroundColor Red
+    $outputRecords.Add((New-MsvcOutputRecord -Text "Compilation failed with exit code $compileExitCode" -Kind 'error'))
 }
 
 # 一時ファイルの削除
 Remove-Item -Path $rspFile -Force -ErrorAction SilentlyContinue
+
+Write-MsvcOutputRecords -Records $outputRecords.ToArray()
 
 exit $compileExitCode

@@ -16,5 +16,8 @@ catch { }
 
 if (-not [string]::IsNullOrWhiteSpace($line)) {
     $tokens = $line.Trim() -split '\s+' | Where-Object { $_ }
-    Write-WrappedCommandLine -Tokens $tokens
+    $records = foreach ($wrappedLine in Get-WrappedCommandLineLines -Tokens $tokens) {
+        New-MsvcOutputRecord -Text $wrappedLine
+    }
+    Write-MsvcOutputRecords -Records $records
 }

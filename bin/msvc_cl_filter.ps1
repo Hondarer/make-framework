@@ -28,6 +28,7 @@ $utf8NoBom    = $enc.Utf8NoBom
 # 警告行の収集用リスト
 # List to collect warning lines
 $warnLines = @()
+$outputRecords = [System.Collections.Generic.List[object]]::new()
 
 # 依存ファイルのリストを保存 (空ルール生成用)
 $deps = @()
@@ -84,7 +85,9 @@ try {
             $outputLine = Resolve-MsvcDiagnosticPath $line
 
             # 依存関係解析対象でない行を出力 (error/warning は色分け)
-            $kind = Write-MsvcDiagnosticLine $outputLine
+            $record = ConvertTo-MsvcOutputRecord -Line $outputLine
+            $outputRecords.Add($record)
+            $kind = $record.Kind
             if ($kind -eq 'warning' -and $warnfile) { $warnLines += $outputLine }
         }
     }
@@ -119,3 +122,5 @@ if ($warnfile) {
         Remove-Item -Path $warnfile -Force -ErrorAction SilentlyContinue
     }
 }
+
+Write-MsvcOutputRecords -Records $outputRecords.ToArray()
