@@ -189,8 +189,8 @@ ifdef PLATFORM_LINUX
 else ifdef PLATFORM_WINDOWS
     # 共通フラグ
     # /FS は共有 PDB への同時書き込みをコンパイラ側で直列化し、静的ライブラリの並列ビルドで C1041 を防ぐ
-    CFLAGS   += /EHsc $(MAKEFW_CL_MPFLAG) /FS
-    CXXFLAGS += /EHsc $(MAKEFW_CL_MPFLAG) /FS
+    CFLAGS   += /EHsc /FS
+    CXXFLAGS += /EHsc /FS
 
     # ランタイムライブラリフラグの設定
     # Set runtime library flags based on MSVC_CRT (defined in prepare.mk)
@@ -281,8 +281,8 @@ endif
 ifdef PLATFORM_LINUX
     DEPFLAGS = -MT $@ -MMD -MP -MF $(OBJDIR)/$*.d
 else ifdef PLATFORM_WINDOWS
-    # MSVC では /showIncludes を使用して依存関係を生成
-    # Use /showIncludes to generate dependencies with MSVC
+    # GROUP_COMPILE=0 の個別コンパイルパス (/showIncludes + msvc_cl_filter.ps1) のみで使用
+    # GROUP_COMPILE=1 のグループコンパイルパスは /sourceDependencies を使用するため不要
     DEPFLAGS = /showIncludes
 endif
 

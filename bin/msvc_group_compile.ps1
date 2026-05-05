@@ -2,7 +2,11 @@
 # MSVC グループコンパイルスクリプト
 # 複数ソースファイルを一度に cl.exe に渡し、MSYS プロセス起動オーバーヘッドを削減する
 #
-# /showIncludes を使用して依存関係を抽出し、各ソースファイルの .d を生成
+# /sourceDependencies <dir> を使用して依存関係を JSON で生成する
+# - ロケール非依存 (日本語/英語の正規表現が不要)
+# - stdout が軽量化 (インクルード情報が stdout に流れない)
+# - /MP との併用が可能 (ディレクトリ引数を使用するため競合しない)
+# - VS 2019 16.7+ 必須
 #
 # 使用方法:
 #   powershell -ExecutionPolicy Bypass -File msvc_group_compile.ps1 `
@@ -83,6 +87,9 @@ if (-not (Test-Path $ObjDir)) {
     New-Item -ItemType Directory -Path $ObjDir -Force | Out-Null
 }
 
+# Windows パス形式に変換
+$objDirWin = $ObjDir.Replace('/', '\')
+
 # レスポンスファイルを作成 (並列ビルド対応で一意のファイル名を使用)
 $rspFile = Join-Path $ObjDir "group_compile_$([guid]::NewGuid().ToString('N').Substring(0,8)).rsp"
 
@@ -94,10 +101,11 @@ $allFlags = "$Flags $ExtraFlags".Trim() -split '\s+' | Where-Object { $_ }
 $rspContent += $allFlags
 
 # コンパイルオプション
-$objDirWin = $ObjDir.Replace('/', '\')
 $rspContent += "/c"
 $rspContent += "/Fo:$objDirWin\"
-$rspContent += "/showIncludes"
+# /sourceDependencies <dir> でロケール非依存の JSON 依存関係ファイルを生成
+# /MP と組み合わせるためディレクトリ引数を使用 (trailing backslash でディレクトリと明示)
+$rspContent += "/sourceDependencies $objDirWin\"
 
 # ソースファイルを追加
 $rspContent += $sourceList
@@ -106,7 +114,7 @@ $rspContent += $sourceList
 [System.IO.File]::WriteAllLines($rspFile, $rspContent, $utf8NoBom)
 
 # 従来の cl コマンド風表示を保ちつつ、CI の 1 行制限に当たらないよう複数行に分割
-$displayTokens = @($Compiler) + $allFlags + @("/c", "/Fo:$objDirWin\") + $sourceList
+$displayTokens = @($Compiler) + $allFlags + @("/c", "/Fo:$objDirWin\", "/sourceDependencies $objDirWin\") + $sourceList
 Write-WrappedCommandLine -Tokens $displayTokens
 
 if ($DryRun) {
@@ -135,44 +143,26 @@ $compileExitCode = $process.ExitCode
 # 全出力を結合 (cl.exe は stdout と stderr の両方に出力する可能性がある)
 $output = $stdout + $stderr
 
-# ソースファイルごとに依存関係を抽出
-# cl.exe は各ソースファイルの処理開始時にファイル名を出力する
+# ソースファイルごとに警告を収集
+# /sourceDependencies 使用時は "Note: including file:" 行が出ないため、
+# ソース名と警告/エラー行のみを抽出する
 $currentSource = $null
-$deps = @{}      # source -> includes のハッシュテーブル
 $warnings = @{}  # source -> warning lines のハッシュテーブル
 
 foreach ($line in $output -split "`r?`n") {
-    # ソースファイル名の行を検出 (拡張子のみの行)
     $trimmedLine = $line.Trim()
+
+    # ソースファイル名の行を検出 (拡張子のみの行)
     foreach ($src in $sourceList) {
         if ($trimmedLine -eq $src -or $trimmedLine -eq [System.IO.Path]::GetFileName($src)) {
             $currentSource = $src
-            if (-not $deps.ContainsKey($currentSource)) {
-                $deps[$currentSource] = @()
-            }
             break
         }
     }
 
-    # /showIncludes 出力を抽出
-    $header = $null
-    if ($line -match '^メモ: インクルード ファイル:\s*(.+)$') {
-        $header = $Matches[1]
-    }
-    elseif ($line -match '^Note: including file:\s*(.+)$') {
-        $header = $Matches[1]
-    }
-
-    if ($null -ne $header -and $null -ne $currentSource) {
-        # バックスラッシュをスラッシュに変換、スペースをエスケープ
-        $header = $header.Replace('\', '/').Replace(' ', '\ ')
-        # WorkspaceDir が指定されている場合、ワークスペース内のみ追加
-        if ($WorkspaceDir -eq "" -or $header.StartsWith($WorkspaceDir.Replace('\', '/'), [System.StringComparison]::OrdinalIgnoreCase)) {
-            $deps[$currentSource] += $header
-        }
-    }
-    elseif ($null -eq $header -and $trimmedLine -ne "" -and $null -ne $currentSource) {
-        # ソースファイル名以外の通常出力 (エラー、警告など)
+    # 警告/エラー行を出力 (インクルード行は出ないため全行が診断対象)
+    # $currentSource が null の段階 (ソースファイル名行より前) のエラーも出力する
+    if ($trimmedLine -ne "") {
         $isSourceName = $false
         foreach ($src in $sourceList) {
             if ($trimmedLine -eq $src -or $trimmedLine -eq [System.IO.Path]::GetFileName($src)) {
@@ -200,7 +190,6 @@ foreach ($line in $output -split "`r?`n") {
             }
             elseif ($outputLine -match '\bwarning\b') {
                 Write-Host $outputLine -ForegroundColor Yellow
-                # 警告を収集
                 if ($null -ne $currentSource) {
                     if (-not $warnings.ContainsKey($currentSource)) {
                         $warnings[$currentSource] = @()
@@ -215,27 +204,47 @@ foreach ($line in $output -split "`r?`n") {
     }
 }
 
-# 各ソースファイルの .d ファイルを生成
+# 各ソースファイルの .d ファイルを JSON から生成
+# /sourceDependencies <dir> の出力ファイル名: <ソースファイル名>.json
+# 例: foo.cc → <ObjDir>\foo.cc.json
 foreach ($src in $sourceList) {
-    $srcName = [System.IO.Path]::GetFileNameWithoutExtension($src)
-    $objPath = (Join-Path $ObjDir "$srcName.obj").Replace('\', '/')
-    $dPath = Join-Path $ObjDir "$srcName.d"
+    $srcBaseName = [System.IO.Path]::GetFileName($src)
+    $srcNameNoExt = [System.IO.Path]::GetFileNameWithoutExtension($src)
+    $objPath = (Join-Path $ObjDir "$srcNameNoExt.obj").Replace('\', '/')
+    $dPath = Join-Path $ObjDir "$srcNameNoExt.d"
+    $jsonPath = Join-Path $ObjDir "$srcBaseName.json"
+
+    $includes = @()
+
+    if (Test-Path $jsonPath) {
+        try {
+            $json = Get-Content $jsonPath -Raw -Encoding UTF8 | ConvertFrom-Json
+            $rawIncludes = $json.Data.Includes
+            foreach ($inc in $rawIncludes) {
+                # バックスラッシュをスラッシュに変換、スペースをエスケープ
+                $normalized = $inc.Replace('\', '/').Replace(' ', '\ ')
+                # WorkspaceDir が指定されている場合、ワークスペース内のみ追加
+                if ($WorkspaceDir -eq "" -or $normalized.StartsWith($WorkspaceDir.Replace('\', '/'), [System.StringComparison]::OrdinalIgnoreCase)) {
+                    $includes += $normalized
+                }
+            }
+        }
+        catch {
+            Write-Host "Warning: Failed to parse $jsonPath : $_" -ForegroundColor Yellow
+        }
+    }
 
     $sb = [System.Text.StringBuilder]::new()
     [void]$sb.Append("${objPath}: ${src}")
 
-    if ($deps.ContainsKey($src)) {
-        foreach ($inc in $deps[$src]) {
-            [void]$sb.Append(" \`n  ${inc}")
-        }
+    foreach ($inc in $includes) {
+        [void]$sb.Append(" \`n  ${inc}")
     }
     [void]$sb.Append("`n")
 
     # 空ルール (ヘッダー削除時のエラー回避)
-    if ($deps.ContainsKey($src)) {
-        foreach ($inc in $deps[$src]) {
-            [void]$sb.Append("`n${inc}:`n")
-        }
+    foreach ($inc in $includes) {
+        [void]$sb.Append("`n${inc}:`n")
     }
 
     [System.IO.File]::WriteAllText($dPath, $sb.ToString(), $utf8NoBom)

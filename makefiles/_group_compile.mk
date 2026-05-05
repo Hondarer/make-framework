@@ -2,8 +2,12 @@
 # 複数ソースファイルを一度に cl.exe に渡し、MSYS プロセス起動オーバーヘッドを削減する
 #
 # 使い方:
-#   make build                  # グループコンパイル有効 (Windows デフォルト)
-#   make build GROUP_COMPILE=0  # グループコンパイル無効 (従来方式)
+#   make build                             # グループコンパイル有効 (Windows デフォルト)
+#   make build GROUP_COMPILE=0             # グループコンパイル無効 (従来方式)
+#
+# 依存関係抽出: /sourceDependencies <dir> (JSON, ロケール非依存)
+# 必須環境: VS 2019 16.7 以上 (Visual Studio 2019 version 16.7+)
+#            VS 2019 16.7 未満の場合は GROUP_COMPILE=0 で従来方式を使用すること
 
 # グループコンパイルの有効化条件
 # - Windows プラットフォームのみ
@@ -15,6 +19,10 @@ else
 endif
 
 ifeq ($(GROUP_COMPILE),1)
+
+# /MP は GROUP_COMPILE=1 時のみ付与 (GROUP_COMPILE=0 の個別コンパイルパスは /showIncludes を使用するため D9030 非互換)
+CFLAGS   += $(MAKEFW_CL_MPFLAG)
+CXXFLAGS += $(MAKEFW_CL_MPFLAG)
 
 # グループコンパイルスクリプトのパス
 GROUP_COMPILE_SCRIPT := $(WORKSPACE_DIR)/framework/makefw/bin/msvc_group_compile.ps1
