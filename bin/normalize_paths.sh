@@ -3,8 +3,12 @@
 # Usage: normalize_paths.sh path1 path2 ...
 # Output: 正規化済みパスをスペース区切りで出力
 #
-# Windows (cygpath あり): realpath -m → cygpath -m (各1回の呼び出し)
-# Linux/その他: realpath -m のみ (1回の呼び出し)
+# 環境変数:
+#   PLATFORM_WINDOWS=1 : Windows として処理 (cygpath 使用)
+#   未設定             : Linux として処理 (realpath のみ)
+#
+# Windows: realpath -m → cygpath -m (各1回の呼び出し)
+# Linux:   realpath -m のみ (1回の呼び出し)
 
 # 引数がなければ空文字を返す
 if [ $# -eq 0 ]; then
@@ -12,17 +16,14 @@ if [ $# -eq 0 ]; then
 fi
 
 # realpath -m で一括正規化 (失敗したパスはそのまま出力)
-# 改行区切りで出力される
 resolved=$(realpath -m "$@" 2>/dev/null)
 if [ -z "$resolved" ]; then
-    # realpath が完全に失敗した場合は元のパスを使用
     resolved=$(printf '%s\n' "$@")
 fi
 
-# cygpath の存在確認 (Windows 判定)
-if command -v cygpath >/dev/null 2>&1; then
+# PLATFORM_WINDOWS 環境変数で判定 (command -v の呼び出しを省略)
+if [ -n "$PLATFORM_WINDOWS" ]; then
     # Windows: cygpath -m で一括変換
-    # 改行区切りの入力を受け取り、スペース区切りで出力
     echo "$resolved" | xargs cygpath -m 2>/dev/null | tr '\n' ' ' | sed 's/ $//'
 else
     # Linux: 改行をスペースに変換
