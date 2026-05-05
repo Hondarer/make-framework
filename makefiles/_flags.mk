@@ -20,6 +20,12 @@ _MAKEFW_USER_SET_ORIGIN = $(filter command line environment environment override
 MAKEFW_HAS_USER_JOBS := $(if $(call _MAKEFW_USER_SET_ORIGIN,$(origin JOBS)),1,)
 MAKEFW_HAS_USER_JOBS_EFFECTIVE := $(if $(call _MAKEFW_USER_SET_ORIGIN,$(origin JOBS_EFFECTIVE)),1,)
 MAKEFW_ALLOW_JOB_FALLBACK := $(or $(MAKEFW_AUTO_DEFAULT_PARALLEL),$(MAKEFW_HAS_USER_JOBS),$(MAKEFW_HAS_USER_JOBS_EFFECTIVE))
+_MAKEFW_MAKEFLAGS_ALL := $(strip $(MAKEFLAGS) $(MFLAGS))
+_MAKEFW_MAKEFLAGS_JOBS_SHORT := $(patsubst -j%,%,$(filter -j%,$(_MAKEFW_MAKEFLAGS_ALL)))
+_MAKEFW_MAKEFLAGS_JOBS_LONG := $(patsubst --jobs=%,%,$(filter --jobs=%,$(_MAKEFW_MAKEFLAGS_ALL)))
+_MAKEFW_MAKEFLAGS_JOBS := $(firstword $(filter-out j,$(_MAKEFW_MAKEFLAGS_JOBS_SHORT)) $(_MAKEFW_MAKEFLAGS_JOBS_LONG))
+MAKEFW_CL_MP_JOBS ?= $(or $(_MAKEFW_MAKEFLAGS_JOBS),$(JOBS_EFFECTIVE),$(JOBS),4)
+MAKEFW_CL_MPFLAG := /MP$(MAKEFW_CL_MP_JOBS)
 
 define _MAKEFW_LEAF_PARALLEL_RECIPE
 	@makeflags="$${MAKEFLAGS:-} $${MFLAGS:-}"; \
@@ -183,8 +189,8 @@ ifdef PLATFORM_LINUX
 else ifdef PLATFORM_WINDOWS
     # 共通フラグ
     # /FS は共有 PDB への同時書き込みをコンパイラ側で直列化し、静的ライブラリの並列ビルドで C1041 を防ぐ
-    CFLAGS   += /EHsc /MP /FS
-    CXXFLAGS += /EHsc /MP /FS
+    CFLAGS   += /EHsc $(MAKEFW_CL_MPFLAG) /FS
+    CXXFLAGS += /EHsc $(MAKEFW_CL_MPFLAG) /FS
 
     # ランタイムライブラリフラグの設定
     # Set runtime library flags based on MSVC_CRT (defined in prepare.mk)

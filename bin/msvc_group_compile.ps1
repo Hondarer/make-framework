@@ -19,6 +19,47 @@ param(
     [switch]$DryRun
 )
 
+function Write-WrappedCommandLine {
+    param(
+        [string[]]$Tokens,
+        [int]$MaxWidth = 120,
+        [string]$Indent = "   ",
+        [string]$Continuation = " \"
+    )
+
+    if ($Tokens.Count -eq 0) {
+        return
+    }
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $currentLine = ""
+
+    foreach ($token in $Tokens) {
+        if ([string]::IsNullOrEmpty($currentLine)) {
+            $currentLine = $token
+            continue
+        }
+
+        $candidate = "$currentLine $token"
+        if ($candidate.Length -le $MaxWidth) {
+            $currentLine = $candidate
+            continue
+        }
+
+        $lines.Add($currentLine)
+        $currentLine = "${Indent}${token}"
+    }
+
+    if (-not [string]::IsNullOrEmpty($currentLine)) {
+        $lines.Add($currentLine)
+    }
+
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $suffix = if ($i -lt ($lines.Count - 1)) { $Continuation } else { "" }
+        Write-Host ($lines[$i] + $suffix)
+    }
+}
+
 # エンコード設定 (cl.exe 出力は ANSI コードページ)
 if ($PSVersionTable.PSEdition -eq 'Core') {
     [System.Text.Encoding]::RegisterProvider([System.Text.CodePagesEncodingProvider]::Instance)
@@ -64,10 +105,9 @@ $rspContent += $sourceList
 # レスポンスファイルを書き出し (UTF-8 BOM なし)
 [System.IO.File]::WriteAllLines($rspFile, $rspContent, $utf8NoBom)
 
-# 従来の cl コマンド風に表示 (フルフラグ)
-$displayFlags = ($allFlags -join ' ')
-$displaySrcs = ($sourceList -join ' ')
-Write-Host "$Compiler $displayFlags /c /Fo:$objDirWin\ $displaySrcs"
+# 従来の cl コマンド風表示を保ちつつ、CI の 1 行制限に当たらないよう複数行に分割
+$displayTokens = @($Compiler) + $allFlags + @("/c", "/Fo:$objDirWin\") + $sourceList
+Write-WrappedCommandLine -Tokens $displayTokens
 
 if ($DryRun) {
     exit 0
