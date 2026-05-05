@@ -37,14 +37,17 @@ endif
 
 # サブディレクトリの obj ディレクトリを再帰的に検索して、オブジェクトファイルを収集
 # Recursively collect object files from subdirectories' obj directories
-# find -exec find を単一の find -path パターンに変更してプロセス生成を削減
-# Replace find -exec find with single find using -path pattern to reduce process creation
+# 子ディレクトリの obj ファイルを収集 (wildcard でプロセス生成を回避)
+# Collect obj files from subdirectories using wildcard (avoids process creation)
+# パターン: */obj/*.ext, */*/obj/*.ext, ... (深さ 3 階層まで対応)
 ifdef PLATFORM_LINUX
-    # Linux: .o ファイルを検索
-    SUBDIR_OBJS := $(shell find . -path "./obj" -prune -o -path "*/obj/*.o" -type f -print 2>/dev/null)
+    SUBDIR_OBJS := $(wildcard */obj/*.o) $(wildcard */obj/*/*.o) \
+                   $(wildcard */*/obj/*.o) $(wildcard */*/obj/*/*.o) \
+                   $(wildcard */*/*/obj/*.o) $(wildcard */*/*/obj/*/*.o)
 else ifdef PLATFORM_WINDOWS
-    # Windows: .obj ファイルを検索
-    SUBDIR_OBJS := $(shell find . -path "./obj" -prune -o -path "*/obj/*.obj" -type f -print 2>/dev/null)
+    SUBDIR_OBJS := $(wildcard */obj/*.obj) $(wildcard */obj/*/*.obj) \
+                   $(wildcard */*/obj/*.obj) $(wildcard */*/obj/*/*.obj) \
+                   $(wildcard */*/*/obj/*.obj) $(wildcard */*/*/obj/*/*.obj)
 endif
 OBJS += $(SUBDIR_OBJS)
 
