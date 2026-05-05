@@ -125,7 +125,11 @@ else
     ifndef NO_LINK
 _build_main: _batch_compile $(OUTPUT_DIR)/$(TARGET)
     else
+        ifeq ($(BATCH_COMPILE),1)
+_build_main: _batch_compile
+        else
 _build_main: _batch_compile $(OBJS)
+        endif
     endif
 endif
 
@@ -237,7 +241,11 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
             ifneq ($(filter /DEBUG /DEBUG:FULL /DEBUG:FASTLINK,$(LDFLAGS)),)
                 _DLL_SIDE_CHECK += || [ ! -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET))" ]
             endif
+            ifeq ($(BATCH_COMPILE),1)
+$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) _batch_compile $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
+            else
 $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
+            endif
 			@all_objs="$(OBJS)"; \
 			sub_objs=$$(find . -name "*.obj" -not -path "./obj/*"); \
 			if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
@@ -272,7 +280,11 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
 				if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
 				exit $$_rc
         else ifdef PLATFORM_WINDOWS
+            ifeq ($(BATCH_COMPILE),1)
+$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) _batch_compile | $(OUTPUT_DIR)
+            else
 $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
+            endif
 				@all_objs="$(OBJS)"; \
 				sub_objs=$$(find . -name "*.obj" -not -path "./obj/*"); \
 				if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
@@ -417,9 +429,7 @@ $(OBJDIR):
 # Convert absolute paths under $(CURDIR) to relative paths (for readable make output)
 _relpath = $(patsubst $(CURDIR)/%,%,$(1))
 
-WARN_SRCS := $(addsuffix .warn,$(SRCS_C) $(SRCS_CPP))
-
-CLEAN_COMMON := $(strip $(OBJDIR) $(WARN_SRCS) $(notdir $(CP_SRCS) $(LINK_SRCS)))
+CLEAN_COMMON := $(strip $(OBJDIR) $(notdir $(CP_SRCS) $(LINK_SRCS)))
 ifndef NO_LINK
     CLEAN_COMMON += $(call _relpath,$(OUTPUT_DIR)/$(TARGET))
     CLEAN_COMMON += $(call _relpath,$(OUTPUT_DIR)/$(TARGET).warn)
@@ -451,7 +461,7 @@ _clean_main:
     ifneq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
 		@printf '%s\n' $(addprefix /,$(notdir $(CP_SRCS) $(LINK_SRCS))) | sort -u > .gitignore
     endif
-	-rm -rf $(strip $(CLEAN_COMMON) $(CLEAN_OS))
+	-rm -rf $(strip $(CLEAN_COMMON) $(CLEAN_OS)) *.warn
     # 空ディレクトリを削除する (rmdir は非空なら失敗するので直接試行)
     # Remove empty directories (rmdir fails on non-empty, so just try it)
     # obj は Windows のみ存在するが、コマンドを表に見せないのでそのまま実行

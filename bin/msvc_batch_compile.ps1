@@ -41,8 +41,8 @@ if (-not (Test-Path $ObjDir)) {
     New-Item -ItemType Directory -Path $ObjDir -Force | Out-Null
 }
 
-# レスポンスファイルを作成
-$rspFile = Join-Path $ObjDir "batch_compile.rsp"
+# レスポンスファイルを作成 (並列ビルド対応で一意のファイル名を使用)
+$rspFile = Join-Path $ObjDir "batch_compile_$([guid]::NewGuid().ToString('N').Substring(0,8)).rsp"
 
 # レスポンスファイルの内容を構築
 $rspContent = @()
@@ -63,7 +63,10 @@ $rspContent += $sourceList
 # レスポンスファイルを書き出し (UTF-8 BOM なし)
 [System.IO.File]::WriteAllLines($rspFile, $rspContent, $utf8NoBom)
 
-Write-Host "cl @$rspFile ($($sourceList.Count) files)"
+# 従来の cl コマンド風に表示 (フルフラグ)
+$displayFlags = ($allFlags -join ' ')
+$displaySrcs = ($sourceList -join ' ')
+Write-Host "$Compiler $displayFlags /c /Fo:$objDirWin\ $displaySrcs"
 
 if ($DryRun) {
     exit 0
@@ -182,5 +185,8 @@ foreach ($src in $sourceList) {
 if ($compileExitCode -ne 0) {
     Write-Host "Compilation failed with exit code $compileExitCode" -ForegroundColor Red
 }
+
+# 一時ファイルの削除
+Remove-Item -Path $rspFile -Force -ErrorAction SilentlyContinue
 
 exit $compileExitCode

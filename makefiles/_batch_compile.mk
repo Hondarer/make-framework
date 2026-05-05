@@ -19,37 +19,23 @@ ifeq ($(BATCH_COMPILE),1)
 # バッチコンパイルスクリプトのパス
 BATCH_COMPILE_SCRIPT := $(WORKSPACE_DIR)/framework/makefw/bin/msvc_batch_compile.ps1
 
-# 再コンパイルが必要なソースを抽出するシェル関数
+# 再コンパイルが必要なソースを抽出する外部スクリプト
+FIND_DIRTY_SRCS_SCRIPT := $(WORKSPACE_DIR)/framework/makefw/bin/find_dirty_srcs.sh
+
+# 再コンパイルが必要なソースを抽出
 # - .obj が存在しない
 # - .obj より .c/.cpp が新しい
 # - .d が存在しない
-# - .d 内のヘッダーが .obj より新しい
+# - .d 内のワークスペース内ヘッダーが .obj より新しい
+# 注: ワークスペース外のヘッダー (Windows SDK 等) はチェックしない
 # 引数: $(1)=ソースリスト, $(2)=OBJDIR
 define _find_dirty_srcs
-$(shell \
-    for src in $(1); do \
-        base=$$(basename $$src | sed 's/\.[^.]*$$//'); \
-        obj="$(2)/$$base.obj"; \
-        dep="$(2)/$$base.d"; \
-        if [ ! -f "$$obj" ] || [ "$$src" -nt "$$obj" ] || [ ! -f "$$dep" ]; then \
-            echo "$$src"; \
-        else \
-            dirty=0; \
-            while IFS= read -r line; do \
-                h=$$(echo "$$line" | sed 's/^[[:space:]]*//; s/[[:space:]]*\\\\$$//; s/\\\\ / /g'); \
-                if [ -n "$$h" ] && [ "$$h" != "$$obj:" ] && [ -f "$$h" ] && [ "$$h" -nt "$$obj" ]; then \
-                    dirty=1; break; \
-                fi; \
-            done < "$$dep"; \
-            if [ $$dirty -eq 1 ]; then echo "$$src"; fi; \
-        fi; \
-    done \
-)
+$(shell bash "$(FIND_DIRTY_SRCS_SCRIPT)" "$(1)" "$(2)" "$(WORKSPACE_DIR)")
 endef
 
 # 変更のあるソースを抽出
-SRCS_C_DIRTY = $(call _find_dirty_srcs,$(SRCS_C),$(OBJDIR))
-SRCS_CPP_DIRTY = $(call _find_dirty_srcs,$(SRCS_CPP),$(OBJDIR))
+SRCS_C_DIRTY := $(call _find_dirty_srcs,$(SRCS_C),$(OBJDIR))
+SRCS_CPP_DIRTY := $(call _find_dirty_srcs,$(SRCS_CPP),$(OBJDIR))
 
 # TEST_SRCS との分離 (-D_IN_TEST_SRC 付与のため)
 # TEST_SRCS: -D_IN_TEST_SRC 付きでコンパイル
@@ -74,47 +60,41 @@ BATCH_CXXFLAGS_TEST = $(filter-out /Fd:%,$(CXXFLAGS_TEST)) /Fd:$(BATCH_PDB)
 
 _batch_compile: _batch_compile_c_normal _batch_compile_c_test _batch_compile_cpp_normal _batch_compile_cpp_test
 
-_batch_compile_c_normal: | $(OBJDIR)
-	@srcs="$(SRCS_C_NORMAL)"; \
+# 8192 バイト分割でバッチコンパイルを実行するヘルパー
+# 引数: compiler, flags, objdir, sources, extra_flags (optional)
+define _run_batch_compile
+	@srcs="$(4)"; \
 	if [ -n "$$srcs" ]; then \
-		powershell -ExecutionPolicy Bypass -File $(BATCH_COMPILE_SCRIPT) \
-			-Compiler "$(CC)" \
-			-Flags "$(BATCH_CFLAGS)" \
-			-ObjDir "$(OBJDIR)" \
-			-Sources "$$srcs"; \
+		chunk=""; \
+		for src in $$srcs; do \
+			if [ $$(($${#chunk} + $${#src} + 1)) -gt 8000 ]; then \
+				powershell -ExecutionPolicy Bypass -File $(BATCH_COMPILE_SCRIPT) \
+					-Compiler "$(1)" -Flags "$(2)" -ObjDir "$(3)" \
+					-Sources "$$chunk" $(5) || exit $$?; \
+				chunk="$$src"; \
+			else \
+				if [ -n "$$chunk" ]; then chunk="$$chunk $$src"; else chunk="$$src"; fi; \
+			fi; \
+		done; \
+		if [ -n "$$chunk" ]; then \
+			powershell -ExecutionPolicy Bypass -File $(BATCH_COMPILE_SCRIPT) \
+				-Compiler "$(1)" -Flags "$(2)" -ObjDir "$(3)" \
+				-Sources "$$chunk" $(5) || exit $$?; \
+		fi; \
 	fi
+endef
 
-_batch_compile_c_test: | $(OBJDIR)
-	@srcs="$(SRCS_C_TEST)"; \
-	if [ -n "$$srcs" ]; then \
-		powershell -ExecutionPolicy Bypass -File $(BATCH_COMPILE_SCRIPT) \
-			-Compiler "$(CC)" \
-			-Flags "$(BATCH_CFLAGS_TEST)" \
-			-ObjDir "$(OBJDIR)" \
-			-Sources "$$srcs" \
-			-ExtraFlags "-D_IN_TEST_SRC"; \
-	fi
+_batch_compile_c_normal: $(notdir $(LINK_SRCS)) $(notdir $(CP_SRCS)) | $(OBJDIR)
+	$(call _run_batch_compile,$(CC),$(BATCH_CFLAGS),$(OBJDIR),$(SRCS_C_NORMAL),)
 
-_batch_compile_cpp_normal: | $(OBJDIR)
-	@srcs="$(SRCS_CPP_NORMAL)"; \
-	if [ -n "$$srcs" ]; then \
-		powershell -ExecutionPolicy Bypass -File $(BATCH_COMPILE_SCRIPT) \
-			-Compiler "$(CXX)" \
-			-Flags "$(BATCH_CXXFLAGS)" \
-			-ObjDir "$(OBJDIR)" \
-			-Sources "$$srcs"; \
-	fi
+_batch_compile_c_test: $(notdir $(LINK_SRCS)) $(notdir $(CP_SRCS)) | $(OBJDIR)
+	$(call _run_batch_compile,$(CC),$(BATCH_CFLAGS_TEST),$(OBJDIR),$(SRCS_C_TEST),-ExtraFlags "-D_IN_TEST_SRC")
 
-_batch_compile_cpp_test: | $(OBJDIR)
-	@srcs="$(SRCS_CPP_TEST)"; \
-	if [ -n "$$srcs" ]; then \
-		powershell -ExecutionPolicy Bypass -File $(BATCH_COMPILE_SCRIPT) \
-			-Compiler "$(CXX)" \
-			-Flags "$(BATCH_CXXFLAGS_TEST)" \
-			-ObjDir "$(OBJDIR)" \
-			-Sources "$$srcs" \
-			-ExtraFlags "-D_IN_TEST_SRC"; \
-	fi
+_batch_compile_cpp_normal: $(notdir $(LINK_SRCS)) $(notdir $(CP_SRCS)) | $(OBJDIR)
+	$(call _run_batch_compile,$(CXX),$(BATCH_CXXFLAGS),$(OBJDIR),$(SRCS_CPP_NORMAL),)
+
+_batch_compile_cpp_test: $(notdir $(LINK_SRCS)) $(notdir $(CP_SRCS)) | $(OBJDIR)
+	$(call _run_batch_compile,$(CXX),$(BATCH_CXXFLAGS_TEST),$(OBJDIR),$(SRCS_CPP_TEST),-ExtraFlags "-D_IN_TEST_SRC")
 
 else
 # BATCH_COMPILE=0 または Linux の場合は空ターゲット
