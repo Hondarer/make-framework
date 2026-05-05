@@ -4,6 +4,9 @@
 
 $script:MsvcConsoleMutexName = 'Local\c-modernization-kit.makefw.msvc.console'
 $script:MsvcConsoleMutexTimeoutMs = 60000
+$script:MsvcAnsiReset = [char]27 + '[0m'
+$script:MsvcAnsiRed = [char]27 + '[31m'
+$script:MsvcAnsiYellow = [char]27 + '[33m'
 
 function Get-WrappedCommandLineLines {
     param(
@@ -173,6 +176,16 @@ function Write-MsvcOutputRecords {
     }
 }
 
+function Get-MsvcAnsiColoredText {
+    param($Record)
+
+    switch ($Record.Kind) {
+        'error'   { return "$script:MsvcAnsiRed$($Record.Text)$script:MsvcAnsiReset" }
+        'warning' { return "$script:MsvcAnsiYellow$($Record.Text)$script:MsvcAnsiReset" }
+        default   { return $Record.Text }
+    }
+}
+
 function Read-AnsiLinesFromStdIn {
     $enc = Get-AnsiUtf8Encoding
     $reader = $null
@@ -194,9 +207,71 @@ function Read-AnsiLinesFromStdIn {
     return $lines.ToArray()
 }
 
+function Write-MsvcOutputRecordsToStdoutUnlocked {
+    param([object[]]$Records)
+
+    $enc = Get-AnsiUtf8Encoding
+    $writer = $null
+    try {
+        $writer = [System.IO.StreamWriter]::new(
+            [Console]::OpenStandardOutput(), $enc.Utf8NoBom, 4096, $true
+        )
+        $writer.NewLine = "`n"
+        $writer.AutoFlush = $true
+
+        foreach ($record in $Records) {
+            $writer.WriteLine((Get-MsvcAnsiColoredText -Record $record))
+        }
+    }
+    finally {
+        if ($null -ne $writer) { $writer.Dispose() }
+    }
+}
+
+function Write-MsvcOutputRecordsToStdout {
+    param(
+        [object[]]$Records,
+        [string]$MutexName = $script:MsvcConsoleMutexName,
+        [int]$TimeoutMs = $script:MsvcConsoleMutexTimeoutMs
+    )
+
+    if ($null -eq $Records -or $Records.Count -eq 0) {
+        return
+    }
+
+    $mutex = $null
+    $lockTaken = $false
+    try {
+        $mutex = [System.Threading.Mutex]::new($false, $MutexName)
+        try {
+            $lockTaken = $mutex.WaitOne($TimeoutMs)
+        }
+        catch [System.Threading.AbandonedMutexException] {
+            $lockTaken = $true
+        }
+
+        if (-not $lockTaken) {
+            $warningRecord = New-MsvcOutputRecord -Text "Warning: Timed out waiting for MSVC console mutex after $TimeoutMs ms. Falling back to unlocked output." -Kind 'warning'
+            Write-MsvcOutputRecordsToStdoutUnlocked -Records @($warningRecord)
+            Write-MsvcOutputRecordsToStdoutUnlocked -Records $Records
+            return
+        }
+
+        Write-MsvcOutputRecordsToStdoutUnlocked -Records $Records
+    }
+    finally {
+        if ($lockTaken -and $null -ne $mutex) {
+            $mutex.ReleaseMutex()
+        }
+        if ($null -ne $mutex) {
+            $mutex.Dispose()
+        }
+    }
+}
+
 function Invoke-MsvcPassthroughWithMutex {
     $records = foreach ($line in Read-AnsiLinesFromStdIn) {
         ConvertTo-MsvcOutputRecord -Line $line
     }
-    Write-MsvcOutputRecords -Records $records
+    Write-MsvcOutputRecordsToStdout -Records $records
 }
