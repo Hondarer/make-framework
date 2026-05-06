@@ -52,6 +52,71 @@ function Get-WrappedCommandLineLines {
     return $wrapped.ToArray()
 }
 
+function Split-MsvcCommandLineTokens {
+    param([string]$Line)
+
+    if ([string]::IsNullOrWhiteSpace($Line)) {
+        return @()
+    }
+
+    return @($Line.Trim() -split '\s+' | Where-Object { $_ })
+}
+
+function Expand-MsvcResponseFileTokens {
+    param([string[]]$Tokens)
+
+    $expandedTokens = [System.Collections.Generic.List[string]]::new()
+    foreach ($token in $Tokens) {
+        if ($token -notmatch '^@(.+\.rsp)$') {
+            $expandedTokens.Add($token)
+            continue
+        }
+
+        $rspPath = $Matches[1]
+        try {
+            $resolvedRspPath = [System.IO.Path]::GetFullPath($rspPath)
+            if (-not (Test-Path -LiteralPath $resolvedRspPath -PathType Leaf)) {
+                $expandedTokens.Add($token)
+                continue
+            }
+
+            $rspLines = Get-Content -LiteralPath $resolvedRspPath -ErrorAction Stop
+            $rspTokens = Split-MsvcCommandLineTokens -Line ($rspLines -join ' ')
+            if ($rspTokens.Count -eq 0) {
+                $expandedTokens.Add($token)
+                continue
+            }
+
+            foreach ($rspToken in $rspTokens) {
+                $expandedTokens.Add($rspToken)
+            }
+        }
+        catch {
+            $expandedTokens.Add($token)
+        }
+    }
+
+    return $expandedTokens.ToArray()
+}
+
+function New-MsvcCommandDisplayRecords {
+    param(
+        [string[]]$Tokens,
+        [switch]$ExpandResponseFiles
+    )
+
+    if ($ExpandResponseFiles) {
+        $Tokens = Expand-MsvcResponseFileTokens -Tokens $Tokens
+    }
+
+    $records = [System.Collections.Generic.List[object]]::new()
+    foreach ($wrappedLine in Get-WrappedCommandLineLines -Tokens $Tokens) {
+        $records.Add((New-MsvcOutputRecord -Text $wrappedLine))
+    }
+
+    return $records.ToArray()
+}
+
 function New-MsvcOutputRecord {
     param(
         [string]$Text,

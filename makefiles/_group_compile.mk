@@ -41,9 +41,16 @@ define _find_dirty_srcs
 $(shell bash "$(FIND_DIRTY_SRCS_SCRIPT)" "$(1)" "$(2)" "$(WORKSPACE_DIR)")
 endef
 
+# グループコンパイル時の PDB 生成ルール
+# - static lib: OUTPUT_DIR 配下のターゲット名 PDB
+# - それ以外  : OBJDIR 配下のターゲット名 PDB
+# _group_compile.mk は LIB_TYPE/TARGET 決定前に include されるため遅延評価にする
+GROUP_PDB = $(if $(filter static,$(LIB_TYPE)),$(OUTPUT_DIR)/$(basename $(TARGET)).pdb,$(OBJDIR)/$(basename $(TARGET)).pdb)
+
 # 変更のあるソースを抽出
-SRCS_C_DIRTY := $(call _find_dirty_srcs,$(SRCS_C),$(OBJDIR))
-SRCS_CPP_DIRTY := $(call _find_dirty_srcs,$(SRCS_CPP),$(OBJDIR))
+# 共有 PDB が欠落している場合は、関連ソースをすべて再コンパイルして再生成する
+SRCS_C_DIRTY = $(if $(wildcard $(GROUP_PDB)),$(call _find_dirty_srcs,$(SRCS_C),$(OBJDIR)),$(SRCS_C))
+SRCS_CPP_DIRTY = $(if $(wildcard $(GROUP_PDB)),$(call _find_dirty_srcs,$(SRCS_CPP),$(OBJDIR)),$(SRCS_CPP))
 
 # TEST_SRCS との分離 (-D_IN_TEST_SRC 付与のため)
 # TEST_SRCS: -D_IN_TEST_SRC 付きでコンパイル
@@ -55,9 +62,6 @@ SRCS_C_TEST = $(filter $(_TEST_SRC_NAMES),$(SRCS_C_DIRTY))
 SRCS_CPP_NORMAL = $(filter-out $(_TEST_SRC_NAMES),$(SRCS_CPP_DIRTY))
 SRCS_CPP_TEST = $(filter $(_TEST_SRC_NAMES),$(SRCS_CPP_DIRTY))
 
-# グループコンパイル用の共有 PDB (個別 PDB の代わり)
-# 遅延評価 (=) を使用して、INCDIR 追加後の CFLAGS を参照する
-GROUP_PDB = $(OBJDIR)/vc.pdb
 GROUP_CFLAGS = $(filter-out /Fd:%,$(CFLAGS)) /Fd:$(GROUP_PDB)
 GROUP_CXXFLAGS = $(filter-out /Fd:%,$(CXXFLAGS)) /Fd:$(GROUP_PDB)
 GROUP_CFLAGS_TEST = $(filter-out /Fd:%,$(CFLAGS_TEST)) /Fd:$(GROUP_PDB)

@@ -48,6 +48,38 @@ else ifdef PLATFORM_WINDOWS
 endif
 OBJS += $(SUBDIR_OBJS)
 
+define _MAKEFW_OBJLIST_LINUX
+objs_file="$(OBJDIR)/objs_$$.lst"; \
+find . -path "*/obj/*.o" -not -name "*.inject.o" -type f -print 2>/dev/null | sort -u > "$$objs_file"; \
+if [ ! -f "$$objs_file" ]; then : > "$$objs_file"; fi; \
+trap 'rm -f "$$objs_file" "$$rsp_file"' EXIT; \
+rebuild=0; \
+if [ ! -f "$@" ]; then \
+    rebuild=1; \
+else \
+    while IFS= read -r obj; do \
+        [ -n "$$obj" ] || continue; \
+        if [ "$$obj" -nt "$@" ]; then rebuild=1; break; fi; \
+    done < "$$objs_file"; \
+fi
+endef
+
+define _MAKEFW_OBJLIST_WINDOWS
+objs_file="$(OBJDIR)/objs_$$.lst"; \
+find . -path "*/obj/*.obj" -not -name "*.inject.obj" -type f -print 2>/dev/null | sort -u > "$$objs_file"; \
+if [ ! -f "$$objs_file" ]; then : > "$$objs_file"; fi; \
+trap 'rm -f "$$objs_file" "$$rsp_file"' EXIT; \
+rebuild=0; \
+if [ ! -f "$@" ]; then \
+    rebuild=1; \
+else \
+    while IFS= read -r obj; do \
+        [ -n "$$obj" ] || continue; \
+        if [ "$$obj" -nt "$@" ]; then rebuild=1; break; fi; \
+    done < "$$objs_file"; \
+fi
+endef
+
 # LIB_TYPE の設定 (デフォルトは static)
 # LIB_TYPE setting (default is static)
 # make LIB_TYPE=shared で、shared となる
@@ -131,6 +163,12 @@ _build_main: _group_compile
 _build_main: _group_compile $(OBJS)
         endif
     endif
+endif
+
+ifeq ($(GROUP_COMPILE),1)
+ifeq ($(LIB_TYPE),static)
+_group_compile: | $(OUTPUT_DIR)
+endif
 endif
 
 # ビルド完了後に .gitignore を1回だけソート/重複排除 (スタンプファイルで不要な実行を回避)
@@ -219,14 +257,16 @@ ifndef NO_LINK
     # Final link command: static libs are embedded, dynamic libs remain as -l
     ifeq ($(LIB_TYPE),shared)
         ifdef PLATFORM_LINUX
-$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR)
-				@all_objs="$(OBJS)"; \
-				sub_objs=$$(find . -name "*.o" -not -path "./obj/*"); \
-				if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
-				all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
-				newest=$$(ls -t $$all_objs $(STATIC_LIBS) $@ 2>/dev/null | head -1); \
-				if [ "$$newest" != "$@" ]; then \
-					echo "$(strip $(CC) -shared -o $(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
+$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
+				@$(_MAKEFW_OBJLIST_LINUX); \
+				if [ "$$rebuild" = 0 ]; then \
+					for dep in $(STATIC_LIBS); do \
+						if [ "$$dep" -nt "$@" ]; then rebuild=1; break; fi; \
+					done; \
+				fi; \
+				if [ "$$rebuild" = 1 ]; then \
+					all_objs=$$(tr '\n' ' ' < "$$objs_file" | xargs); \
+					echo "$(strip $(CC) -shared -o $(call _relpath,$@) @OBJLIST $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
 					set -o pipefail; $(CC) -shared -o $@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
 				else \
@@ -246,17 +286,18 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) _group_compile $(STATIC_LIBS) | $(OUTPUT_DIR
             else
 $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
             endif
-			@all_objs="$(OBJS)"; \
-			sub_objs=$$(find . -name "*.obj" -not -path "./obj/*"); \
-			if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
-			all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
-			newest=$$(ls -t $$all_objs $(STATIC_LIBS) $@ 2>/dev/null | head -1); \
-			if [ "$$newest" != "$@" ] || $(_DLL_SIDE_CHECK); then \
-				rsp_file=$(OBJDIR)/link_$$.rsp; \
-				printf '%s\n' $$all_objs > $$rsp_file; \
-				echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))" | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_format_cmd.ps1; \
+			@$(_MAKEFW_OBJLIST_WINDOWS); \
+			if [ "$$rebuild" = 0 ]; then \
+				for dep in $(STATIC_LIBS); do \
+					if [ "$$dep" -nt "$@" ]; then rebuild=1; break; fi; \
+				done; \
+			fi; \
+			if [ "$$rebuild" = 1 ] || $(_DLL_SIDE_CHECK); then \
+				rsp_file="$(OBJDIR)/link_$$.rsp"; \
+				cp "$$objs_file" "$$rsp_file"; \
+				echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))" | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_format_cmd.ps1; \
 				set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ @$$rsp_file $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_link_filter.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
-				_rc=$$?; rm -f $$rsp_file; \
+				_rc=$$?; \
 			else \
 				_rc=0; \
 			fi; \
@@ -266,14 +307,11 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJ
         endif
     else
         ifdef PLATFORM_LINUX
-$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
-				@all_objs="$(OBJS)"; \
-				sub_objs=$$(find . -name "*.o" -not -path "./obj/*"); \
-				if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
-				all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
-				newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
-				if [ "$$newest" != "$@" ]; then \
-					echo "$(strip $(AR) rvs $(call _relpath,$@) $$all_objs)"; \
+$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR) $(OBJDIR)
+				@$(_MAKEFW_OBJLIST_LINUX); \
+				if [ "$$rebuild" = 1 ]; then \
+					all_objs=$$(tr '\n' ' ' < "$$objs_file" | xargs); \
+					echo "$(strip $(AR) rvs $(call _relpath,$@) @OBJLIST)"; \
 					set -o pipefail; $(AR) rvs $@ $$all_objs 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
 				else \
@@ -283,27 +321,23 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
 				exit $$_rc
         else ifdef PLATFORM_WINDOWS
             ifeq ($(GROUP_COMPILE),1)
-$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) _group_compile | $(OUTPUT_DIR)
+$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) _group_compile | $(OUTPUT_DIR) $(OBJDIR)
             else
-$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR)
+$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR) $(OBJDIR)
             endif
-				@all_objs="$(OBJS)"; \
-				sub_objs=$$(find . -name "*.obj" -not -path "./obj/*"); \
-				if [ -n "$$sub_objs" ]; then all_objs="$$all_objs $$sub_objs"; fi; \
-				all_objs=$$(echo $$all_objs | tr ' ' '\n' | sort -u | xargs); \
+				@$(_MAKEFW_OBJLIST_WINDOWS); \
 				pdb_file="$(OUTPUT_DIR)/$(basename $(TARGET)).pdb"; \
 				if [ -z "$(MAKE_RERUN)" ] && [ "$(GROUP_COMPILE)" != "1" ] && [ ! -f "$$pdb_file" ]; then \
 					echo "[REBUILD] PDB missing: $$pdb_file -- removing obj to force recompile"; \
 					rm -f $(OBJDIR)/*.obj; \
 					$(MAKE) $(MAKEFLAGS) MAKE_RERUN=1 $@ && exit 0 || exit $$?; \
 				fi; \
-				newest=$$(ls -t $$all_objs $@ 2>/dev/null | head -1); \
-				if [ "$$newest" != "$@" ]; then \
-					rsp_file=$(OBJDIR)/lib_$$.rsp; \
-					printf '%s\n' $$all_objs > $$rsp_file; \
-					echo "$(strip $(AR) /NOLOGO /OUT:$(call _relpath,$@) $$all_objs)" | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_format_cmd.ps1; \
+				if [ "$$rebuild" = 1 ]; then \
+					rsp_file="$(OBJDIR)/lib_$$.rsp"; \
+					cp "$$objs_file" "$$rsp_file"; \
+					echo "$(strip $(AR) /NOLOGO /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/lib_$$.rsp)" | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_format_cmd.ps1; \
 					set -o pipefail; MSYS_NO_PATHCONV=1 "$(AR)" /NOLOGO /OUT:$@ @$$rsp_file 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_lib_filter.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
-					_rc=$$?; rm -f $$rsp_file; \
+					_rc=$$?; \
 				else \
 					_rc=0; \
 				fi; \
@@ -328,12 +362,13 @@ $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_S
 		@set -o pipefail; LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV) | $$(CAPTURE_WARNINGS) $$<.warn
 else ifdef PLATFORM_WINDOWS
   ifneq ($$(GROUP_COMPILE),1)
-    # 静的ライブラリの場合は OUTPUT_DIR に統合 PDB を生成、動的ライブラリの場合は個別 PDB を生成
-    # For static libraries, generate a unified PDB in OUTPUT_DIR; for shared libraries, generate individual PDBs
+    # Windows の PDB 生成ルール
+    # - static lib: OUTPUT_DIR 配下のターゲット名 PDB
+    # - shared lib: OBJDIR 配下のターゲット名 PDB
     ifeq ($$(LIB_TYPE),shared)
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
-		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(patsubst %.obj,%.pdb,$$@) /c /Fo:$$@ $$<
-		@set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(patsubst %.obj,%.pdb,$$@) /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_DIR)/framework/makefw/bin/msvc_cl_filter.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$<.warn $$(WORKSPACE_DIR)
+		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OBJDIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$<
+		@set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OBJDIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_DIR)/framework/makefw/bin/msvc_cl_filter.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$<.warn $$(WORKSPACE_DIR)
     else
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
 		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OUTPUT_DIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$<

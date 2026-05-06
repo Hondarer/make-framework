@@ -59,7 +59,7 @@ $rspContent += $allFlags
 $rspContent += "/c"
 $rspContent += "/Fo:$objDirWin\"
 # /sourceDependencies <dir> でロケール非依存の JSON 依存関係ファイルを生成
-# /MP と組み合わせるためディレクトリ引数を使用 (trailing backslash でディレクトリと明示)
+# response file では 1 引数として渡さないと cl.exe が引数不足と解釈する
 $rspContent += "/sourceDependencies $objDirWin\"
 
 # ソースファイルを追加
@@ -69,10 +69,9 @@ $rspContent += $sourceList
 [System.IO.File]::WriteAllLines($rspFile, $rspContent, $utf8NoBom)
 
 # 従来の cl コマンド風表示を保ちつつ、CI の 1 行制限に当たらないよう複数行に分割
-$displayTokens = @($Compiler) + $allFlags + @("/c", "/Fo:$objDirWin\", "/sourceDependencies $objDirWin\") + $sourceList
 $outputRecords = [System.Collections.Generic.List[object]]::new()
-foreach ($wrappedLine in Get-WrappedCommandLineLines -Tokens $displayTokens) {
-    $outputRecords.Add((New-MsvcOutputRecord -Text $wrappedLine))
+foreach ($record in (New-MsvcCommandDisplayRecords -Tokens @($Compiler, "@$rspFile") -ExpandResponseFiles)) {
+    $outputRecords.Add($record)
 }
 
 if ($DryRun) {
