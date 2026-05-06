@@ -45,7 +45,7 @@ endef
 # - static lib: OUTPUT_DIR 配下のターゲット名 PDB
 # - それ以外  : OBJDIR 配下のターゲット名 PDB
 # _group_compile.mk は LIB_TYPE/TARGET 決定前に include されるため遅延評価にする
-GROUP_PDB = $(if $(filter static,$(LIB_TYPE)),$(OUTPUT_DIR)/$(basename $(TARGET)).pdb,$(OBJDIR)/$(basename $(TARGET)).pdb)
+GROUP_PDB = $(if $(filter static,$(LIB_TYPE)),$(OUTPUT_DIR)/$(basename $(TARGET)).pdb,$(if $(filter both,$(LIB_TYPE)),$(OUTPUT_DIR)/$(basename $(TARGET_STATIC)).pdb,$(OBJDIR)/$(basename $(TARGET)).pdb))
 
 # 変更のあるソースを抽出
 # 共有 PDB が欠落している場合は、関連ソースをすべて再コンパイルして再生成する

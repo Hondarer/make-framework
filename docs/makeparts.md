@@ -86,7 +86,7 @@ MAKE_INCLUDE_MK := $(strip $(call _reverse,$(MAKE_INCLUDE_MK)))
 | `CFLAGS` | C コンパイラフラグ | `CFLAGS += -DMYAPP_VERSION=\"1.0.0\"` |
 | `CXXFLAGS` | C++ コンパイラフラグ | `CXXFLAGS += -std=c++17` |
 | `OUTPUT_DIR` | 出力先ディレクトリ | `OUTPUT_DIR := $(MYAPP_DIR)/prod/bin` |
-| `LIB_TYPE` | ライブラリ種別 | `LIB_TYPE = shared` (デフォルトは static) |
+| `LIB_TYPE` | ライブラリ種別 | `LIB_TYPE = shared` (デフォルトは static、`both` で両方生成) |
 | `LINK_TEST` | テストフレームワークリンク | `LINK_TEST = 1` |
 | `TEST_SRCS` | テスト対象ソースファイル | `TEST_SRCS := $(MYAPP_DIR)/prod/.../add.c` |
 
@@ -106,6 +106,24 @@ endif
 
 # 生成されるライブラリを動的ライブラリ (shared) とする (デフォルトは static)
 LIB_TYPE = shared
+```
+
+**例1b: shared と static の両方を生成する**
+
+```makefile
+# app/calc/prod/libsrc/calc/makepart.mk
+LIBS += calcbase
+
+ifeq ($(OS),Windows_NT)
+    CFLAGS   += /DCALC_EXPORTS
+    CXXFLAGS += /DCALC_EXPORTS
+endif
+
+# shared と static の両方を生成する
+# - shared: libcalc.so / libcalc.dll (+ libcalc.lib インポートライブラリ)
+# - static: libcalc_static.a / libcalc_static.lib
+# 利用者は _static の有無でリンク方式を選択できる
+LIB_TYPE = both
 ```
 
 **例2: 実行体の出力先統一**

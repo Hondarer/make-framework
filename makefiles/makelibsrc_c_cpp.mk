@@ -96,9 +96,13 @@ OUTPUT_DIR ?= $(CURDIR)/lib
 ifeq ($(TARGET),)
     TARGET := $(notdir $(CURDIR))
 endif
+TARGET_BASE := $(TARGET)
 ifdef PLATFORM_LINUX
     ifeq ($(LIB_TYPE),shared)
         TARGET := lib$(TARGET).so
+    else ifeq ($(LIB_TYPE),both)
+        TARGET        := lib$(TARGET).so
+        TARGET_STATIC := lib$(TARGET_BASE)_static.a
     else
         TARGET := lib$(TARGET).a
     endif
@@ -107,6 +111,9 @@ else ifdef PLATFORM_WINDOWS
     # Add lib prefix like Linux
     ifeq ($(LIB_TYPE),shared)
         TARGET := lib$(TARGET).dll
+    else ifeq ($(LIB_TYPE),both)
+        TARGET        := lib$(TARGET).dll
+        TARGET_STATIC := lib$(TARGET_BASE)_static.lib
     else
         TARGET := lib$(TARGET).lib
     endif
@@ -177,8 +184,8 @@ endif
 $(OBJDIR)/.gitignore_sorted: $(notdir $(CP_SRCS) $(LINK_SRCS)) | $(OBJDIR)
 	@sort -u -o .gitignore .gitignore && touch $@
 endif
-# Resolve library files (only when LIB_TYPE=shared and LIBS is defined)
-ifeq ($(LIB_TYPE),shared)
+# Resolve library files (only when LIB_TYPE=shared/both and LIBS is defined)
+ifneq ($(filter shared both,$(LIB_TYPE)),)
     ifneq ($(LIBS),)
 
         #$(info LIBS: $(LIBS))
@@ -299,6 +306,90 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJ
 			exit $$_rc
 			@if [ -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" ]; then mv "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" "$(OBJDIR)/"; fi
         endif
+    else ifeq ($(LIB_TYPE),both)
+        ifdef PLATFORM_LINUX
+# static lib: objects をアーカイブ
+$(OUTPUT_DIR)/$(TARGET_STATIC): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR) $(OBJDIR)
+				@$(_MAKEFW_OBJLIST_LINUX); \
+				if [ "$$rebuild" = 1 ]; then \
+					all_objs=$$(tr '\n' ' ' < "$$objs_file" | xargs); \
+					echo "$(strip $(AR) rvs $(call _relpath,$@) @OBJLIST)"; \
+					set -o pipefail; $(AR) rvs $@ $$all_objs 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET_STATIC).warn; \
+					_rc=$$?; \
+				else \
+					_rc=0; \
+				fi; \
+				if [ ! -s "$(OUTPUT_DIR)/$(TARGET_STATIC).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET_STATIC).warn"; fi; \
+				exit $$_rc
+# shared lib: static lib 完成後にリンク
+$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
+				@$(_MAKEFW_OBJLIST_LINUX); \
+				if [ "$$rebuild" = 0 ]; then \
+					for dep in $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS); do \
+						if [ "$$dep" -nt "$@" ]; then rebuild=1; break; fi; \
+					done; \
+				fi; \
+				if [ "$$rebuild" = 1 ]; then \
+					all_objs=$$(tr '\n' ' ' < "$$objs_file" | xargs); \
+					echo "$(strip $(CC) -shared -o $(call _relpath,$@) @OBJLIST $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
+					set -o pipefail; $(CC) -shared -o $@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
+					_rc=$$?; \
+				else \
+					_rc=0; \
+				fi; \
+				if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
+				exit $$_rc
+        else ifdef PLATFORM_WINDOWS
+            # DLL 副産物 (.lib, .pdb) の存在チェック条件を組み立てる
+            _DLL_SIDE_CHECK := [ ! -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.lib,$(TARGET))" ]
+            ifneq ($(filter /DEBUG /DEBUG:FULL /DEBUG:FASTLINK,$(LDFLAGS)),)
+                _DLL_SIDE_CHECK += || [ ! -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET))" ]
+            endif
+# static lib: objects をアーカイブ
+            ifeq ($(GROUP_COMPILE),1)
+$(OUTPUT_DIR)/$(TARGET_STATIC): $(SUBDIRS) _group_compile | $(OUTPUT_DIR) $(OBJDIR)
+            else
+$(OUTPUT_DIR)/$(TARGET_STATIC): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR) $(OBJDIR)
+            endif
+				@$(_MAKEFW_OBJLIST_WINDOWS); \
+				pdb_file="$(OUTPUT_DIR)/$(basename $(TARGET_STATIC)).pdb"; \
+				if [ -z "$(MAKE_RERUN)" ] && [ "$(GROUP_COMPILE)" != "1" ] && [ ! -f "$$pdb_file" ]; then \
+					echo "[REBUILD] PDB missing: $$pdb_file -- removing obj to force recompile"; \
+					rm -f $(OBJDIR)/*.obj; \
+					$(MAKE) $(MAKEFLAGS) MAKE_RERUN=1 $@ && exit 0 || exit $$?; \
+				fi; \
+				if [ "$$rebuild" = 1 ]; then \
+					rsp_file="$(OBJDIR)/lib_$$.rsp"; \
+					cp "$$objs_file" "$$rsp_file"; \
+					echo "$(strip $(AR) /NOLOGO /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/lib_$$.rsp)" | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_format_cmd.ps1; \
+					set -o pipefail; MSYS_NO_PATHCONV=1 "$(AR)" /NOLOGO /OUT:$@ @$$rsp_file 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_lib_filter.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET_STATIC).warn; \
+					_rc=$$?; \
+				else \
+					_rc=0; \
+				fi; \
+				if [ ! -s "$(OUTPUT_DIR)/$(TARGET_STATIC).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET_STATIC).warn"; fi; \
+				exit $$_rc
+# DLL: static lib 完成後にリンク
+$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
+				@$(_MAKEFW_OBJLIST_WINDOWS); \
+				if [ "$$rebuild" = 0 ]; then \
+					for dep in $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS); do \
+						if [ "$$dep" -nt "$@" ]; then rebuild=1; break; fi; \
+					done; \
+				fi; \
+				if [ "$$rebuild" = 1 ] || $(_DLL_SIDE_CHECK); then \
+					rsp_file="$(OBJDIR)/link_$$.rsp"; \
+					cp "$$objs_file" "$$rsp_file"; \
+					echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))" | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_format_cmd.ps1; \
+					set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ @$$rsp_file $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_link_filter.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
+					_rc=$$?; \
+				else \
+					_rc=0; \
+				fi; \
+				if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
+				exit $$_rc
+			@if [ -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" ]; then mv "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" "$(OBJDIR)/"; fi
+        endif
     else
         ifdef PLATFORM_LINUX
 $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR) $(OBJDIR)
@@ -359,10 +450,15 @@ else ifdef PLATFORM_WINDOWS
     # Windows の PDB 生成ルール
     # - static lib: OUTPUT_DIR 配下のターゲット名 PDB
     # - shared lib: OBJDIR 配下のターゲット名 PDB
+    # - both: OUTPUT_DIR 配下の _static PDB (コンパイルは static 扱い)
     ifeq ($$(LIB_TYPE),shared)
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
 		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OBJDIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$<
 		@set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OBJDIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_DIR)/framework/makefw/bin/msvc_cl_filter.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$<.warn $$(WORKSPACE_DIR)
+    else ifeq ($$(LIB_TYPE),both)
+$$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
+		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OUTPUT_DIR)/$$(basename $$(TARGET_STATIC)).pdb /c /Fo:$$@ $$<
+		@set -o pipefail; MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OUTPUT_DIR)/$$(basename $$(TARGET_STATIC)).pdb /c /Fo:$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_DIR)/framework/makefw/bin/msvc_cl_filter.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$<.warn $$(WORKSPACE_DIR)
     else
 $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
 		@echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OUTPUT_DIR)/$$(basename $$(TARGET)).pdb /c /Fo:$$@ $$<
@@ -466,10 +562,19 @@ CLEAN_COMMON := $(strip $(OBJDIR) $(notdir $(CP_SRCS) $(LINK_SRCS)))
 ifndef NO_LINK
     CLEAN_COMMON += $(call _relpath,$(OUTPUT_DIR)/$(TARGET))
     CLEAN_COMMON += $(call _relpath,$(OUTPUT_DIR)/$(TARGET).warn)
+    ifeq ($(LIB_TYPE),both)
+        CLEAN_COMMON += $(call _relpath,$(OUTPUT_DIR)/$(TARGET_STATIC))
+        CLEAN_COMMON += $(call _relpath,$(OUTPUT_DIR)/$(TARGET_STATIC).warn)
+    endif
     ifdef PLATFORM_WINDOWS
         ifeq ($(LIB_TYPE),shared)
             CLEAN_OS := $(call _relpath,$(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET)))
             CLEAN_OS += $(call _relpath,$(OUTPUT_DIR)/$(patsubst %.dll,%.lib,$(TARGET)))
+        else ifeq ($(LIB_TYPE),both)
+            # DLL 副産物 (インポートライブラリ・リンカ PDB) + static コンパイラ PDB
+            CLEAN_OS := $(call _relpath,$(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET)))
+            CLEAN_OS += $(call _relpath,$(OUTPUT_DIR)/$(patsubst %.dll,%.lib,$(TARGET)))
+            CLEAN_OS += $(call _relpath,$(OUTPUT_DIR)/$(basename $(TARGET_STATIC)).pdb)
         else
             # 静的ライブラリの場合は、統合 PDB ファイルを削除対象に追加
             # For static libraries, add the unified PDB file to clean target

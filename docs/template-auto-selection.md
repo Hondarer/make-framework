@@ -302,6 +302,7 @@ endif
 
 # 生成されるライブラリを動的ライブラリ (shared) とする
 # 未指定の場合 (デフォルト) は static
+# both を指定すると shared + static の両方を生成する (static 側は名前に _static が付く)
 LIB_TYPE = shared
 ```
 
