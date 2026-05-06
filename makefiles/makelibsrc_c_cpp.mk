@@ -165,12 +165,6 @@ _build_main: _group_compile $(OBJS)
     endif
 endif
 
-ifeq ($(GROUP_COMPILE),1)
-ifeq ($(LIB_TYPE),static)
-_group_compile: | $(OUTPUT_DIR)
-endif
-endif
-
 # ビルド完了後に .gitignore を1回だけソート/重複排除 (スタンプファイルで不要な実行を回避)
 # Normalize .gitignore once after build (stamp file avoids unnecessary execution)
 # link/copy 対象ファイルが更新された場合のみ sort を実行し、それ以外ではプロセス生成ゼロ

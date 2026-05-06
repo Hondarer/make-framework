@@ -96,16 +96,18 @@ define _run_group_compile
 	fi
 endef
 
-_group_compile_c_normal: $(notdir $(LINK_SRCS)) $(notdir $(CP_SRCS)) | $(OBJDIR)
+# group compile の実行前に必要なディレクトリをそろえる。
+# static lib では /Fd が OUTPUT_DIR 配下を指すため、make -j でも OUTPUT_DIR を先に作成する必要がある。
+_group_compile_c_normal: $(notdir $(LINK_SRCS)) $(notdir $(CP_SRCS)) | $(OBJDIR) $(OUTPUT_DIR)
 	$(call _run_group_compile,$(CC),$(GROUP_CFLAGS),$(OBJDIR),$(SRCS_C_NORMAL),)
 
-_group_compile_c_test: $(notdir $(LINK_SRCS)) $(notdir $(CP_SRCS)) | $(OBJDIR)
+_group_compile_c_test: $(notdir $(LINK_SRCS)) $(notdir $(CP_SRCS)) | $(OBJDIR) $(OUTPUT_DIR)
 	$(call _run_group_compile,$(CC),$(GROUP_CFLAGS_TEST),$(OBJDIR),$(SRCS_C_TEST),-ExtraFlags "-D_IN_TEST_SRC")
 
-_group_compile_cpp_normal: $(notdir $(LINK_SRCS)) $(notdir $(CP_SRCS)) | $(OBJDIR)
+_group_compile_cpp_normal: $(notdir $(LINK_SRCS)) $(notdir $(CP_SRCS)) | $(OBJDIR) $(OUTPUT_DIR)
 	$(call _run_group_compile,$(CXX),$(GROUP_CXXFLAGS),$(OBJDIR),$(SRCS_CPP_NORMAL),)
 
-_group_compile_cpp_test: $(notdir $(LINK_SRCS)) $(notdir $(CP_SRCS)) | $(OBJDIR)
+_group_compile_cpp_test: $(notdir $(LINK_SRCS)) $(notdir $(CP_SRCS)) | $(OBJDIR) $(OUTPUT_DIR)
 	$(call _run_group_compile,$(CXX),$(GROUP_CXXFLAGS_TEST),$(OBJDIR),$(SRCS_CPP_TEST),-ExtraFlags "-D_IN_TEST_SRC")
 
 else
