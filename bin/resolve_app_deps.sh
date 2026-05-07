@@ -23,6 +23,7 @@ usage() {
 Usage:
   resolve_app_deps.sh --paths <app-dir> <include|include_internal|lib>
   resolve_app_deps.sh --signature <app-dir>
+  resolve_app_deps.sh --app-order
 EOF
 }
 
@@ -69,12 +70,16 @@ print:
 EOF
     } > "$tmp_makefile"
 
-    output=$(make --no-print-directory -f "$tmp_makefile" print)
+    output=$(MAKEFLAGS= MFLAGS= make --no-print-directory -f "$tmp_makefile" print)
     rm -f "$tmp_makefile"
 
     if [[ -n "$output" ]]; then
         printf '%s\n' $output
     fi
+}
+
+list_apps() {
+    find "$APP_ROOT_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | LC_ALL=C sort
 }
 
 resolve_root_app() {
@@ -252,6 +257,65 @@ emit_signature() {
     fi
 }
 
+visit_app_for_order() {
+    local app="$1"
+    local source_app="${2:-$1}"
+    local dep
+    local state_name="$3"
+    local ordered_name="$4"
+    local -n state_map="$state_name"
+    local -n ordered_list="$ordered_name"
+    local -a deps=()
+
+    if [[ "${state_map[$app]-}" == "done" ]]; then
+        return 0
+    fi
+    if [[ "${state_map[$app]-}" == "visiting" ]]; then
+        echo "ERROR: cyclic app dependency detected at '$app'." >&2
+        return 1
+    fi
+    if [[ ! -d "$APP_ROOT_DIR/$app" ]]; then
+        echo "ERROR: app dependency '$app' was declared by '$source_app' but directory '$APP_ROOT_DIR/$app' does not exist." >&2
+        return 1
+    fi
+
+    state_map["$app"]="visiting"
+
+    while IFS= read -r dep; do
+        [[ -z "$dep" ]] && continue
+        deps+=("$dep")
+    done < <(read_direct_deps "$app")
+
+    if (( ${#deps[@]} > 0 )); then
+        IFS=$'\n' deps=($(printf '%s\n' "${deps[@]}" | LC_ALL=C sort -u))
+        unset IFS
+        for dep in "${deps[@]}"; do
+            visit_app_for_order "$dep" "$app" "$state_name" "$ordered_name" || return 1
+        done
+    fi
+
+    state_map["$app"]="done"
+    ordered_list+=("$app")
+}
+
+emit_app_order() {
+    local app
+    local -a apps=()
+    local -a ordered=()
+    local -A state=()
+
+    while IFS= read -r app; do
+        [[ -z "$app" ]] && continue
+        apps+=("$app")
+    done < <(list_apps)
+
+    for app in "${apps[@]}"; do
+        visit_app_for_order "$app" "$app" state ordered || return 1
+    done
+
+    printf '%s\n' "${ordered[*]}"
+}
+
 main() {
     local mode="${1:-}"
     local app_dir="${2:-}"
@@ -271,6 +335,9 @@ main() {
                 return 2
             fi
             emit_signature "$app_dir"
+            ;;
+        --app-order)
+            emit_app_order
             ;;
         *)
             usage

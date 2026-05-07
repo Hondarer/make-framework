@@ -186,6 +186,7 @@ APP_DEPS := com_util
 ### 挙動
 
 - `prepare.mk` は自 app と `APP_DEPS` の再帰依存を解決する
+- `app/makefile` は `APP_DEPS` を使って `SUBDIRS` の build 順序を自動決定する
 - 解決済み app ごとに `app/<name>/prod/include` と `app/<name>/prod/lib` を自動追加する
 - 自 app の `app/<name>/prod/include_internal` を自動追加する
 - 依存 app の `prod/include_internal`、`test/include`、`test/lib` は自動追加しない
@@ -195,6 +196,7 @@ APP_DEPS := com_util
 ### 運用ルール
 
 - `APP_DEPS` には直接依存だけを書く
+- build 順だけに必要な依存も `APP_DEPS` に書く
 - `../otherapp/prod/include` や `../otherapp/prod/lib` を `makepart.mk` に手書きしない
 - 自 app の `prod/include`、`prod/include_internal`、`prod/lib` は自動追加されるため、app 直下 `makepart.mk` には通常書かない
 

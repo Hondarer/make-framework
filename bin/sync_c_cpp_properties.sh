@@ -33,6 +33,7 @@ WORKSPACE_DIR=$(find_workspace_root "$SCRIPT_DIR") || {
 APP_DIR="$WORKSPACE_DIR/app"
 VSCODE_FILE="$WORKSPACE_DIR/.vscode/c_cpp_properties.json"
 WARN_FILE="$APP_DIR/c_cpp_properties.warn"
+APP_ORDER_RESOLVER="$SCRIPT_DIR/resolve_app_deps.sh"
 # --check では「設定差分あり」を warning として扱うため、内部エラーとは別の終了コードを使う
 SYNC_WARN_EXIT=3
 
@@ -55,18 +56,7 @@ case "$MODE" in
 esac
 
 mapfile -t APPS < <(
-    awk '
-        /^SUBDIRS =/ { in_subdirs=1; next }
-        in_subdirs {
-            line=$0
-            sub(/#.*/, "", line)
-            gsub(/\\/, "", line)
-            gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
-            if (line == "") {
-                exit
-            }
-            print line
-        }' "$APP_DIR/makefile" | while IFS= read -r app; do
+    bash "$APP_ORDER_RESOLVER" --app-order | tr ' ' '\n' | while IFS= read -r app; do
         if find "$APP_DIR/$app" -name makepart.mk -print -quit | grep -q . || [[ -f "$APP_DIR/$app/appdeps.mk" ]]; then
             printf '%s\n' "$app"
         fi
