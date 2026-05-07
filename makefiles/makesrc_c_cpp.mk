@@ -349,7 +349,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDI
 			fi; \
 			if [ "$$rebuild" = 1 ]; then \
 				all_objs=$$(tr '\n' ' ' < "$$objs_file" | xargs); \
-				echo "$(strip $(LD) $(LDFLAGS) -o $(call _relpath,$@) @OBJLIST $(LIBS))"; \
+				printf '%s\n' "$(strip $(LD) $(LDFLAGS) -o $(call _relpath,$@) $$all_objs $(LIBS))"; \
 				set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $$all_objs $(LIBS) -fdiagnostics-color=always 2>&1 | $(ICONV) | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 				_rc=$$?; \
 			else \

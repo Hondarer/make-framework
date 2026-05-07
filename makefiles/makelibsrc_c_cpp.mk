@@ -267,7 +267,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJ
 				fi; \
 				if [ "$$rebuild" = 1 ]; then \
 					all_objs=$$(tr '\n' ' ' < "$$objs_file" | xargs); \
-					echo "$(strip $(CC) -shared -o $(call _relpath,$@) @OBJLIST $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
+					printf '%s\n' "$(strip $(CC) -shared -o $(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
 					set -o pipefail; $(CC) -shared -o $@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
 				else \
@@ -313,7 +313,7 @@ $(OUTPUT_DIR)/$(TARGET_STATIC): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_LINUX); \
 				if [ "$$rebuild" = 1 ]; then \
 					all_objs=$$(tr '\n' ' ' < "$$objs_file" | xargs); \
-					echo "$(strip $(AR) rvs $(call _relpath,$@) @OBJLIST)"; \
+					printf '%s\n' "$(strip $(AR) rvs $(call _relpath,$@) $$all_objs)"; \
 					set -o pipefail; $(AR) rvs $@ $$all_objs 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET_STATIC).warn; \
 					_rc=$$?; \
 				else \
@@ -331,7 +331,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS
 				fi; \
 				if [ "$$rebuild" = 1 ]; then \
 					all_objs=$$(tr '\n' ' ' < "$$objs_file" | xargs); \
-					echo "$(strip $(CC) -shared -o $(call _relpath,$@) @OBJLIST $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
+					printf '%s\n' "$(strip $(CC) -shared -o $(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
 					set -o pipefail; $(CC) -shared -o $@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
 				else \
@@ -396,7 +396,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_LINUX); \
 				if [ "$$rebuild" = 1 ]; then \
 					all_objs=$$(tr '\n' ' ' < "$$objs_file" | xargs); \
-					echo "$(strip $(AR) rvs $(call _relpath,$@) @OBJLIST)"; \
+					printf '%s\n' "$(strip $(AR) rvs $(call _relpath,$@) $$all_objs)"; \
 					set -o pipefail; $(AR) rvs $@ $$all_objs 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
 				else \
