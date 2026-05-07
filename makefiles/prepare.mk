@@ -343,6 +343,8 @@ endif
 
 endif # _MYAPP_NEEDS_EVAL
 
+-include $(MYAPP_DIR)/appdeps.mk
+
 # makepart.mk / makechild.mk の検索
 # dirname コマンドの代わりにシェルのパラメータ展開を使用してプロセス生成を削減
 # Use shell parameter expansion instead of dirname command to reduce process creation
@@ -425,6 +427,32 @@ $(foreach make_config, $(MAKE_INCLUDE_MK), $(call _include_make_config,$(make_co
 # prepare.mk は各ディレクトリの makefile から include されるため、
 # ここでカレントディレクトリの makelocal.mk を読み込めばよい
 -include $(CURDIR)/makelocal.mk
+
+MAKEFW_APPDEP_RESOLVER := $(WORKSPACE_DIR)/framework/makefw/bin/resolve_app_deps.sh
+
+MAKEFW_AUTO_INCDIR := $(shell bash "$(MAKEFW_APPDEP_RESOLVER)" --paths "$(MYAPP_DIR)" include)
+ifneq ($(strip $(.SHELLSTATUS)),0)
+    $(error Failed to resolve app include dependencies for $(MYAPP_DIR))
+endif
+ifneq ($(MAKEFW_AUTO_INCDIR),)
+    INCDIR += $(MAKEFW_AUTO_INCDIR)
+endif
+
+MAKEFW_AUTO_INCLUDE_INTERNAL := $(shell bash "$(MAKEFW_APPDEP_RESOLVER)" --paths "$(MYAPP_DIR)" include_internal)
+ifneq ($(strip $(.SHELLSTATUS)),0)
+    $(error Failed to resolve app internal include dependencies for $(MYAPP_DIR))
+endif
+ifneq ($(MAKEFW_AUTO_INCLUDE_INTERNAL),)
+    INCDIR += $(MAKEFW_AUTO_INCLUDE_INTERNAL)
+endif
+
+MAKEFW_AUTO_LIBSDIR := $(shell bash "$(MAKEFW_APPDEP_RESOLVER)" --paths "$(MYAPP_DIR)" lib)
+ifneq ($(strip $(.SHELLSTATUS)),0)
+    $(error Failed to resolve app library dependencies for $(MYAPP_DIR))
+endif
+ifneq ($(MAKEFW_AUTO_LIBSDIR),)
+    LIBSDIR += $(MAKEFW_AUTO_LIBSDIR)
+endif
 
 # パス系変数の一括正規化
 # Normalize path variables to absolute paths after all makepart/makechild/makelocal are loaded

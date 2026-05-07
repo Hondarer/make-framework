@@ -66,9 +66,8 @@ mapfile -t APPS < <(
                 exit
             }
             print line
-        }
-    ' "$APP_DIR/makefile" | while IFS= read -r app; do
-        if [[ -f "$APP_DIR/$app/makepart.mk" ]]; then
+        }' "$APP_DIR/makefile" | while IFS= read -r app; do
+        if find "$APP_DIR/$app" -name makepart.mk -print -quit | grep -q . || [[ -f "$APP_DIR/$app/appdeps.mk" ]]; then
             printf '%s\n' "$app"
         fi
     done
@@ -112,28 +111,21 @@ normalize_define() {
     printf '%s=%s\n' "$key" "$value"
 }
 
-to_make_include_path() {
-    local host_os="$1"
-    local path="$2"
-
-    if [[ "$host_os" == "Windows_NT" ]] && command -v cygpath >/dev/null 2>&1; then
-        cygpath -m "$path"
-        return 0
-    fi
-
-    printf '%s\n' "$path"
-}
-
 list_app_makeparts_for_sync() {
     local app="$1"
     local var_name="$2"
 
     if [[ "$var_name" == "INCDIR" ]]; then
         find "$APP_DIR/$app" -name makepart.mk -print | LC_ALL=C sort
+        if [[ -f "$APP_DIR/$app/appdeps.mk" ]]; then
+            printf '%s\n' "$APP_DIR/$app/appdeps.mk"
+        fi
         return 0
     fi
 
-    printf '%s\n' "$APP_DIR/$app/makepart.mk"
+    if [[ -f "$APP_DIR/$app/makepart.mk" ]]; then
+        printf '%s\n' "$APP_DIR/$app/makepart.mk"
+    fi
 }
 
 write_sync_makepart_includes() {
@@ -142,11 +134,18 @@ write_sync_makepart_includes() {
     local var_name="$3"
     local makepart_path
 
-    printf '%s\n' "-include $(to_make_include_path "$host_os" "$WORKSPACE_DIR/makepart.mk")"
-    printf '%s\n' "-include $(to_make_include_path "$host_os" "$APP_DIR/makepart.mk")"
+    if [[ -f "$WORKSPACE_DIR/makepart.mk" ]]; then
+        cat "$WORKSPACE_DIR/makepart.mk"
+        printf '\n'
+    fi
+    if [[ -f "$APP_DIR/makepart.mk" ]]; then
+        cat "$APP_DIR/makepart.mk"
+        printf '\n'
+    fi
 
     while IFS= read -r makepart_path; do
-        printf '%s\n' "include $(to_make_include_path "$host_os" "$makepart_path")"
+        cat "$makepart_path"
+        printf '\n'
     done < <(list_app_makeparts_for_sync "$app" "$var_name")
 }
 
@@ -159,10 +158,7 @@ eval_makepart_var() {
     local platform_flag
     local target_arch
     local tmp_makefile
-    local tmp_output
     local value
-    local marker_begin="__CMK_SYNC_BEGIN__"
-    local marker_end="__CMK_SYNC_END__"
 
     if [[ "$config_name" == "Linux" ]]; then
         make_platform="Linux"
@@ -184,32 +180,38 @@ PLATFORM := $make_platform
 $platform_flag
 TARGET_ARCH := $target_arch
 INCDIR :=
+LIBSDIR :=
 DEFINES :=
 EOF
         write_sync_makepart_includes "$app" "$host_os" "$var_name"
+        if [[ "$var_name" == "INCDIR" ]]; then
+            cat <<'EOF'
+AUTO_APPDEPS_INCDIR := $(shell bash "$(WORKSPACE_DIR)/framework/makefw/bin/resolve_app_deps.sh" --paths "$(MYAPP_DIR)" include)
+ifneq ($(strip $(.SHELLSTATUS)),0)
+$(error Failed to resolve app include dependencies for $(MYAPP_DIR))
+endif
+INCDIR += $(AUTO_APPDEPS_INCDIR)
+AUTO_APPDEPS_INCLUDE_INTERNAL := $(shell bash "$(WORKSPACE_DIR)/framework/makefw/bin/resolve_app_deps.sh" --paths "$(MYAPP_DIR)" include_internal)
+ifneq ($(strip $(.SHELLSTATUS)),0)
+$(error Failed to resolve app internal include dependencies for $(MYAPP_DIR))
+endif
+INCDIR += $(AUTO_APPDEPS_INCLUDE_INTERNAL)
+EOF
+        fi
         cat <<'EOF'
 print:
-	@: $(info $(MARKER_BEGIN))$(info $($(PRINT_VAR)))$(info $(MARKER_END))
+	@printf '%s\n' "$($(PRINT_VAR))"
 EOF
     } > "$tmp_makefile"
 
-    tmp_output=$(mktemp)
-    if ! make --no-print-directory -f "$tmp_makefile" \
+    if ! value=$(make --no-print-directory -f "$tmp_makefile" \
         print \
-        PRINT_VAR="$var_name" \
-        MARKER_BEGIN="$marker_begin" \
-        MARKER_END="$marker_end" \
-        > "$tmp_output"; then
-        rm -f "$tmp_makefile" "$tmp_output"
+        PRINT_VAR="$var_name"); then
+        rm -f "$tmp_makefile"
         return 1
     fi
 
-    value=$(awk -v marker_begin="$marker_begin" -v marker_end="$marker_end" '
-        $0 == marker_begin { capture = 1; next }
-        $0 == marker_end { capture = 0; exit }
-        capture { print }
-    ' "$tmp_output")
-    rm -f "$tmp_makefile" "$tmp_output"
+    rm -f "$tmp_makefile"
 
     printf '%s\n' "$value"
 }
@@ -368,7 +370,7 @@ compare_and_write_warn() {
 
     {
         printf 'c_cpp_properties.json is out of sync with sync sources.\n'
-        printf '  INCDIR  : makepart.mk, app/makepart.mk, and app/*/**/makepart.mk\n'
+        printf '  INCDIR  : makepart.mk, app/makepart.mk, app/*/**/makepart.mk, and app/*/appdeps.mk\n'
         printf '  DEFINES : makepart.mk, app/makepart.mk, and app/*/makepart.mk\n'
         printf 'Run from workspace root:\n'
         printf '  bash framework/makefw/bin/sync_c_cpp_properties.sh --write\n'
