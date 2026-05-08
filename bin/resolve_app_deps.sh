@@ -21,7 +21,7 @@ find_workspace_root() {
 usage() {
     cat <<'EOF' >&2
 Usage:
-  resolve_app_deps.sh --paths <app-dir> <include|include_internal|lib>
+  resolve_app_deps.sh --paths <app-dir> <include|include_internal|lib|test_include|test_lib>
   resolve_app_deps.sh --signature <app-dir>
   resolve_app_deps.sh --app-order
 EOF
@@ -150,6 +150,12 @@ emit_paths() {
             ;;
         lib)
             suffix="prod/lib"
+            ;;
+        test_include)
+            suffix="test/include"
+            ;;
+        test_lib)
+            suffix="test/lib"
             ;;
         *)
             usage

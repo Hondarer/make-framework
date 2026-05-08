@@ -454,6 +454,27 @@ ifneq ($(MAKEFW_AUTO_LIBSDIR),)
     LIBSDIR += $(MAKEFW_AUTO_LIBSDIR)
 endif
 
+ifneq (,$(findstring /test/,$(CURDIR)))
+    MAKEFW_AUTO_TEST_INCDIR := $(shell bash "$(MAKEFW_APPDEP_RESOLVER)" --paths "$(MYAPP_DIR)" test_include)
+    ifneq ($(strip $(.SHELLSTATUS)),0)
+        $(error Failed to resolve app test include dependencies for $(MYAPP_DIR))
+    endif
+    ifneq ($(MAKEFW_AUTO_TEST_INCDIR),)
+        INCDIR += $(MAKEFW_AUTO_TEST_INCDIR)
+    endif
+
+    MAKEFW_AUTO_TESTFW_INCDIR := $(TESTFW_DIR)/gtest/include $(TESTFW_DIR)/include
+    INCDIR += $(MAKEFW_AUTO_TESTFW_INCDIR)
+
+    MAKEFW_AUTO_TEST_LIBSDIR := $(shell bash "$(MAKEFW_APPDEP_RESOLVER)" --paths "$(MYAPP_DIR)" test_lib)
+    ifneq ($(strip $(.SHELLSTATUS)),0)
+        $(error Failed to resolve app test library dependencies for $(MYAPP_DIR))
+    endif
+    ifneq ($(MAKEFW_AUTO_TEST_LIBSDIR),)
+        LIBSDIR += $(MAKEFW_AUTO_TEST_LIBSDIR)
+    endif
+endif
+
 # パス系変数の一括正規化
 # Normalize path variables to absolute paths after all makepart/makechild/makelocal are loaded
 # - INCDIR: sort で重複除去 (既存動作維持)

@@ -311,21 +311,15 @@ LIB_TYPE = shared
 ```makefile
 # app/calc/test/makepart.mk
 
-# テストフレームワークをリンク
-LINK_TEST = 1
-
 # テスト関連ライブラリは、すべて静的リンクとする
 ifeq ($(OS),Windows_NT)
     # Windows: CALC_STATIC マクロを定義
     CFLAGS   += /DCALC_STATIC
     CXXFLAGS += /DCALC_STATIC
 endif
-
-# ライブラリ検索パスの追加
-LIBSDIR += \
-    $(WORKSPACE_DIR)/framework/testfw/lib \
-    $(WORKSPACE_DIR)/app/calc/test/lib
 ```
+
+`INCDIR` と `LIBSDIR` の依存 app / test 用のパスは `prepare.mk` が補完するため、個別の `makepart.mk` では Windows 向けの静的定義だけを残せます。
 
 ## 導入方法
 

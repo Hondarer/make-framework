@@ -186,6 +186,12 @@ ifneq ($(strip $(.SHELLSTATUS)),0)
 $(error Failed to resolve app internal include dependencies for $(MYAPP_DIR))
 endif
 INCDIR += $(AUTO_APPDEPS_INCLUDE_INTERNAL)
+AUTO_APPDEPS_TEST_INCDIR := $(shell bash "$(WORKSPACE_DIR)/framework/makefw/bin/resolve_app_deps.sh" --paths "$(MYAPP_DIR)" test_include)
+ifneq ($(strip $(.SHELLSTATUS)),0)
+$(error Failed to resolve app test include dependencies for $(MYAPP_DIR))
+endif
+INCDIR += $(AUTO_APPDEPS_TEST_INCDIR)
+INCDIR += $(TESTFW_DIR)/gtest/include $(TESTFW_DIR)/include
 EOF
         fi
         cat <<'EOF'
