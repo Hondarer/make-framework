@@ -270,12 +270,15 @@ MAKEFW_ARTIFACT_ROOT := $(shell \
 	done; \
 	printf '%s\n' "$(CURDIR)" | sed 's@^\(.*\/src\/[^/]*\).*@\1@' \
 )
-MAKEFW_ARTIFACT_DEPS := $(if $(MAKEFW_ARTIFACT_ONLY),,$(SUBDIRS))
+MAKEFW_ARTIFACT_DEPS := $(if $(MAKEFW_ARTIFACT_ONLY),_makefw_artifact_recheck,$(SUBDIRS))
 MAKEFW_ARTIFACT_OBJS := $(if $(MAKEFW_ARTIFACT_ONLY),,$(OBJS))
 MAKEFW_ARTIFACT_GROUP_COMPILE := $(if $(MAKEFW_ARTIFACT_ONLY),,_group_compile)
 MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT := $(if $(filter $(CURDIR),$(MAKEFW_REQUEST_ROOT)),$(if $(filter-out $(MAKEFW_ARTIFACT_ROOT),$(CURDIR)),$(if $(filter command\ line,$(origin NO_LINK)),,1),),)
 
-.PHONY: _makefw_parent_artifact
+.PHONY: _makefw_artifact_recheck _makefw_parent_artifact
+_makefw_artifact_recheck:
+	@:
+
 _makefw_parent_artifact:
 	$(MAKE) -C "$(MAKEFW_ARTIFACT_ROOT)" MAKEFW_ARTIFACT_ONLY=1 _build_main
 
