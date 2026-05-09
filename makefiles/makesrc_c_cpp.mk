@@ -257,6 +257,28 @@ else ifdef PLATFORM_WINDOWS
 endif
 OBJS += $(SUBDIR_OBJS)
 
+MAKEFW_ARTIFACT_ROOT := $(shell \
+	dir="$(CURDIR)"; \
+	while [ -n "$$dir" ] && [ "$$dir" != "/" ]; do \
+		parent="$${dir%/*}"; \
+		if [ "$$parent" = "$$dir" ]; then break; fi; \
+		if [ -f "$$parent/makechild.mk" ] && grep -Eq '^[[:space:]]*NO_LINK[[:space:]]*[?:+]?=' "$$parent/makechild.mk"; then \
+			printf '%s\n' "$$parent"; \
+			exit 0; \
+		fi; \
+		dir="$$parent"; \
+	done; \
+	printf '%s\n' "$(CURDIR)" | sed 's@^\(.*\/src\/[^/]*\).*@\1@' \
+)
+MAKEFW_ARTIFACT_DEPS := $(if $(MAKEFW_ARTIFACT_ONLY),,$(SUBDIRS))
+MAKEFW_ARTIFACT_OBJS := $(if $(MAKEFW_ARTIFACT_ONLY),,$(OBJS))
+MAKEFW_ARTIFACT_GROUP_COMPILE := $(if $(MAKEFW_ARTIFACT_ONLY),,_group_compile)
+MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT := $(if $(filter $(CURDIR),$(MAKEFW_REQUEST_ROOT)),$(if $(filter-out $(MAKEFW_ARTIFACT_ROOT),$(CURDIR)),$(if $(filter command\ line,$(origin NO_LINK)),,1),),)
+
+.PHONY: _makefw_parent_artifact
+_makefw_parent_artifact:
+	$(MAKE) -C "$(MAKEFW_ARTIFACT_ROOT)" MAKEFW_ARTIFACT_ONLY=1 _build_main
+
 # 成果物のディレクトリ名
 # 未指定の場合、カレントディレクトリ/bin に成果物を生成する
 OUTPUT_DIR ?= $(CURDIR)/bin
@@ -313,12 +335,12 @@ _build_main: _group_compile
 	@:
 else
     ifndef NO_LINK
-_build_main: _group_compile $(OUTPUT_DIR)/$(TARGET)
+_build_main: $(MAKEFW_ARTIFACT_GROUP_COMPILE) $(OUTPUT_DIR)/$(TARGET)
     else
         ifeq ($(GROUP_COMPILE),1)
-_build_main: _group_compile $(LIBSFILES)
+_build_main: _group_compile $(LIBSFILES) $(if $(MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT),_makefw_parent_artifact)
         else
-_build_main: _group_compile $(OBJS) $(LIBSFILES)
+_build_main: _group_compile $(OBJS) $(LIBSFILES) $(if $(MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT),_makefw_parent_artifact)
         endif
     endif
 endif
@@ -340,7 +362,7 @@ ifndef NO_LINK
     # 実行体の生成
     # Build the executable
     ifdef PLATFORM_LINUX
-$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
 			@$(_MAKEFW_OBJLIST_LINUX); \
 			if [ "$$rebuild" = 0 ]; then \
 				for dep in $(LIBSFILES); do \
@@ -359,9 +381,9 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDI
 			exit $$_rc
     else ifdef PLATFORM_WINDOWS
         ifeq ($(GROUP_COMPILE),1)
-$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) _group_compile $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_GROUP_COMPILE) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
         else
-$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
         endif
 			@$(_MAKEFW_OBJLIST_WINDOWS); \
 			if [ "$$rebuild" = 0 ]; then \

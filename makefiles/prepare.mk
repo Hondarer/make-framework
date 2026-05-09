@@ -260,6 +260,14 @@ export DOTNET
 C_STANDARD   := 17
 CXX_STANDARD := 17
 
+# 最初にユーザーから要求された make ディレクトリ。
+# Recursive make inherits this value so lower directories can distinguish
+# a direct make request from a parent-driven traversal.
+ifeq ($(origin MAKEFW_REQUEST_ROOT), undefined)
+    MAKEFW_REQUEST_ROOT := $(CURDIR)
+endif
+export MAKEFW_REQUEST_ROOT
+
 #$(info ----)
 #$(info CONFIG: $(CONFIG))
 #$(info OS: $(OS))

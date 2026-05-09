@@ -48,6 +48,28 @@ else ifdef PLATFORM_WINDOWS
 endif
 OBJS += $(SUBDIR_OBJS)
 
+MAKEFW_ARTIFACT_ROOT := $(shell \
+	dir="$(CURDIR)"; \
+	while [ -n "$$dir" ] && [ "$$dir" != "/" ]; do \
+		parent="$${dir%/*}"; \
+		if [ "$$parent" = "$$dir" ]; then break; fi; \
+		if [ -f "$$parent/makechild.mk" ] && grep -Eq '^[[:space:]]*NO_LINK[[:space:]]*[?:+]?=' "$$parent/makechild.mk"; then \
+			printf '%s\n' "$$parent"; \
+			exit 0; \
+		fi; \
+		dir="$$parent"; \
+	done; \
+	printf '%s\n' "$(CURDIR)" | sed 's@^\(.*\/libsrc\/[^/]*\).*@\1@' \
+)
+MAKEFW_ARTIFACT_DEPS := $(if $(MAKEFW_ARTIFACT_ONLY),,$(SUBDIRS))
+MAKEFW_ARTIFACT_OBJS := $(if $(MAKEFW_ARTIFACT_ONLY),,$(OBJS))
+MAKEFW_ARTIFACT_GROUP_COMPILE := $(if $(MAKEFW_ARTIFACT_ONLY),,_group_compile)
+MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT := $(if $(filter $(CURDIR),$(MAKEFW_REQUEST_ROOT)),$(if $(filter-out $(MAKEFW_ARTIFACT_ROOT),$(CURDIR)),$(if $(filter command\ line,$(origin NO_LINK)),,1),),)
+
+.PHONY: _makefw_parent_artifact
+_makefw_parent_artifact:
+	$(MAKE) -C "$(MAKEFW_ARTIFACT_ROOT)" MAKEFW_ARTIFACT_ONLY=1 _build_main
+
 define _MAKEFW_OBJLIST_LINUX
 objs_file="$(OBJDIR)/objs_$$.lst"; \
 find . -path "*/obj/*.o" -not -name "*.inject.o" -type f -print 2>/dev/null | sort -u > "$$objs_file"; \
@@ -162,12 +184,12 @@ _build_main: _group_compile
 	@:
 else
     ifndef NO_LINK
-_build_main: _group_compile $(OUTPUT_DIR)/$(TARGET)
+_build_main: $(MAKEFW_ARTIFACT_GROUP_COMPILE) $(OUTPUT_DIR)/$(TARGET)
     else
         ifeq ($(GROUP_COMPILE),1)
-_build_main: _group_compile
+_build_main: _group_compile $(if $(MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT),_makefw_parent_artifact)
         else
-_build_main: _group_compile $(OBJS)
+_build_main: _group_compile $(OBJS) $(if $(MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT),_makefw_parent_artifact)
         endif
     endif
 endif
@@ -258,7 +280,7 @@ ifndef NO_LINK
     # Final link command: static libs are embedded, dynamic libs remain as -l
     ifeq ($(LIB_TYPE),shared)
         ifdef PLATFORM_LINUX
-$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_LINUX); \
 				if [ "$$rebuild" = 0 ]; then \
 					for dep in $(STATIC_LIBS); do \
@@ -283,9 +305,9 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJ
                 _DLL_SIDE_CHECK += || [ ! -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET))" ]
             endif
             ifeq ($(GROUP_COMPILE),1)
-$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) _group_compile $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_GROUP_COMPILE) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
             else
-$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
             endif
 			@$(_MAKEFW_OBJLIST_WINDOWS); \
 			if [ "$$rebuild" = 0 ]; then \
@@ -309,7 +331,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJ
     else ifeq ($(LIB_TYPE),both)
         ifdef PLATFORM_LINUX
 # static lib: objects をアーカイブ
-$(OUTPUT_DIR)/$(TARGET_STATIC): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET_STATIC): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_LINUX); \
 				if [ "$$rebuild" = 1 ]; then \
 					all_objs=$$(tr '\n' ' ' < "$$objs_file" | xargs); \
@@ -322,7 +344,7 @@ $(OUTPUT_DIR)/$(TARGET_STATIC): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR) $(OBJDIR)
 				if [ ! -s "$(OUTPUT_DIR)/$(TARGET_STATIC).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET_STATIC).warn"; fi; \
 				exit $$_rc
 # shared lib: static lib 完成後にリンク
-$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_LINUX); \
 				if [ "$$rebuild" = 0 ]; then \
 					for dep in $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS); do \
@@ -347,9 +369,9 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS
             endif
 # static lib: objects をアーカイブ
             ifeq ($(GROUP_COMPILE),1)
-$(OUTPUT_DIR)/$(TARGET_STATIC): $(SUBDIRS) _group_compile | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET_STATIC): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_GROUP_COMPILE) | $(OUTPUT_DIR) $(OBJDIR)
             else
-$(OUTPUT_DIR)/$(TARGET_STATIC): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET_STATIC): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) | $(OUTPUT_DIR) $(OBJDIR)
             endif
 				@$(_MAKEFW_OBJLIST_WINDOWS); \
 				pdb_file="$(OUTPUT_DIR)/$(basename $(TARGET_STATIC)).pdb"; \
@@ -370,7 +392,7 @@ $(OUTPUT_DIR)/$(TARGET_STATIC): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR) $(OBJDIR)
 				if [ ! -s "$(OUTPUT_DIR)/$(TARGET_STATIC).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET_STATIC).warn"; fi; \
 				exit $$_rc
 # DLL: static lib 完成後にリンク
-$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_WINDOWS); \
 				if [ "$$rebuild" = 0 ]; then \
 					for dep in $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS); do \
@@ -392,7 +414,7 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS
         endif
     else
         ifdef PLATFORM_LINUX
-$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_LINUX); \
 				if [ "$$rebuild" = 1 ]; then \
 					all_objs=$$(tr '\n' ' ' < "$$objs_file" | xargs); \
@@ -406,9 +428,9 @@ $(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR) $(OBJDIR)
 				exit $$_rc
         else ifdef PLATFORM_WINDOWS
             ifeq ($(GROUP_COMPILE),1)
-$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) _group_compile | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_GROUP_COMPILE) | $(OUTPUT_DIR) $(OBJDIR)
             else
-$(OUTPUT_DIR)/$(TARGET): $(SUBDIRS) $(OBJS) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) | $(OUTPUT_DIR) $(OBJDIR)
             endif
 				@$(_MAKEFW_OBJLIST_WINDOWS); \
 				pdb_file="$(OUTPUT_DIR)/$(basename $(TARGET)).pdb"; \
