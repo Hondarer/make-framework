@@ -177,12 +177,16 @@ ifdef PLATFORM_LINUX
       CXXFLAGS += -O0 -g
     else ifeq ($(CONFIG),Release)
       CPPFLAGS += -DNDEBUG
-      CFLAGS   += -O2 -g
-      CXXFLAGS += -O2 -g
+      CFLAGS   += -O2 -g -flto
+      CXXFLAGS += -O2 -g -flto
+      LDFLAGS  += -flto
+      ifeq ($(notdir $(AR)),ar)
+        AR := gcc-ar
+      endif
     else ifeq ($(CONFIG),RelWithDebInfo)
       CPPFLAGS += -DNDEBUG
-      CFLAGS   += -O2 -g
-      CXXFLAGS += -O2 -g
+      CFLAGS   += -O2 -g -fno-omit-frame-pointer
+      CXXFLAGS += -O2 -g -fno-omit-frame-pointer
     else
       $(error CONFIG は Debug, Release, RelWithDebInfo のいずれか)
     endif
@@ -214,9 +218,9 @@ else ifdef PLATFORM_WINDOWS
       LDFLAGS  += /DEBUG /INCREMENTAL
     else ifeq ($(CONFIG),Release)
       CPPFLAGS += /DNDEBUG
-      CFLAGS   += $(RT_FLAG_RELEASE) /O2 /Ob2 /Oy /Zi
-      CXXFLAGS += $(RT_FLAG_RELEASE) /O2 /Ob2 /Oy /Zi
-      LDFLAGS  += /DEBUG /INCREMENTAL:NO
+      CFLAGS   += $(RT_FLAG_RELEASE) /O2 /Ob2 /Oy /Zi /GL
+      CXXFLAGS += $(RT_FLAG_RELEASE) /O2 /Ob2 /Oy /Zi /GL
+      LDFLAGS  += /DEBUG /INCREMENTAL:NO /LTCG
     else ifeq ($(CONFIG),RelWithDebInfo)
       CPPFLAGS += /DNDEBUG
       CFLAGS   += $(RT_FLAG_RELEASE) /O2 /Ob2 /Zi
