@@ -7,9 +7,9 @@ include $(WORKSPACE_DIR)/framework/makefw/makefiles/_group_compile.mk
 # テストライブラリの設定
 # Set test libraries
 # LINK_TEST が 1 の場合にのみ設定する
-ifneq ($(strip $(TESTFW_DIR)),)
-    TESTFW_INCLUDE_OVERRIDE := -I$(TESTFW_DIR)/include_override
-    TESTSH := $(TESTFW_DIR)/bin/exec_test_c_cpp.sh
+ifneq ($(strip $(TESTFW_HOME)),)
+    TESTFW_INCLUDE_OVERRIDE := -I$(TESTFW_HOME)/include_override
+    TESTSH := $(TESTFW_HOME)/bin/exec_test_c_cpp.sh
 endif
 
 # $(MYAPP_DIR)/test/include_override が存在する場合だけ、テスト対象用優先 include override パスとして使用する
@@ -20,11 +20,11 @@ ifneq ($(filter $(WORKSPACE_DIR)/app/%,$(CURDIR)),)
 endif
 
 ifeq ($(LINK_TEST), 1)
-    ifeq ($(strip $(TESTFW_DIR)),)
-        $(error $(TESTFW_DIR_ERROR))
+    ifeq ($(strip $(TESTFW_HOME)),)
+        $(error $(TESTFW_HOME_ERROR))
     endif
-    ifeq ($(wildcard $(TESTFW_DIR)),)
-        $(error $(TESTFW_DIR_ERROR))
+    ifeq ($(wildcard $(TESTFW_HOME)),)
+        $(error $(TESTFW_HOME_ERROR))
     endif
 
     ifdef PLATFORM_LINUX
@@ -34,7 +34,7 @@ ifeq ($(LINK_TEST), 1)
         LDFLAGS := $(filter-out -flto,$(LDFLAGS))
         # TARGET_ARCH を使用してプラットフォーム固有のパスを指定
         # Use TARGET_ARCH for platform-specific path (e.g., linux_el8_x64)
-        LIBSDIR += $(TESTFW_DIR)/gtest/lib/$(TARGET_ARCH)
+        LIBSDIR += $(TESTFW_HOME)/gtest/lib/$(TARGET_ARCH)
     else ifdef PLATFORM_WINDOWS
         # ステップ実行/カバレッジに支障となるオプションを除去
         #   /LTCG: リンク時コード生成 (プログラム全体最適化)
@@ -43,7 +43,7 @@ ifeq ($(LINK_TEST), 1)
         # MSVC_CRT_SUBDIR is calculated in prepare.mk from CONFIG and MSVC_CRT
         # TARGET_ARCH を使用してプラットフォーム固有のパスを指定
         # Use TARGET_ARCH for platform-specific path (e.g., windows_x64/md)
-        LIBSDIR += $(TESTFW_DIR)/gtest/lib/$(TARGET_ARCH)/$(MSVC_CRT_SUBDIR)
+        LIBSDIR += $(TESTFW_HOME)/gtest/lib/$(TARGET_ARCH)/$(MSVC_CRT_SUBDIR)
     endif
 
     ifneq ($(NO_GTEST_MAIN), 1)
@@ -607,7 +607,7 @@ _test_impl: _pre_test_hook _test_main _post_test_hook
             # Run tests
 _test_main: $(TESTSH) $(OUTPUT_DIR)/$(TARGET)
 				@if [ -z "$(TESTSH)" ]; then \
-					echo "$(TESTFW_DIR_ERROR)"; \
+					echo "$(TESTFW_HOME_ERROR)"; \
 					exit 1; \
 				fi; \
 				status=0; \

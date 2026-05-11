@@ -10,8 +10,8 @@ _relpath = $(patsubst $(CURDIR)/%,%,$(1))
 OUTPUT_DIR ?= $(CURDIR)/bin
 
 # テストスクリプトのパス
-ifneq ($(strip $(TESTFW_DIR)),)
-    TESTSH := $(TESTFW_DIR)/bin/exec_test_dotnet.sh
+ifneq ($(strip $(TESTFW_HOME)),)
+    TESTSH := $(TESTFW_HOME)/bin/exec_test_dotnet.sh
 endif
 
 # プロジェクト名 (カレントディレクトリ名から取得)
@@ -76,7 +76,7 @@ test: _pre_test_hook _test_main _post_test_hook
 # Actual test process
 _test_main: $(TESTSH) build
 	@if [ -z "$(TESTSH)" ]; then \
-		echo "$(TESTFW_DIR_ERROR)"; \
+		echo "$(TESTFW_HOME_ERROR)"; \
 		exit 1; \
 	fi; \
 	status=0; \

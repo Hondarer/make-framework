@@ -56,20 +56,20 @@ endif
 # testfw の配置パスを解決
 # Resolve testfw location
 # 優先順位:
-# 1. 明示指定された TESTFW_DIR
+# 1. 明示指定された TESTFW_HOME
 # 2. 統合プロジェクト配下の framework/testfw
 # 3. 単独 CI / sibling 配置の testfw
-ifeq ($(strip $(TESTFW_DIR)),)
+ifeq ($(strip $(TESTFW_HOME)),)
     ifneq ($(wildcard $(WORKSPACE_DIR)/framework/testfw),)
-        TESTFW_DIR := $(WORKSPACE_DIR)/framework/testfw
+        TESTFW_HOME := $(WORKSPACE_DIR)/framework/testfw
     else ifneq ($(wildcard $(WORKSPACE_DIR)/testfw),)
-        TESTFW_DIR := $(WORKSPACE_DIR)/testfw
+        TESTFW_HOME := $(WORKSPACE_DIR)/testfw
     endif
 else
-    TESTFW_DIR := $(abspath $(TESTFW_DIR))
+    TESTFW_HOME := $(abspath $(TESTFW_HOME))
 endif
-TESTFW_DIR_ERROR := testfw directory not found. Set TESTFW_DIR or place testfw under $(WORKSPACE_DIR)/framework/testfw or $(WORKSPACE_DIR)/testfw.
-export TESTFW_DIR
+TESTFW_HOME_ERROR := testfw directory not found. Set TESTFW_HOME or place testfw under $(WORKSPACE_DIR)/framework/testfw or $(WORKSPACE_DIR)/testfw.
+export TESTFW_HOME
 
 DEFINES :=
 
@@ -478,7 +478,7 @@ ifneq (,$(findstring /test/,$(CURDIR)))
         INCDIR += $(MAKEFW_AUTO_TEST_INCDIR)
     endif
 
-    MAKEFW_AUTO_TESTFW_INCDIR := $(TESTFW_DIR)/gtest/include $(TESTFW_DIR)/include
+    MAKEFW_AUTO_TESTFW_INCDIR := $(TESTFW_HOME)/gtest/include $(TESTFW_HOME)/include
     INCDIR += $(MAKEFW_AUTO_TESTFW_INCDIR)
 
     MAKEFW_AUTO_TEST_LIBSDIR := $(shell bash "$(MAKEFW_APPDEP_RESOLVER)" --paths "$(MYAPP_DIR)" test_lib)
