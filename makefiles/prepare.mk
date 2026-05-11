@@ -302,12 +302,14 @@ export MAKEFW_REQUEST_ROOT
 
 # 親 make から継承した MYAPP_DIR が有効か判定
 # Check if MYAPP_DIR inherited from parent make is still valid
+_MYAPP_IS_VALID :=
 _MYAPP_NEEDS_EVAL := 1
 ifeq ($(origin MYAPP_DIR),environment)
     ifneq ($(findstring $(MYAPP_DIR)/,$(CURDIR)/),)
         # CURDIR は継承された MYAPP_DIR 配下 — キャッシュヒット、再計算不要
         # CURDIR is under inherited MYAPP_DIR — cache hit, skip re-evaluation
         _MYAPP_NEEDS_EVAL :=
+        _MYAPP_IS_VALID := 1
     endif
 endif
 
@@ -338,6 +340,7 @@ ifneq ($(_MYAPP_STARTS_WITH_APP),)
     ifneq ($(_MYAPP_APPNAME),)
         MYAPP_DIR := $(WORKSPACE_DIR)/app/$(_MYAPP_APPNAME)
         export MYAPP_DIR
+        _MYAPP_IS_VALID := 1
     else
         # app/ 直下 (appname が空)
         # Directly under app/ (appname is empty)
@@ -351,7 +354,9 @@ endif
 
 endif # _MYAPP_NEEDS_EVAL
 
+ifeq ($(_MYAPP_IS_VALID),1)
 -include $(MYAPP_DIR)/appdeps.mk
+endif
 
 # makepart.mk / makechild.mk の検索
 # dirname コマンドの代わりにシェルのパラメータ展開を使用してプロセス生成を削減
@@ -438,6 +443,8 @@ $(foreach make_config, $(MAKE_INCLUDE_MK), $(call _include_make_config,$(make_co
 
 MAKEFW_APPDEP_RESOLVER := $(WORKSPACE_DIR)/framework/makefw/bin/resolve_app_deps.sh
 
+ifeq ($(_MYAPP_IS_VALID),1)
+
 MAKEFW_AUTO_INCDIR := $(shell bash "$(MAKEFW_APPDEP_RESOLVER)" --paths "$(MYAPP_DIR)" include)
 ifneq ($(strip $(.SHELLSTATUS)),0)
     $(error Failed to resolve app include dependencies for $(MYAPP_DIR))
@@ -482,6 +489,8 @@ ifneq (,$(findstring /test/,$(CURDIR)))
         LIBSDIR += $(MAKEFW_AUTO_TEST_LIBSDIR)
     endif
 endif
+
+endif # _MYAPP_IS_VALID
 
 # パス系変数の一括正規化
 # Normalize path variables to absolute paths after all makepart/makechild/makelocal are loaded
