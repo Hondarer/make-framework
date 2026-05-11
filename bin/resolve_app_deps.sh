@@ -222,6 +222,7 @@ emit_signature() {
     local -A repos_seen=()
     local -a repos=()
     local -a lines=()
+    local msvc_crt="${MSVC_CRT_SUBDIR:-}"
 
     root_app=$(resolve_root_app "$app_dir")
 
@@ -258,6 +259,9 @@ emit_signature() {
     done
 
     printf 'CLEAN=%s\n' "$clean"
+    if [[ -n "$msvc_crt" ]]; then
+        printf 'MSVC_CRT=%s\n' "$msvc_crt"
+    fi
     if (( ${#lines[@]} > 0 )); then
         printf '%s\n' "${lines[@]}"
     fi
