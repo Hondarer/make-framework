@@ -424,6 +424,9 @@ ifdef PLATFORM_WINDOWS
     else
         $(error CONFIG は Debug, Release, RelWithDebInfo のいずれか)
     endif
+
+    export MSVC_CRT
+    export MSVC_CRT_SUBDIR
 endif
 
 # makepart.mk / makechild.mk をインクルード
