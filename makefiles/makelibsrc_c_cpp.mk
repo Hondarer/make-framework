@@ -91,7 +91,7 @@ endef
 
 define _MAKEFW_OBJLIST_WINDOWS
 objs_file="$(OBJDIR)/objs_$$.lst"; \
-find "$(OBJDIR)" -name "*.obj" -not -name "*.inject.obj" -type f -print 2>/dev/null | sort -u > "$$objs_file"; \
+find . -path "*/obj/$(MSVC_CRT_SUBDIR)/*.obj" -not -name "*.inject.obj" -type f -print 2>/dev/null | sort -u > "$$objs_file"; \
 if [ ! -f "$$objs_file" ]; then : > "$$objs_file"; fi; \
 trap 'rm -f "$$objs_file" "$$rsp_file"' EXIT; \
 rebuild=0; \
