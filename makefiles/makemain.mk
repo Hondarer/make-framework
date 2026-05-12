@@ -45,16 +45,16 @@ ifeq ($(MAKEFW_BUILD),1)
 # パスに /libsrc/ を含む場合はライブラリ用テンプレート
 ifneq (,$(findstring /libsrc/,$(CURDIR)))
     ifneq ($(wildcard *.csproj),)
-        include $(WORKSPACE_DIR)/framework/makefw/makefiles/makelibsrc_dotnet.mk
+        include $(MAKEFW_HOME)/makefiles/makelibsrc_dotnet.mk
     else
-        include $(WORKSPACE_DIR)/framework/makefw/makefiles/makelibsrc_c_cpp.mk
+        include $(MAKEFW_HOME)/makefiles/makelibsrc_c_cpp.mk
     endif
 # パスに /src/ を含む場合は実行ファイル用テンプレート
 else ifneq (,$(findstring /src/,$(CURDIR)))
     ifneq ($(wildcard *.csproj),)
-        include $(WORKSPACE_DIR)/framework/makefw/makefiles/makesrc_dotnet.mk
+        include $(MAKEFW_HOME)/makefiles/makesrc_dotnet.mk
     else
-        include $(WORKSPACE_DIR)/framework/makefw/makefiles/makesrc_c_cpp.mk
+        include $(MAKEFW_HOME)/makefiles/makesrc_c_cpp.mk
     endif
 else
     $(error Cannot auto-select makefile template. MAKEFW_BUILD=1 requires /libsrc/ or /src/ in path: $(CURDIR))

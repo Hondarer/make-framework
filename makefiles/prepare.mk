@@ -1,4 +1,8 @@
 # 各 makefile から呼び出され、
+# [責務境界]
+# - __template.mk は prepare.mk を include するための最小ブートストラップのみを担う
+# - 本ファイルは共有初期化と設定読み込みを担う
+#
 # 1. プラットフォームの判定を行う
 # 2. testfw の配置パスを解決する
 # 3. ソースファイルのエンコード指定から LANG を得る
@@ -10,6 +14,23 @@
 # 6. カレントディレクトリの makelocal.mk を include する
 
 SHELL := /bin/bash
+
+WORKSPACE_DIR := $(strip $(WORKSPACE_DIR))
+ifeq ($(WORKSPACE_DIR),)
+    $(error WORKSPACE_DIR is required before including prepare.mk)
+endif
+export WORKSPACE_DIR
+
+MAKEFW_HOME := $(strip $(MAKEFW_HOME))
+ifeq ($(MAKEFW_HOME),)
+    $(error MAKEFW_HOME is required. Export MAKEFW_HOME before running make)
+endif
+MAKEFW_HOME := $(abspath $(MAKEFW_HOME))
+ifneq ($(wildcard $(MAKEFW_HOME)/makefiles/makemain.mk),)
+else
+    $(error MAKEFW_HOME is invalid: $(MAKEFW_HOME))
+endif
+export MAKEFW_HOME
 
 # プラットフォーム判定
 # すでに定義されているか確認
@@ -76,7 +97,7 @@ DEFINES :=
 # ソースファイルのエンコード指定から LANG を得る
 # FILES_LANG is stable across recursive make invocations in the same workspace
 ifeq ($(origin MAKEFW_FILES_LANG), undefined)
-    MAKEFW_FILES_LANG := $(shell bash $(WORKSPACE_DIR)/framework/makefw/bin/get_files_lang.sh)
+    MAKEFW_FILES_LANG := $(shell bash $(MAKEFW_HOME)/bin/get_files_lang.sh)
 endif
 export MAKEFW_FILES_LANG
 FILES_LANG := $(MAKEFW_FILES_LANG)
@@ -444,7 +465,7 @@ $(foreach make_config, $(MAKE_INCLUDE_MK), $(call _include_make_config,$(make_co
 # ここでカレントディレクトリの makelocal.mk を読み込めばよい
 -include $(CURDIR)/makelocal.mk
 
-MAKEFW_APPDEP_RESOLVER := $(WORKSPACE_DIR)/framework/makefw/bin/resolve_app_deps.sh
+MAKEFW_APPDEP_RESOLVER := $(MAKEFW_HOME)/bin/resolve_app_deps.sh
 
 ifeq ($(_MYAPP_IS_VALID),1)
 
@@ -501,7 +522,7 @@ endif # _MYAPP_IS_VALID
 # - LIBSDIR, OUTPUT_DIR: sort で重複除去
 # - TEST_SRCS, ADD_SRCS: 順序保持 (strip のみ)
 # パス正規化ヘルパースクリプト (子プロセス生成を削減)
-MAKEFW_NORMALIZE_PATHS := $(WORKSPACE_DIR)/framework/makefw/bin/normalize_paths.sh
+MAKEFW_NORMALIZE_PATHS := $(MAKEFW_HOME)/bin/normalize_paths.sh
 
 # 各パス変数を一括正規化
 # - INCDIR, LIBSDIR: sort で重複除去
