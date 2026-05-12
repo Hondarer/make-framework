@@ -101,7 +101,7 @@ endef
 
 define _MAKEFW_OBJLIST_WINDOWS
 objs_file="$(OBJDIR)/objs_$$.lst"; \
-find . -path "*/obj/*.obj" -not -name "*.inject.obj" -type f -print 2>/dev/null | sort -u > "$$objs_file"; \
+find "$(OBJDIR)" -name "*.obj" -not -name "*.inject.obj" -type f -print 2>/dev/null | sort -u > "$$objs_file"; \
 if [ ! -f "$$objs_file" ]; then : > "$$objs_file"; fi; \
 trap 'rm -f "$$objs_file" "$$rsp_file"' EXIT; \
 rebuild=0; \
@@ -252,8 +252,8 @@ ifdef PLATFORM_LINUX
     # Linux: .o ファイルを検索
     SUBDIR_OBJS := $(shell find . -path "./obj" -prune -o -path "*/obj/*.o" -type f -print 2>/dev/null)
 else ifdef PLATFORM_WINDOWS
-    # Windows: .obj ファイルを検索
-    SUBDIR_OBJS := $(shell find . -path "./obj" -prune -o -path "*/obj/*.obj" -type f -print 2>/dev/null)
+    # Windows: MSVC_CRT_SUBDIR サブディレクトリの .obj ファイルのみ検索
+    SUBDIR_OBJS := $(shell find . -path "./obj" -prune -o -path "*/obj/$(MSVC_CRT_SUBDIR)/*.obj" -type f -print 2>/dev/null)
 endif
 OBJS += $(SUBDIR_OBJS)
 
@@ -562,10 +562,9 @@ _clean_main:
 		@printf '%s\n' $(addprefix /,$(notdir $(CP_SRCS) $(LINK_SRCS))) | sort -u > .gitignore
     endif
 	-rm -rf $(strip $(CLEAN_COMMON) $(CLEAN_OS)) *.warn
-    # 空ディレクトリを削除する (rmdir は非空なら失敗するので直接試行)
-    # Remove empty directories (rmdir fails on non-empty, so just try it)
-    # obj は Windows のみ存在するが、コマンドを表に見せないのでそのまま実行
-	@rmdir "$(call _relpath,$(OUTPUT_DIR))" obj 2>/dev/null; true
+    # 空ディレクトリを削除する。obj は全 CRT サブディレクトリを含めて削除する
+    # Remove directories. Remove obj entirely including all CRT subdirs
+	@rmdir "$(call _relpath,$(OUTPUT_DIR))" 2>/dev/null; rm -rf obj 2>/dev/null; true
 
 .PHONY: test _test_impl _test_main
 test: _test_impl
