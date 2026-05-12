@@ -186,28 +186,31 @@ emit_paths() {
 repo_is_clean_equivalent() {
     local repo="$1"
     local changed
-    local path
     local ext
-    local has_changes=0
+    local has_unignored_changes=0
 
     while IFS= read -r changed; do
         [[ -z "$changed" ]] && continue
-        has_changes=1
         ext=".${changed##*.}"
         ext=$(lower_ext "$ext")
         case "$ext" in
             .md|.svg|.png)
                 ;;
             *)
-                return 1
+                has_unignored_changes=1
+                break
                 ;;
         esac
-    done < <(git -C "$repo" diff --name-only HEAD -- 2>/dev/null || true)
+    done < <(
+        {
+            git -C "$repo" diff --name-only HEAD -- 2>/dev/null || true
+            git -C "$repo" ls-files --others --exclude-standard 2>/dev/null || true
+        } | LC_ALL=C sort -u
+    )
 
-    if [[ $has_changes -eq 0 ]]; then
-        return 0
+    if [[ $has_unignored_changes -eq 1 ]]; then
+        return 1
     fi
-
     return 0
 }
 
