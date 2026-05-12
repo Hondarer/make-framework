@@ -18,6 +18,9 @@ import argparse
 import sys
 from pathlib import Path
 
+sys.stdout.reconfigure(encoding="utf-8")
+sys.stderr.reconfigure(encoding="utf-8")
+
 
 TEMPLATE_MAP = {
     "# app 配下 makefile テンプレート": Path(
