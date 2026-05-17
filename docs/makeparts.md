@@ -464,3 +464,25 @@ MY_LOCAL_VAR := 1
 - `LIBS += mybaselib` が適用される (makepart.mk が継承)
 - `CFLAGS += -DCHILD_ONLY_FLAG` が**適用される** (makechild.mk が子階層に適用)
 - `MY_LOCAL_VAR := 1` は**適用されない** (makelocal.mk は自ディレクトリ限定)
+
+## TEST_SRCS / ADD_SRCS の留意事項
+
+### ビルドシステムによるソースファイルの分類
+
+`TEST_SRCS` と `ADD_SRCS` に指定したソースファイルは、`make test` 時に `_collect_srcs.mk` が以下の3種類に自動分類し、テストのビルドディレクトリへ取り込む。
+
+| 分類 | 説明 | 条件 |
+|------|------|------|
+| `DIRECT_SRCS` | テストフォルダに既存の実体ファイル | カレントディレクトリに実ファイルが存在し、かつシンボリックリンクでない |
+| `LINK_SRCS` | シンボリックリンクで引き込むファイル | Linux 環境で、inject ファイルおよびフィルタファイルがない場合 |
+| `CP_SRCS` | コピーで引き込むファイル | Windows 環境の場合、または inject / フィルタファイルが存在する場合 |
+
+通常の関数単体テスト（Linux 環境、inject なし）では `TEST_SRCS` に指定したファイルは `LINK_SRCS` として処理され、テストビルドディレクトリ内の当該ファイル名は `prod/` にある実体ファイルへのシンボリックリンクとなる。
+
+### ビルドディレクトリ内のファイルを直接変更しないこと
+
+`make test` のたびにビルドディレクトリ内の `LINK_SRCS` / `CP_SRCS` は再生成される。そのため、ビルドディレクトリ内のファイルを直接変更しても、次回の `make test` で上書きされ変更が失われる。
+
+**ソースコードを変更する場合は、`prod/` にある実体ファイルを変更すること。**
+
+例として `app/calc/test/src/libcalcbaseTest/addTest/add.c` は `app/calc/prod/libsrc/calcbase/add.c` へのシンボリックリンクである。このファイルを変更したい場合は `app/calc/prod/libsrc/calcbase/add.c` を変更する。
