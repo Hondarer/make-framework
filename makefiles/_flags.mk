@@ -211,6 +211,9 @@ else ifdef PLATFORM_WINDOWS
     endif
 
     # 構成別フラグ
+    # LIB_LTCG: lib.exe に渡す /LTCG。CFLAGS の /GL とペアでなければ LNK4075 になるため
+    #          Release のみ /LTCG を有効化する (makelibsrc_c_cpp.mk の lib.exe 呼び出しで参照)
+    LIB_LTCG :=
     ifeq ($(CONFIG),Debug)
       CPPFLAGS += /D_DEBUG
       CFLAGS   += $(RT_FLAG_DEBUG) /Od /RTC1 /GS /Zi
@@ -221,6 +224,7 @@ else ifdef PLATFORM_WINDOWS
       CFLAGS   += $(RT_FLAG_RELEASE) /O2 /Ob2 /Oy /Zi /GL
       CXXFLAGS += $(RT_FLAG_RELEASE) /O2 /Ob2 /Oy /Zi /GL
       LDFLAGS  += /DEBUG /INCREMENTAL:NO /LTCG
+      LIB_LTCG := /LTCG
     else ifeq ($(CONFIG),RelWithDebInfo)
       CPPFLAGS += /DNDEBUG
       CFLAGS   += $(RT_FLAG_RELEASE) /O2 /Ob2 /Zi

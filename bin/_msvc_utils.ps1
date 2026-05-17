@@ -135,7 +135,15 @@ function Get-MsvcDiagnosticKind {
     if ($Line -match '\bfatal error\b' -or $Line -match '\berror\b') {
         return 'error'
     }
-    if ($Line -match '\bwarning\b') {
+    if ($Line -match '\bwarning\b' -or $Line -match '警告') {
+        return 'warning'
+    }
+    # MSVC リンカ警告コード (LNK4075 など。"warning" 接頭辞を持たず本文だけ流れる場合に対応)
+    if ($Line -match '\bLNK\d{4}\b') {
+        return 'warning'
+    }
+    # /LTCG 再開始通知の本文パターン (LNK4075 が "warning" 接頭辞無しで現れるケース)
+    if ($Line -match '/LTCG を使用して再開始' -or $Line -match 'restarting link with /LTCG' -or $Line -match 'MSIL \.netmodule') {
         return 'warning'
     }
     return 'info'
