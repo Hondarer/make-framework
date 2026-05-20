@@ -348,17 +348,29 @@ _build_main: _group_compile $(OBJS) $(LIBSFILES) $(if $(MAKEFW_SHOULD_BUILD_PARE
     endif
 endif
 
-# ビルド完了後に .gitignore を1回だけソート/重複排除 (スタンプファイルで不要な実行を回避)
-# Normalize .gitignore once after build (stamp file avoids unnecessary execution)
-# link/copy 対象ファイルが更新された場合のみ sort を実行し、それ以外ではプロセス生成ゼロ
-# Only runs sort when link/copy targets changed; zero process creation otherwise
+# .gitignore は CP_SRCS / LINK_SRCS の取り込みより前に原子的に再生成する。
+# 既存 .gitignore を読まず、ターゲット一覧から直接生成して mv で置換することで、
+# 並列ビルドや中断時の競合・破損を防ぎ、かつファイル配置前に ignore を反映できる。
+# Atomically regenerate .gitignore before placing CP/LINK targets:
+# write to a temp file and rename, so concurrent writers and partial writes are avoided
+# and the ignore is in place before any imported file appears in the directory.
 ifneq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
 ifeq ($(call should_skip,$(SKIP_BUILD)),true)
 else
-build: $(OBJDIR)/.gitignore_sorted
+build: $(OBJDIR)/.gitignore_stamp
 endif
-$(OBJDIR)/.gitignore_sorted: $(notdir $(CP_SRCS) $(LINK_SRCS)) | $(OBJDIR)
-	@sort -u -o .gitignore .gitignore && touch $@
+# スタンプは makepart.mk / makefile 群が更新されたときに再評価する。
+# CP_SRCS / LINK_SRCS のリストは makefile 側で静的に決まるため、
+# MAKEFILE_LIST を依存に置けばリスト変化を捕捉できる。
+$(OBJDIR)/.gitignore_stamp: $(MAKEFILE_LIST) | $(OBJDIR)
+	@tmp=$$(mktemp .gitignore.tmp.XXXXXX); \
+	printf '%s\n' $(addprefix /,$(sort $(notdir $(CP_SRCS) $(LINK_SRCS)))) > "$$tmp" \
+		&& mv "$$tmp" .gitignore \
+		|| { rc=$$?; rm -f "$$tmp"; exit $$rc; }
+	@touch $@
+# CP / LINK 対象ファイルの配置は .gitignore_stamp の完了後に行う (order-only)。
+# Place imported files only after .gitignore_stamp is up to date (order-only prerequisite).
+$(notdir $(CP_SRCS) $(LINK_SRCS)): | $(OBJDIR)/.gitignore_stamp
 endif
 
 ifndef NO_LINK
@@ -462,14 +474,9 @@ $(eval $(call compile_rule_template,cpp,CXX,CXXFLAGS))
 
 # シンボリックリンク対象のソースファイルをシンボリックリンク
 # Create symbolic links for LINK_SRCS
-# .gitignore への追記のみ行い、ソート/重複排除は行わない (プロセス生成削減)
-# Only append to .gitignore, skip sort/uniq per file (reduce process creation)
 define generate_link_src_rule
 $(1):
 	ln -s $(2) $(1)
-#	.gitignore に対象ファイルを追加
-#	Add the file to .gitignore
-	@grep -qxF '/$(1)' .gitignore 2>/dev/null || echo /$(1) >> .gitignore
 endef
 
 # ファイルごとの依存関係を動的に定義
@@ -512,9 +519,6 @@ $(1): $(2) $(wildcard $(1).filter.sh) $(wildcard $(basename $(1)).inject$(suffix
 		echo "echo \"#endif // _IN_TEST_SRC\" >> $(1)"; \
 		echo "#endif // _IN_TEST_SRC" >> $(1); \
 	fi
-#	.gitignore に対象ファイルを追加 (追記のみ、ソート/重複排除は行わない - プロセス生成削減)
-#	Add the file to .gitignore (append only, skip sort/uniq per file - reduce process creation)
-	@grep -qxF '/$(1)' .gitignore 2>/dev/null || echo /$(1) >> .gitignore
 endef
 
 # ファイルごとの依存関係を動的に定義
