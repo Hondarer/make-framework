@@ -223,7 +223,11 @@ collect_expected() {
     local -a items=()
 
     for app in "${APPS[@]}"; do
-        raw=$(eval_makepart_var "$app" "$platform" "$var_name")
+        if ! raw=$(eval_makepart_var "$app" "$platform" "$var_name"); then
+            printf 'Error: eval_makepart_var failed for app "%s" (platform: %s, var: %s)\n' \
+                "$app" "$platform" "$var_name" >&2
+            return 1
+        fi
         for item in $raw; do
             if [[ "$var_name" == "INCDIR" ]]; then
                 normalized=$(normalize_path "$item")
