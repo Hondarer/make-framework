@@ -583,7 +583,21 @@ $(OBJDIR):
 # Convert absolute paths under $(CURDIR) to relative paths (for readable make output)
 _relpath = $(patsubst $(CURDIR)/%,%,$(1))
 
-CLEAN_COMMON := $(strip $(OBJDIR) $(notdir $(CP_SRCS) $(LINK_SRCS)))
+# clean 時に .gitignore へ反映する対象:
+# TEST_SRCS/ADD_SRCS のうち、カレントディレクトリ外のソース
+MAKEFW_CLEAN_GITIGNORE_SRCS := $(strip $(sort $(shell \
+	cur=$$(cd "$(CURDIR)" 2>/dev/null && pwd); \
+	for src in $(TEST_SRCS) $(ADD_SRCS); do \
+		src_dir=$$(dirname "$$src"); \
+		abs_dir=$$(cd "$$src_dir" 2>/dev/null && pwd); \
+		if [ -n "$$abs_dir" ] && [ "$$abs_dir" != "$$cur" ]; then \
+			basename "$$src"; \
+		fi; \
+	done)))
+
+MAKEFW_CLEAN_IMPORTED_SRCS := $(strip $(sort $(notdir $(CP_SRCS) $(LINK_SRCS)) $(MAKEFW_CLEAN_GITIGNORE_SRCS)))
+
+CLEAN_COMMON := $(strip $(OBJDIR) $(MAKEFW_CLEAN_IMPORTED_SRCS))
 ifndef NO_LINK
     CLEAN_COMMON += $(call _relpath,$(OUTPUT_DIR)/$(TARGET))
     CLEAN_COMMON += $(call _relpath,$(OUTPUT_DIR)/$(TARGET).warn)
@@ -607,7 +621,7 @@ ifndef NO_LINK
         endif
     endif
 endif
-ifeq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
+ifeq ($(strip $(MAKEFW_CLEAN_GITIGNORE_SRCS)),)
     CLEAN_COMMON += .gitignore
 endif
 
@@ -619,10 +633,11 @@ clean: _pre_clean_hook _clean_main _post_clean_hook
 _clean_main:
     # .gitignore の再生成 (コミット差分が出ないように)
     # Regenerate .gitignore (avoid commit diffs)
-    # mktemp の2回呼び出しと for ループを printf + sort -u に簡略化 (プロセス生成削減)
-    # Simplify 2x mktemp + for-loop to printf + sort -u (reduce process creation)
-    ifneq ($(strip $(notdir $(CP_SRCS) $(LINK_SRCS))),)
-		@printf '%s\n' $(addprefix /,$(notdir $(CP_SRCS) $(LINK_SRCS))) | sort -u > .gitignore
+    # 一意な一時ファイルを使って .gitignore を置換する
+    # Replace .gitignore through a unique temporary file
+    ifneq ($(strip $(MAKEFW_CLEAN_GITIGNORE_SRCS)),)
+		@tmp=$$(mktemp .gitignore.tmp.XXXXXX); \
+		printf '%s\n' $(addprefix /,$(MAKEFW_CLEAN_GITIGNORE_SRCS)) | sort -u > "$$tmp" && mv "$$tmp" .gitignore || { rc=$$?; rm -f "$$tmp"; exit $$rc; }
     endif
 	-rm -rf $(strip $(CLEAN_COMMON) $(CLEAN_OS)) *.warn
     # 空ディレクトリを削除する。obj は全 CRT サブディレクトリを含めて削除する
