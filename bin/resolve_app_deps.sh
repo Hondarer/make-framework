@@ -369,9 +369,10 @@ collect_signature_files() {
                             continued = ($0 ~ /\\$/)
                             gsub(/\\$/, "")
                             for (i = 1; i <= NF; i++) {
-                                if ($i ~ /^\$\(MYAPP_DIR\)/ || $i ~ /^\$\(WORKSPACE_DIR\)/) {
+                                if ($i ~ /^\$\(MYAPP_DIR\)/ || $i ~ /^\$\(APP_DIR\)/ || $i ~ /^\$\(WORKSPACE_DIR\)/) {
                                     value = $i
                                     gsub(/\$\(MYAPP_DIR\)/, "'"$app_path"'", value)
+                                    gsub(/\$\(APP_DIR\)/, "'"$APP_ROOT_DIR"'", value)
                                     gsub(/\$\(WORKSPACE_DIR\)/, "'"$WORKSPACE_DIR"'", value)
                                     print value
                                 }

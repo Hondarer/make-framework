@@ -302,17 +302,19 @@ export MAKEFW_REQUEST_ROOT
 # デフォルト設定 END ################################################################
 
 # MYAPP_DIR: app/<appname> のルート絶対パス
+# APP_DIR: app/ のルート絶対パス
 # Define MYAPP_DIR: absolute path to the app/<appname> root directory
-# makepart.mk / makechild.mk / makelocal.mk から $(MYAPP_DIR) で自 app 内を参照可能にする
-# Allows makepart.mk / makechild.mk / makelocal.mk to reference within the app via $(MYAPP_DIR)
+# Define APP_DIR: absolute path to the app/ root directory
+# makepart.mk / makechild.mk / makelocal.mk から $(MYAPP_DIR) / $(APP_DIR) で app 内を参照可能にする
+# Allows makepart.mk / makechild.mk / makelocal.mk to reference apps via $(MYAPP_DIR) / $(APP_DIR)
 #
 # 有効条件: CURDIR が $(WORKSPACE_DIR)/app/<appname>/... 配下であること
 # Valid when: CURDIR is under $(WORKSPACE_DIR)/app/<appname>/...
 # 無効条件: ワークスペースルート、$(WORKSPACE_DIR)/app 直下、app 外ディレクトリ
 # Invalid at: workspace root, directly under $(WORKSPACE_DIR)/app, or outside app/
 #
-# cross-app 参照は $(MYAPP_DIR)/../otherapp/... を使用する
-# Cross-app references use $(MYAPP_DIR)/../otherapp/...
+# cross-app 参照は $(APP_DIR)/otherapp/... を使用する
+# Cross-app references use $(APP_DIR)/otherapp/...
 # 内部で realpath -m により正規化され、.. は除去される
 # Internally normalized via realpath -m to remove ..
 #
@@ -329,6 +331,8 @@ ifeq ($(origin MYAPP_DIR),environment)
     ifneq ($(findstring $(MYAPP_DIR)/,$(CURDIR)/),)
         # CURDIR は継承された MYAPP_DIR 配下 — キャッシュヒット、再計算不要
         # CURDIR is under inherited MYAPP_DIR — cache hit, skip re-evaluation
+        APP_DIR := $(WORKSPACE_DIR)/app
+        export APP_DIR
         _MYAPP_NEEDS_EVAL :=
         _MYAPP_IS_VALID := 1
     endif
@@ -359,17 +363,21 @@ ifneq ($(_MYAPP_STARTS_WITH_APP),)
     _MYAPP_SEGMENTS := $(words $(subst /, ,$(_MYAPP_AFTER_APP)))
 
     ifneq ($(_MYAPP_APPNAME),)
+        APP_DIR := $(WORKSPACE_DIR)/app
+        export APP_DIR
         MYAPP_DIR := $(WORKSPACE_DIR)/app/$(_MYAPP_APPNAME)
         export MYAPP_DIR
         _MYAPP_IS_VALID := 1
     else
         # app/ 直下 (appname が空)
         # Directly under app/ (appname is empty)
+        APP_DIR = $(error APP_DIR is not available at $(CURDIR). It is only valid under app/<appname>/ directories)
         MYAPP_DIR = $(error MYAPP_DIR is not available at $(CURDIR). It is only valid under app/<appname>/ directories)
     endif
 else
     # app/ 配下でない (ワークスペースルート、framework/ 等)
     # Not under app/ (workspace root, framework/, etc.)
+    APP_DIR = $(error APP_DIR is not available at $(CURDIR). It is only valid under app/<appname>/ directories)
     MYAPP_DIR = $(error MYAPP_DIR is not available at $(CURDIR). It is only valid under app/<appname>/ directories)
 endif
 

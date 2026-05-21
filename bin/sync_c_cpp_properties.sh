@@ -164,6 +164,7 @@ eval_makepart_var() {
     {
         cat <<EOF
 WORKSPACE_DIR := $WORKSPACE_DIR
+APP_DIR := $APP_DIR
 MYAPP_DIR := $APP_DIR/$app
 TESTFW_DIR := $TESTFW_DIR
 PLATFORM := $make_platform

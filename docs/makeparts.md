@@ -343,27 +343,30 @@ SUBDIRS := \
 `prod/test` 配下の中間階層走査 makefile では、`SUBDIRS` を `makelocal.mk` に置くことで
 継承なしで順序だけを制御できます。
 
-## MYAPP_DIR
+## MYAPP_DIR / APP_DIR
 
 ### 概要
 
 `MYAPP_DIR` は、ビルド対象の app のルートディレクトリを指す変数です。  
 `app/{appname}/` 配下の `makepart.mk` / `makechild.mk` / `makelocal.mk` で使用でき、`$(WORKSPACE_DIR)/app/{appname}/...` の代わりに `$(MYAPP_DIR)/...` と記述できます。
 
+`APP_DIR` は、`app/` のルートディレクトリを指す変数です。  
+同じ有効範囲で使用でき、他 app への参照を `$(APP_DIR)/{otherapp}/...` と記述できます。
+
 これにより、app 内の設定を「app 単位」で記述でき、将来 app 単位でサブモジュール化した場合も app 内の記述を変更せずに済みます。
 
 ### 有効範囲
 
-| 場所 | MYAPP_DIR | 説明 |
-|------|:---:|------|
-| `app/calc/makepart.mk` | ✓ | `/path/to/workspace/app/calc` |
-| `app/calc/prod/libsrc/calcbase/makepart.mk` | ✓ | `/path/to/workspace/app/calc` |
-| `app/com_util/test/src/.../makepart.mk` | ✓ | `/path/to/workspace/app/com_util` |
-| `app/makepart.mk` | ✗ | app/ 直下 — `$(WORKSPACE_DIR)` を使用 |
-| `makepart.mk` (ルート) | ✗ | ルート — `$(WORKSPACE_DIR)` を使用 |
-| `framework/` 配下 | ✗ | フレームワーク — 対象外 |
+| 場所 | MYAPP_DIR | APP_DIR | 説明 |
+|------|:---:|:---:|------|
+| `app/calc/makepart.mk` | ✓ | ✓ | `MYAPP_DIR=/path/to/workspace/app/calc`, `APP_DIR=/path/to/workspace/app` |
+| `app/calc/prod/libsrc/calcbase/makepart.mk` | ✓ | ✓ | `MYAPP_DIR=/path/to/workspace/app/calc`, `APP_DIR=/path/to/workspace/app` |
+| `app/com_util/test/src/.../makepart.mk` | ✓ | ✓ | `MYAPP_DIR=/path/to/workspace/app/com_util`, `APP_DIR=/path/to/workspace/app` |
+| `app/makepart.mk` | ✗ | ✗ | app/ 直下 — `$(WORKSPACE_DIR)` を使用 |
+| `makepart.mk` (ルート) | ✗ | ✗ | ルート — `$(WORKSPACE_DIR)` を使用 |
+| `framework/` 配下 | ✗ | ✗ | フレームワーク — 対象外 |
 
-無効範囲で `$(MYAPP_DIR)` を参照すると、Make の `$(error ...)` により明示的なエラーが発生します。
+無効範囲で `$(MYAPP_DIR)` または `$(APP_DIR)` を参照すると、Make の `$(error ...)` により明示的なエラーが発生します。
 
 ### 記述ルール
 
@@ -379,22 +382,22 @@ OUTPUT_DIR := $(MYAPP_DIR)/prod/bin
 
 ```makefile
 # app/calc/makepart.mk
-INCDIR += $(MYAPP_DIR)/../com_util/prod/include
+INCDIR += $(APP_DIR)/com_util/prod/include
 ```
 
-`$(MYAPP_DIR)/../com_util/...` の `..` は、ビルド時に `realpath -m` で正規化され、コンパイラには `..` を含まない絶対パスが渡されます。
+既存の `$(MYAPP_DIR)/../com_util/...` もビルド時に `realpath -m` で正規化されますが、新規記述では `$(APP_DIR)/com_util/...` を使用します。
 
 #### repo 全体の参照
 
 ```makefile
 # app/makepart.mk (app/ 直下)
-# MYAPP_DIR は無効なため、WORKSPACE_DIR を使用
+# MYAPP_DIR / APP_DIR は無効なため、WORKSPACE_DIR を使用
 INCDIR += $(WORKSPACE_DIR)/framework/testfw/include
 ```
 
 ### 内部動作
 
-1. `prepare.mk` が `CURDIR` から `app/<appname>` を抽出し、`MYAPP_DIR` に絶対パスを設定
+1. `prepare.mk` が `CURDIR` から `app/<appname>` を抽出し、`APP_DIR` と `MYAPP_DIR` に絶対パスを設定
 2. `makepart.mk` / `makechild.mk` / `makelocal.mk` の読み込み後、パス系変数 (`INCDIR`, `LIBSDIR`, `OUTPUT_DIR`, `TEST_SRCS`, `ADD_SRCS`) を一括正規化
 3. 正規化は `realpath -m` (Linux) / `realpath -m` + `cygpath -m` (Windows) で実行
 4. コンパイラに渡されるパスは常に `..` を含まない絶対パス
