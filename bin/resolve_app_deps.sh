@@ -286,7 +286,7 @@ is_excluded_signature_path() {
         */bin/*|bin/*|*/lib/*|lib/*|*/obj/*|obj/*|*/gcov/*|gcov/*|*/lcov/*|lcov/*|*/coverage/*|coverage/*|*/results/*|results/*|*/docs/doxybook2*|docs/doxybook2*|*/xml/*|xml/*|*/xml_org/*|xml_org/*)
             return 0
             ;;
-        *.warn|make_build.log|make_test.log|make_doxy.log|coverage.xml)
+        *.warn|make_build.stamp|make_test.stamp|make_doxy.stamp|coverage.xml)
             return 0
             ;;
     esac
