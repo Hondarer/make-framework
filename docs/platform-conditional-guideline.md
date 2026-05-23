@@ -1,4 +1,4 @@
-# makefile の PLATFORM_* コーディングガイドライン
+# makefile の PLATFORM_* 条件分岐ガイドライン
 
 ## 概要
 
