@@ -1,4 +1,4 @@
-# makefile の `PLATFORM_*` コーディングガイドライン
+# makefile の PLATFORM_* コーディングガイドライン
 
 ## 概要
 
@@ -11,7 +11,7 @@ makefile における OS 判定は、`framework/makefw/makefiles/prepare.mk` が
 
 ## 基本ルール
 
-### OS 判定は `PLATFORM_*` を使う
+### OS 判定は PLATFORM_* を使う
 
 - Linux 判定: `PLATFORM_LINUX`
 - Windows 判定: `PLATFORM_WINDOWS`
@@ -30,7 +30,7 @@ else ifdef PLATFORM_WINDOWS
 endif
 ```
 
-### OS 意味の `else` を使わない
+### OS 意味の else を使わない
 
 Linux/Windows 二択でも、Windows 側を単なる `else` にしません。  
 必ず `else ifdef PLATFORM_WINDOWS` と明示します。

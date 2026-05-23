@@ -16,7 +16,7 @@ UTF-8 ソースファイルをビルドして UTF-8 の文字列リテラルを 
 
 ## 2 つの対処方法
 
-### 方法 A: `SetConsoleOutputCP(CP_UTF8)` (従来の方法)
+### 方法 A: SetConsoleOutputCP(CP_UTF8) (従来の方法)
 
 ```{.c caption="main 直後でコンソール出力 CP を変更する例"}
 #include <stdio.h>
@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
 
 コンソール表示は改善されますが、`argv` に日本語が含まれる場合は依然として CP932 で届くため、UTF-8 として処理すると文字化けが発生します。
 
-### 方法 B: アプリケーションマニフェスト `activeCodePage=UTF-8` (推奨)
+### 方法 B: アプリケーションマニフェスト activeCodePage=UTF-8 (推奨)
 
 Windows 10 1903 以降、アプリケーションマニフェストに `activeCodePage=UTF-8` を指定することでプロセス全体の ACP を UTF-8 に設定できます。
 
@@ -81,7 +81,7 @@ Windows 10 1903 以降、アプリケーションマニフェストに `activeCo
 | 対応 Windows バージョン | Windows 全般 | Windows 10 1903 以降 |
 | 実装箇所 | ソースコード (`main` 冒頭) | ビルド設定 (マニフェスト埋め込み) |
 
-## `SetConsoleOutputCP` はマニフェスト設定後も必要か
+## SetConsoleOutputCP はマニフェスト設定後も必要か
 
 **技術的には不要になります**。`activeCodePage=UTF-8` はコンソール出力 CP も自動で 65001 に設定するため、`SetConsoleOutputCP(CP_UTF8)` は重複した処理になります。
 
