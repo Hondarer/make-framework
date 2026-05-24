@@ -378,45 +378,45 @@ ifndef NO_LINK
     # Build the executable
     ifdef PLATFORM_LINUX
 $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
-			@$(_MAKEFW_OBJLIST_LINUX); \
-			if [ "$$rebuild" = 0 ]; then \
-				for dep in $(LIBSFILES); do \
-					if [ "$$dep" -nt "$@" ]; then rebuild=1; break; fi; \
-				done; \
-			fi; \
-			if [ "$$rebuild" = 1 ]; then \
-				all_objs=$$(tr '\n' ' ' < "$$objs_file" | xargs); \
-				printf '%s\n' "$(strip $(LD) $(LDFLAGS) -o $(call _relpath,$@) $$all_objs $(LIBS))"; \
-				set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $$all_objs $(LIBS) -fdiagnostics-color=always 2>&1 | $(ICONV) | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
-				_rc=$$?; \
-			else \
-				_rc=0; \
-			fi; \
-			if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
-			exit $$_rc
+				@$(_MAKEFW_OBJLIST_LINUX); \
+				if [ "$$rebuild" = 0 ]; then \
+					for dep in $(LIBSFILES); do \
+						if [ "$$dep" -nt "$@" ]; then rebuild=1; break; fi; \
+					done; \
+				fi; \
+				if [ "$$rebuild" = 1 ]; then \
+					all_objs=$$(tr '\n' ' ' < "$$objs_file" | xargs); \
+					printf '%s\n' "$(strip $(LD) $(LDFLAGS) -o $(call _relpath,$@) $$all_objs $(LIBS))"; \
+					set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $$all_objs $(LIBS) -fdiagnostics-color=always 2>&1 | $(ICONV) | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
+					_rc=$$?; \
+				else \
+					_rc=0; \
+				fi; \
+				if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
+				exit $$_rc
     else ifdef PLATFORM_WINDOWS
         ifeq ($(GROUP_COMPILE),1)
 $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_GROUP_COMPILE) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
         else
 $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
         endif
-			@$(_MAKEFW_OBJLIST_WINDOWS); \
-			if [ "$$rebuild" = 0 ]; then \
-				for dep in $(LIBSFILES); do \
-					if [ "$$dep" -nt "$@" ]; then rebuild=1; break; fi; \
-				done; \
-			fi; \
-			if [ "$$rebuild" = 1 ]; then \
-				rsp_file="$(OBJDIR)/link_$$.rsp"; \
-				cp "$$objs_file" "$$rsp_file"; \
-				echo "$(strip $(basename $(notdir $(LD))) $(LDFLAGS) /PDB:$(call _relpath,$(patsubst %.exe,%.pdb,$@)) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(LIBS))" | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_format_cmd.ps1; \
-				set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ @$$rsp_file $(LIBS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_link_filter.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
-				_rc=$$?; \
-			else \
-				_rc=0; \
-			fi; \
-			if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
-			exit $$_rc
+				@$(_MAKEFW_OBJLIST_WINDOWS); \
+				if [ "$$rebuild" = 0 ]; then \
+					for dep in $(LIBSFILES); do \
+						if [ "$$dep" -nt "$@" ]; then rebuild=1; break; fi; \
+					done; \
+				fi; \
+				if [ "$$rebuild" = 1 ]; then \
+					rsp_file="$(OBJDIR)/link_$$.rsp"; \
+					cp "$$objs_file" "$$rsp_file"; \
+					echo "$(strip $(basename $(notdir $(LD))) $(LDFLAGS) /PDB:$(call _relpath,$(patsubst %.exe,%.pdb,$@)) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(LIBS))" | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_format_cmd.ps1; \
+					set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ @$$rsp_file $(LIBS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_link_filter.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
+					_rc=$$?; \
+				else \
+					_rc=0; \
+				fi; \
+				if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
+				exit $$_rc
     endif
 else
 # コンパイルのみ
@@ -595,28 +595,28 @@ ifeq ($(call should_skip,$(SKIP_TEST)),true)
     ifeq ($(call should_skip,$(SKIP_BUILD)),true)
         # test もビルドもスキップ
 _test_impl:
-			@echo "Build & Test skipped (SKIP_BUILD=$(SKIP_BUILD), SKIP_TEST=$(SKIP_TEST))"
+				@echo "Build & Test skipped (SKIP_BUILD=$(SKIP_BUILD), SKIP_TEST=$(SKIP_TEST))"
 _test_main:
-			@:
+				@:
     else
         # test はスキップするがビルドはする
 _test_impl: _pre_test_hook _test_main _post_test_hook
         ifndef NO_LINK
 _test_main: $(OUTPUT_DIR)/$(TARGET)
-				@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
+					@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
         else
             # コンパイルのみ
 _test_main: $(OBJS)
-				@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
+					@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
         endif
     endif
 else
     ifeq ($(call should_skip,$(SKIP_BUILD)),true)
         # そもそもビルドがスキップ
 _test_impl:
-			@echo "Test skipped because it is not included in the build (SKIP_BUILD=$(SKIP_BUILD))"
+				@echo "Test skipped because it is not included in the build (SKIP_BUILD=$(SKIP_BUILD))"
 _test_main:
-			@:
+				@:
     else
         # スキップしない
 _test_impl: _pre_test_hook _test_main _post_test_hook
@@ -624,16 +624,20 @@ _test_impl: _pre_test_hook _test_main _post_test_hook
             # テストの実行
             # Run tests
 _test_main: $(TESTSH) $(OUTPUT_DIR)/$(TARGET)
-				@if [ -z "$(TESTSH)" ]; then \
-					echo "$(TESTFW_HOME_ERROR)"; \
-					exit 1; \
-				fi; \
-				status=0; \
-				export TEST_SRCS="$(TEST_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(ICONV)) 2> >($(ICONV) >&2) || status=$$?; \
-				exit $$status
+					@if [ -z "$(TESTSH)" ]; then \
+						echo "$(TESTFW_HOME_ERROR)"; \
+						exit 1; \
+					fi; \
+					status=0; \
+					export TEST_SRCS="$(TEST_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(ICONV)) 2> >($(ICONV) >&2) || status=$$?; \
+					exit $$status
         else
             # コンパイルのみ
 _test_main: $(OBJS)
         endif
     endif
+endif
+
+ifeq ($(IDENT_ENABLED),1)
+include $(MAKEFW_HOME)/makefiles/_ident.mk
 endif

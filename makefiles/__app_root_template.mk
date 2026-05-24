@@ -154,6 +154,16 @@ with-cov: __ensure-coverity
 				fi; \
 			fi; \
 		done; \
+		if [ $$make_exit -eq 0 ] && [ "$(IDENT)" = "1" ]; then \
+			_idir="$(WORKSPACE_DIR)/app/idir"; \
+			if [ -d "$$_idir" ]; then \
+				echo "IDENT=1: removing _ident_manifest.c emit from Coverity idir"; \
+				"$(COVERITY_HOME)/bin/cov-manage-emit" \
+					--dir "$$_idir" \
+					--tu-pattern "file('*_ident_manifest.c')" \
+					delete; \
+			fi; \
+		fi; \
 		if [ $$make_exit -eq 0 ] && [ $$signature_available -eq 1 ] && [ "$$current_clean" = "1" ]; then \
 			cp "$$sig_file" "$(BUILD_STAMP)"; \
 		fi; \

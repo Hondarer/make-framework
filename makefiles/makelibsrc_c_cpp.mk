@@ -324,24 +324,24 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_GROUP_COMPILE
             else
 $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
             endif
-			@$(_MAKEFW_OBJLIST_WINDOWS); \
-			if [ "$$rebuild" = 0 ]; then \
-				for dep in $(STATIC_LIBS); do \
-					if [ "$$dep" -nt "$@" ]; then rebuild=1; break; fi; \
-				done; \
-			fi; \
-			if [ "$$rebuild" = 1 ] || $(_DLL_SIDE_CHECK); then \
-				rsp_file="$(OBJDIR)/link_$$.rsp"; \
-				cp "$$objs_file" "$$rsp_file"; \
-				echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))" | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_format_cmd.ps1; \
-				set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ @$$rsp_file $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_link_filter.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
-				_rc=$$?; \
-			else \
-				_rc=0; \
-			fi; \
-			if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
-			exit $$_rc
-			@if [ -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" ]; then mv "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" "$(OBJDIR)/"; fi
+				@$(_MAKEFW_OBJLIST_WINDOWS); \
+				if [ "$$rebuild" = 0 ]; then \
+					for dep in $(STATIC_LIBS); do \
+						if [ "$$dep" -nt "$@" ]; then rebuild=1; break; fi; \
+					done; \
+				fi; \
+				if [ "$$rebuild" = 1 ] || $(_DLL_SIDE_CHECK); then \
+					rsp_file="$(OBJDIR)/link_$$.rsp"; \
+					cp "$$objs_file" "$$rsp_file"; \
+					echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))" | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_format_cmd.ps1; \
+					set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ @$$rsp_file $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_link_filter.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
+					_rc=$$?; \
+				else \
+					_rc=0; \
+				fi; \
+				if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
+				exit $$_rc
+				@if [ -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" ]; then mv "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" "$(OBJDIR)/"; fi
         endif
     else ifeq ($(LIB_TYPE),both)
         ifdef PLATFORM_LINUX
@@ -425,7 +425,7 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(OUTPUT_DIR)/$(TARGET_STATIC) 
 				fi; \
 				if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
 				exit $$_rc
-			@if [ -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" ]; then mv "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" "$(OBJDIR)/"; fi
+				@if [ -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" ]; then mv "$(OUTPUT_DIR)/$(patsubst %.dll,%.exp,$(TARGET))" "$(OBJDIR)/"; fi
         endif
     else
         ifdef PLATFORM_LINUX
@@ -660,28 +660,28 @@ ifeq ($(call should_skip,$(SKIP_TEST)),true)
     ifeq ($(call should_skip,$(SKIP_BUILD)),true)
         # test もビルドもスキップ
 test:
-			@echo "Build & Test skipped (SKIP_BUILD=$(SKIP_BUILD), SKIP_TEST=$(SKIP_TEST))"
+				@echo "Build & Test skipped (SKIP_BUILD=$(SKIP_BUILD), SKIP_TEST=$(SKIP_TEST))"
 _test_main:
-			@:
+				@:
     else
         # test はスキップするがビルドはする
 test: _pre_test_hook _test_main _post_test_hook
         ifndef NO_LINK
 _test_main: $(OUTPUT_DIR)/$(TARGET)
-				@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
+					@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
         else
             # コンパイルのみ
 _test_main: $(OBJS)
-				@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
+					@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
         endif
     endif
 else
     ifeq ($(call should_skip,$(SKIP_BUILD)),true)
         # そもそもビルドがスキップ
 test:
-			@echo "Test skipped because it is not included in the build (SKIP_BUILD=$(SKIP_BUILD))"
+				@echo "Test skipped because it is not included in the build (SKIP_BUILD=$(SKIP_BUILD))"
 _test_main:
-			@:
+				@:
     else
         # スキップしない
 test: _pre_test_hook _test_main _post_test_hook
@@ -692,4 +692,8 @@ _test_main: $(OUTPUT_DIR)/$(TARGET)
 _test_main: $(OBJS)
         endif
     endif
+endif
+
+ifeq ($(IDENT_ENABLED),1)
+include $(MAKEFW_HOME)/makefiles/_ident.mk
 endif

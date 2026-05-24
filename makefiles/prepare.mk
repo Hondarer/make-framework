@@ -567,3 +567,14 @@ define _def_var_from_defines
 $(firstword $(subst =, ,$(1))) := $(if $(findstring =,$(1)),$(subst ',$(empty),$(subst ",,$(patsubst $(firstword $(subst =, ,$(1)))=%,%,$(1)))),1)
 endef
 $(foreach _d,$(DEFINES),$(eval $(call _def_var_from_defines,$(_d))))
+
+# IDENT: ソーストレーサビリティ (opt-in: make IDENT=1)
+# Source traceability feature (opt-in: make IDENT=1)
+# /prod/ パスのみ有効。/test/ パスは自然除外される。
+# Enabled only for /prod/ paths. /test/ paths are excluded automatically.
+ifeq ($(strip $(IDENT)),1)
+    ifneq (,$(findstring /prod/,$(CURDIR)))
+        IDENT_ENABLED := 1
+    endif
+endif
+export IDENT_ENABLED
