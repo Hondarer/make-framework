@@ -2,7 +2,7 @@
 
 ## 概要
 
-`with-cov` は通常の `make` と同じ成果物を生成しつつ、解析対象 app の `prod` だけを `cov-build` 経由で実行する入口です。  
+`with-cov` は通常の `make` と同じ成果物を生成しつつ、解析対象 app の `prod` だけを `cov-build` 経由で実行する仕組みです。  
 解析結果はワークスペース共通の `app/idir` に蓄積されます。
 
 ## Coverity を make にあわせて収集する方法
