@@ -19,7 +19,7 @@ TESTFW_BANNER = $(TESTFW_HOME)/bin/banner.sh
 APPDEPS_RESOLVER = $(MAKEFW_HOME)/bin/resolve_app_deps.sh
 DOXY_SIGNATURE_GENERATOR = $(MAKEFW_HOME)/bin/doxy_signature.py
 COVERITY_MAKE_WRAPPER = $(MAKEFW_HOME)/bin/cov-build-app.sh
-COVERITY_CONFIG = $(CURDIR)/coverity.mk
+COVERITY_CONFIG = $(CURDIR)/prod/coverity.mk
 DOXY_WARN_FILE = $(CURDIR)/doxy.warn
 BUILD_STAMP = $(CURDIR)/make_build.stamp
 TEST_STAMP = $(CURDIR)/make_test.stamp
@@ -66,7 +66,7 @@ __ensure-coverity:
 		exit 1; \
 	fi
 	@if [ ! -f "$(COVERITY_CONFIG)" ]; then \
-		echo "ERROR: coverity.mk is required for $(CURDIR)/with-cov." >&2; \
+		echo "ERROR: prod/coverity.mk is required for $(CURDIR)/with-cov." >&2; \
 		exit 1; \
 	fi
 	@if [ "$(COVERITY_TOOLCHAIN)" != "c_cpp" ] && [ "$(COVERITY_TOOLCHAIN)" != "dotnet" ]; then \

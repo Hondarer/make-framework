@@ -7,9 +7,9 @@
 
 ## Coverity を make にあわせて収集する方法
 
-### app/\<appname\>/coverity.mk の設定
+### app/\<appname\>/prod/coverity.mk の設定
 
-解析対象 app は `coverity.mk` を app/\<appname\> 直下に置きます。
+解析対象 app は `coverity.mk` を app/\<appname\>/prod 配下に置きます。
 
 ```make
 COVERITY_TOOLCHAIN := c_cpp
@@ -21,13 +21,13 @@ COVERITY_TOOLCHAIN := c_cpp
 COVERITY_TOOLCHAIN := dotnet
 ```
 
-- `coverity.mk` がある app だけを解析対象と認識します
-- `make -C app/<appname> with-cov` では `coverity.mk` が必須です
+- `coverity.mk` がある app だけを解析対象と認識します (`app/<appname>/prod/coverity.mk` を参照)
+- `make -C app/<appname> with-cov` では `prod/coverity.mk` が必須です
 - `COVERITY_TOOLCHAIN` は `c_cpp` または `dotnet` 以外を許可しません
 
 ### COVERITY_HOME の設定
 
-Coverity のインストールディレクトリを事前に設定します。
+Coverity のインストール ディレクトリを事前に設定します。
 
 ```bash
 export COVERITY_HOME=/opt/coverity
@@ -45,7 +45,7 @@ export COVERITY_HOME=/opt/coverity
 次の 3 か所で `with-cov` を実行できます。
 
 > [!TIP]
-> 通常はプロジェクトルートで `make with-cov` を行います。
+> 通常はプロジェクト ルートで `make with-cov` を行います。
 
 > [!IMPORTANT]
 > 本フレームワークでは `cov-build` が必要な場合に、`make` 内部で自動的に `cov-build` を経由します。
@@ -64,7 +64,7 @@ make -C app/<appname> with-cov または cd app/<appname> && make with-cov && cd
   - `skills` も通常の `make` と同様に実行
 - `make -C app with-cov`
   - app の依存順は通常の `make -C app` と同じ
-  - `coverity.mk` がある app だけ `with-cov` を呼ぶ
+  - `prod/coverity.mk` がある app だけ `with-cov` を呼ぶ
   - それ以外の app は通常ビルド
 - `make -C app/<appname> with-cov`
   - `prod` は Coverity 経由
