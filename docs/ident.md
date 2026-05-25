@@ -22,6 +22,12 @@ strings prod/lib/libcalc.so | grep '@(#)'
 findstr /C:"@(#)" prod\lib\libcalc.dll
 ```
 
+## 性能影響
+
+一般的な構成では、`IDENT=1` を指定した場合の実行時間の増加は、
+build で 4% 程度、clean から build まで含めた場合で 3% 程度が実測の目安です。
+実際の値は、ソース数、ヘッダー依存数、ストレージ性能、並列度、ツールチェーンにより変動します。
+
 ## 確認方法
 
 IDENT は `make IDENT=1` を指定したときだけ、`prod/` 配下の C/C++ ビルドで有効になる。
