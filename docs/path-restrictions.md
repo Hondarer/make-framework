@@ -35,7 +35,7 @@ C:/Users/tetsuo/repos/c-modernization-kit/
 `prepare.mk` では `$(shell)` を使用してパスを取得しています。
 
 - `$(shell)` が呼び出す bash(Git for Windows) は UTF-8 でパスを返す
-- GNU Make(Windows ネイティブ版) は `$(shell)` の出力をシステムコードページ (CP932) として解釈する
+- GNU Make (Windows ネイティブ版) は `$(shell)` の出力をシステム コード ページ (CP932) として解釈する
 - UTF-8 の日本語バイト列が CP932 として誤解釈され、文字化け (mojibake) が生じる
 - 文字化けの結果にスペースが混入することがあり、`include` がパスを誤って分割する
 

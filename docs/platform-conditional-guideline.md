@@ -115,7 +115,7 @@ ifdef PLATFORM_WINDOWS
 endif
 ```
 
-### 関数形式でのサブディレクトリフィルタ
+### 関数形式でのサブディレクトリ フィルター
 
 ```makefile
 define _os_filter_subdir

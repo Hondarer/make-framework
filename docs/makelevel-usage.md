@@ -33,7 +33,7 @@ local-build:
     @echo "ローカルビルド処理"
 ```
 
-この例では、サブディレクトリの make が完了し、ローカルビルドも終わった後で、トップレベルの場合のみ完了メッセージを表示します。
+この例では、サブディレクトリの make が完了し、ローカル ビルドも終わった後で、トップレベルの場合のみ完了メッセージを表示します。
 
 ## 各階層で処理を実行する
 
@@ -55,9 +55,9 @@ local-build:
     @echo "[MAKELEVEL=$(MAKELEVEL)] ローカルビルド実行中"
 ```
 
-## 実用例: ビルド完了時のサマリ表示
+## 実用例: ビルド完了時のサマリー表示
 
-トップレベルでのみビルド結果のサマリを表示する実用的な例です。
+トップレベルでのみビルド結果のサマリーを表示する実用的な例です。
 
 ```{.makefile caption="ビルド完了サマリの表示"}
 .PHONY: all
@@ -102,7 +102,7 @@ run-tests:
 
 ## 関連リンク
 
-- GNU make manual - Variables/Recursion
+- GNU make manual - Variables/Recursion  
   [https://www.gnu.org/software/make/manual/html_node/Variables_002fRecursion.html](https://www.gnu.org/software/make/manual/html_node/Variables_002fRecursion.html)
-- GNU make manual - Recursion
+- GNU make manual - Recursion  
   [https://www.gnu.org/software/make/manual/html_node/Recursion.html](https://www.gnu.org/software/make/manual/html_node/Recursion.html)

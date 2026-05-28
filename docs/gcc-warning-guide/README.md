@@ -2,15 +2,15 @@
 
 ## 目的
 
-本ガイドは、GCC の警告を品質ゲートとして活用し、
-EL8 (GCC 8) と EL10 (GCC 14) の両環境でビルドを破綻させずに
+本ガイドは、GCC の警告を品質ゲートとして活用し、  
+EL8 (GCC 8) と EL10 (GCC 14) の両環境でビルドを破綻させずに  
 ロバストな C / C++ プログラミングを行うことを目的としています。
 
 特に以下を重視しています。
 
 - 移植時に顕在化しやすい未定義動作や API 設計ミスの早期検出
 - コンパイラ世代差 (GCC 8 ↔ GCC 14) による警告増減への耐性
-- メモリレイアウトをそのままファイル I/O に用いる要件への対応
+- メモリ レイアウトをそのままファイル I/O に用いる要件への対応  
   (暗黙パディング検出は必須です)
 
 ## 基本方針
@@ -77,50 +77,50 @@ CXXFLAGS += $(WARN_BASE)
 
 ## 付録 A: 各警告の概要
 
-- -Wall
+- -Wall  
   一般的に有用とされる基本警告群です。
 
-- -Wextra
+- -Wextra  
   -Wall に含まれない追加警告です。
 
-- -Wformat=2
+- -Wformat=2  
   printf 系フォーマット不整合を厳密に検出します。
 
-- -Wshadow
+- -Wshadow  
   変数の意図しない隠蔽を検出します。
 
-- -Wundef
+- -Wundef  
   未定義マクロ使用を検出します。
 
-- -Wpointer-arith
-  非標準なポインタ演算を検出します。
+- -Wpointer-arith  
+  非標準なポインター演算を検出します。
 
-- -Wcast-qual
+- -Wcast-qual  
   const / volatile 除去キャストを検出します。
 
-- -Wcast-align
+- -Wcast-align  
   アラインメント破壊の可能性を検出します。
 
-- -Wswitch-enum
+- -Wswitch-enum  
   enum の未処理列挙子を検出します。
 
-- -Wswitch-default
+- -Wswitch-default  
   default 節の無い switch を検出します。
 
-- -Wpacked
+- -Wpacked  
   packed 指定による危険なレイアウトを検出します。
 
-- -Wpadded
+- -Wpadded  
   暗黙パディングの発生を検出します。
 
-- -Wunknown-pragmas
+- -Wunknown-pragmas  
   未対応 pragma を検出します。
 
-- -Wmissing-prototypes (C)
+- -Wmissing-prototypes (C)  
   非 static 関数の未宣言を検出します。
 
-- -Wstrict-prototypes (C)
+- -Wstrict-prototypes (C)  
   古い関数宣言形式を検出します。
 
-- -Wmissing-declarations (C)
-  ヘッダ未宣言のグローバル関数を検出します。
+- -Wmissing-declarations (C)  
+  ヘッダー未宣言のグローバル関数を検出します。

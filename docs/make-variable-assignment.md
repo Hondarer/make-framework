@@ -26,13 +26,13 @@ all:
 
 この例では、A は実行時点の B を見るので two、C は定義時点の B を固定したので one になります。
 
-## +=（追記）の挙動
+## += (追記) の挙動
 
 "+=" は、変数に文字列を追加します。すでに値がある場合は、先頭に 1 つの空白をはさんでから追加します。未定義の変数に対して最初に使った場合は、"=" と同じく遅延展開の変数として定義します。
 
 ただし、すでに変数が定義されている場合は、もとの変数の種類によって挙動が変わります。
 
-- もとが 即時展開（":="）の場合
+- もとが 即時展開 (":=") の場合
   - 追加するテキストを先に展開してから、既存の値に足します
   - 等価変換のイメージは次の通りです
 
@@ -43,8 +43,8 @@ X += more
 X := $(X) more
 ```
 
-- もとが 遅延展開（"="）の場合
-  - 追加するテキストは展開せず、そのまま既存の右辺に連結します（参照時にまとめて展開されます）
+- もとが 遅延展開 ("=") の場合
+  - 追加するテキストは展開せず、そのまま既存の右辺に連結します (参照時にまとめて展開されます)
   - 等価変換のイメージは次の通りです
 
 ```{.makefile caption="= に対する += の等価変換のイメージ"}
@@ -55,7 +55,7 @@ X += more
 # X = $(temp) more
 ```
 
-この違いは、右辺に他の変数参照が含まれるときに重要です。次の例では、includes の定義が後から来ても保持したいので、CFLAGS は遅延展開（"="）のままにし、追記には "+=" を使います。
+この違いは、右辺に他の変数参照が含まれるときに重要です。次の例では、includes の定義が後から来ても保持したいので、CFLAGS は遅延展開 ("=") のままにし、追記には "+=" を使います。
 
 ```{.makefile caption="CFLAGS への追記例"}
 CFLAGS = $(includes) -O
@@ -71,9 +71,9 @@ CFLAGS := $(CFLAGS) -pg
 
 としてしまうと、この時点で $(CFLAGS) が展開され、includes が未定義ならその参照が消えてしまいます。結果として、後から includes を定義しても反映されません。
 
-## ?=（条件付き代入）
+## ?= (条件付き代入)
 
-まだ一度も設定されていない変数にだけ値を入れる方法です。条件付き代入（conditional assignment）では、"?=" を使います。環境変数やコマンドラインで設定済みのときも「設定済み」と見なして何もしません。新しく定義される場合の種類は遅延展開です。
+まだ一度も設定されていない変数にだけ値を入れる方法です。条件付き代入 (conditional assignment) では、"?=" を使います。環境変数やコマンド ラインで設定済みのときも「設定済み」と見なして何もしません。新しく定義される場合の種類は遅延展開です。
 
 ```{.makefile caption="?= の基本"}
 FOO ?= default
@@ -94,7 +94,7 @@ endif
 
 - 常に最新の他変数の値を反映したいときは "=" を使う
 - 定数、コマンド列、重い関数や $(shell …) の結果を何度も使うときは ":=" を使う
-- 既存の変数に安全に足していきたいときは "+=" を使う。もとの変数の種類（= か :=）で評価タイミングが変わることに注意する
+- 既存の変数に安全に足していきたいときは "+=" を使う。もとの変数の種類 (= か :=) で評価タイミングが変わることに注意する
 
 例として、日時などを 1 度だけ決めたい場合は ":=" が向きます。
 
@@ -112,11 +112,11 @@ BUILD_TIME := $(shell date +%Y%m%d-%H%M%S)
 
 ## 関連リンク
 
-- GNU make manual - The Two Flavors of Variables
+- GNU make manual - The Two Flavors of Variables  
   [https://www.gnu.org/software/make/manual/html_node/Flavors.html](https://www.gnu.org/software/make/manual/html_node/Flavors.html)
-- GNU make manual - Setting Variables
+- GNU make manual - Setting Variables  
   [https://www.gnu.org/software/make/manual/html_node/Setting.html](https://www.gnu.org/software/make/manual/html_node/Setting.html)
-- GNU make manual - Appending More Text to Variables
+- GNU make manual - Appending More Text to Variables  
   [https://www.gnu.org/software/make/manual/html_node/Appending.html](https://www.gnu.org/software/make/manual/html_node/Appending.html)
-- GNU make manual - The origin Function
+- GNU make manual - The origin Function  
   [https://www.gnu.org/software/make/manual/html_node/Origin-Function.html](https://www.gnu.org/software/make/manual/html_node/Origin-Function.html)
