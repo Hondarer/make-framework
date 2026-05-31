@@ -461,14 +461,14 @@ MY_LOCAL_VAR := 1
 この構成により、`prod/myapp/` でビルドした場合:
 
 - `LIBS += mybaselib` が適用される (makepart.mk)
-- `CFLAGS += -DCHILD_ONLY_FLAG` は**適用されない** (makechild.mk は自身を除く)
+- `CFLAGS += -DCHILD_ONLY_FLAG` は **適用されない** (makechild.mk は自身を除く)
 - `MY_LOCAL_VAR := 1` が適用される (makelocal.mk)
 
 `prod/myapp/libsrc/mylib/` でビルドした場合:
 
 - `LIBS += mybaselib` が適用される (makepart.mk が継承)
-- `CFLAGS += -DCHILD_ONLY_FLAG` が**適用される** (makechild.mk が子階層に適用)
-- `MY_LOCAL_VAR := 1` は**適用されない** (makelocal.mk は自ディレクトリ限定)
+- `CFLAGS += -DCHILD_ONLY_FLAG` が **適用される** (makechild.mk が子階層に適用)
+- `MY_LOCAL_VAR := 1` は **適用されない** (makelocal.mk は自ディレクトリ限定)
 
 ## TEST_SRCS / ADD_SRCS の留意事項
 
