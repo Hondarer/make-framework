@@ -58,17 +58,17 @@ make -C app/<appname> with-cov または cd app/<appname> && make with-cov && cd
 ```
 
 - ルート `make with-cov`
-  - 一般的な CI で利用するシナリオ
-  - `framework/testfw` は通常ビルド
-  - `app` 配下は対象 app だけ Coverity 収集
-  - `skills` も通常の `make` と同様に実行
+    - 一般的な CI で利用するシナリオ
+    - `framework/testfw` は通常ビルド
+    - `app` 配下は対象 app だけ Coverity 収集
+    - `skills` も通常の `make` と同様に実行
 - `make -C app with-cov`
-  - app の依存順は通常の `make -C app` と同じ
-  - `prod/coverity.mk` がある app だけ `with-cov` を呼ぶ
-  - それ以外の app は通常ビルド
+    - app の依存順は通常の `make -C app` と同じ
+    - `prod/coverity.mk` がある app だけ `with-cov` を呼ぶ
+    - それ以外の app は通常ビルド
 - `make -C app/<appname> with-cov`
-  - `prod` は Coverity 経由
-  - `test` は通常どおり `make -C test`
+    - `prod` は Coverity 経由
+    - `test` は通常どおり `make -C test`
 
 ## 収集動作
 
@@ -99,11 +99,11 @@ cov-build --append-log --dir app/idir make -C prod
 ## clean の扱い
 
 - `make -C app clean`
-  - 既存の app clean に加えて `app/idir` を削除します
+    - 既存の app clean に加えて `app/idir` を削除します
 - `make clean`
-  - ルートから `make -C app clean` が呼ばれるため、最終的に `app/idir` も削除されます
+    - ルートから `make -C app clean` が呼ばれるため、最終的に `app/idir` も削除されます
 - `make -C app/<appname> clean`
-  - app 単位の既存 clean だけを実行し、`app/idir` は削除しません
+    - app 単位の既存 clean だけを実行し、`app/idir` は削除しません
 
 `clean` を `cov-build` 経由で流すと、すでに `app/idir` に蓄積された emit を壊す可能性があります。  
 そのため `with-cov` でも `clean` は通常の `make` と分離して扱います。
@@ -198,15 +198,15 @@ Windows で C と C# を対象にする場合は、少なくとも MSVC 系と C
 ### 迷ったときの整理
 
 - Linux で `app/calc` だけ解析する
-  - `cov-configure --gcc`
+    - `cov-configure --gcc`
 - Linux で `app/calc` と `app/calc.net` の両方を解析する
-  - `cov-configure --gcc`
-  - `cov-configure --cs`
+    - `cov-configure --gcc`
+    - `cov-configure --cs`
 - Windows で `app/calc` だけ解析する
-  - `cov-configure --msvc`
+    - `cov-configure --msvc`
 - Windows で `app/calc` と `app/calc.net` の両方を解析する
-  - `cov-configure --msvc`
-  - `cov-configure --cs`
+    - `cov-configure --msvc`
+    - `cov-configure --cs`
 
 ### C/C++
 

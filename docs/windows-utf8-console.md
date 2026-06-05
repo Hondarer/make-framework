@@ -128,15 +128,15 @@ dumpbin /MANIFESTRESOURCE send.exe
 
 ## 参考リンク
 
-- Microsoft Learn: Use UTF-8 code pages in Windows apps
-  https://learn.microsoft.com/en-us/windows/apps/design/globalizing/use-utf8-code-page
+- Microsoft Learn: Use UTF-8 code pages in Windows apps  
+  https://learn.microsoft.com/en-us/windows/apps/design/globalizing/use-utf8-code-page  
   確認日: 2026-06-01。Windows 10 1903 以降の `activeCodePage=UTF-8`、`-A` / `-W` API、UTF-8 と UTF-16 の変換について確認。
-- Microsoft Learn: Console Code Pages
-  https://learn.microsoft.com/en-us/windows/console/console-code-pages
+- Microsoft Learn: Console Code Pages  
+  https://learn.microsoft.com/en-us/windows/console/console-code-pages  
   確認日: 2026-06-01。コンソールの入力コード ページ / 出力コード ページと、`SetConsoleCP` / `SetConsoleOutputCP` による `CP_UTF8` 設定について確認。
-- Microsoft Learn: SetConsoleOutputCP function
-  https://learn.microsoft.com/en-us/windows/console/setconsoleoutputcp
+- Microsoft Learn: SetConsoleOutputCP function  
+  https://learn.microsoft.com/en-us/windows/console/setconsoleoutputcp  
   確認日: 2026-06-01。呼び出しプロセスに関連付けられたコンソールの出力コード ページを設定する API であることを確認。
-- Microsoft Learn: Application manifests
-  https://learn.microsoft.com/en-us/windows/win32/sbscs/application-manifests
+- Microsoft Learn: Application manifests  
+  https://learn.microsoft.com/en-us/windows/win32/sbscs/application-manifests  
   確認日: 2026-06-01。アプリケーション マニフェストの `activeCodePage` 要素と、マニフェスト埋め込みの前提を確認。
