@@ -113,7 +113,7 @@ find-up = \
         )\
     )
 
-# 再帰 make 間でワークスペースルートは不変のため、内部キャッシュ変数で継承する
+# 再帰 make 間でワークスペース ルートは不変のため、内部キャッシュ変数で継承する
 ifeq ($(origin MAKEFW_WORKSPACE_DIR), undefined)
     MAKEFW_WORKSPACE_DIR := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
 endif
@@ -121,12 +121,12 @@ export MAKEFW_WORKSPACE_DIR
 
 WORKSPACE_DIR := $(MAKEFW_WORKSPACE_DIR)
 
-# 準備処理 (ビルドテンプレートより前に include)
+# 準備処理 (ビルド テンプレートより前に include)
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/prepare.mk
 
 ##### makepart.mk の内容は、このタイミングで処理される #####
 
-# ビルドテンプレートを include
+# ビルド テンプレートを include
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/makemain.mk
 ```
 
@@ -142,7 +142,7 @@ include $(WORKSPACE_DIR)/framework/makefw/makefiles/makemain.mk
 `MAKEFW_BUILD := 1` が設定されている場合のみビルドを実行します (未設定はサブディレクトリ走査のみ)。
 
 ```makefile
-# カレントディレクトリのパス判定による自動テンプレート選択
+# カレント ディレクトリのパス判定による自動テンプレート選択
 # MAKEFW_BUILD := 1 が設定されている場合のみビルドを実行する (デフォルト: サブディレクトリ走査のみ)
 
 ifeq ($(MAKEFW_BUILD),1)

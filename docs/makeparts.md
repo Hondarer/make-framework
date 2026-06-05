@@ -124,7 +124,7 @@ ifeq ($(OS),Windows_NT)
 endif
 
 # shared と static の両方を生成する
-# - shared: libcalc.so / libcalc.dll (+ libcalc.lib インポートライブラリ)
+# - shared: libcalc.so / libcalc.dll (+ libcalc.lib インポート ライブラリ)
 # - static: libcalc_static.a / libcalc_static.lib
 # 利用者は _static の有無でリンク方式を選択できる
 LIB_TYPE = both
@@ -279,7 +279,7 @@ OUTPUT_DIR := $(WORKSPACE_DIR)/bin/myapp
 
 ```makefile
 # app/calc/prod/libsrc/makechild.mk
-# libsrc/ の子ディレクトリ（各ライブラリ）でビルドを実行する
+# libsrc/ の子ディレクトリ (各ライブラリ) でビルドを実行する
 MAKEFW_BUILD := 1
 ```
 

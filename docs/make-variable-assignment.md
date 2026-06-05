@@ -20,8 +20,8 @@ C := $(B)     # 即時展開 (:=)。この時点の $(B)="one" を保存する
 B := two
 
 all:
-    @echo A=$(A)  # two （実行時点で B=two を見る）
-    @echo C=$(C)  # one （定義時点の値を保持）
+    @echo A=$(A)  # two (実行時点で B=two を見る)
+    @echo C=$(C)  # one (定義時点の値を保持)
 ```
 
 この例では、A は実行時点の B を見るので two、C は定義時点の B を固定したので one になります。
@@ -50,7 +50,7 @@ X := $(X) more
 ```{.makefile caption="= に対する += の等価変換のイメージ"}
 X = value
 X += more
-# 概念的には次に近い（X は遅延展開のまま、more は未展開で足される）
+# 概念的には次に近い (X は遅延展開のまま、more は未展開で足される)
 # temp = value
 # X = $(temp) more
 ```
@@ -59,7 +59,7 @@ X += more
 
 ```{.makefile caption="CFLAGS への追記例"}
 CFLAGS = $(includes) -O
-# ...（あとで includes が定義されるかもしれない）
+# ... (あとで includes が定義されるかもしれない)
 CFLAGS += -pg  # プロファイリングを有効化
 ```
 
