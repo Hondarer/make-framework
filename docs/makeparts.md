@@ -275,18 +275,17 @@ CFLAGS += -DMYAPP_CHILD_BUILD
 OUTPUT_DIR := $(WORKSPACE_DIR)/bin/myapp
 ```
 
-**例 3: ビルド テンプレートの有効化**
+**例 3: サブフォルダーコンパイル方式の設定**
 
 ```makefile
-# app/calc/prod/libsrc/makechild.mk
-# libsrc/ の子ディレクトリ (各ライブラリ) でビルドを実行する
-MAKEFW_BUILD := 1
+# app/subfolder-sample/prod/libsrc/libsubfolder-sample/makechild.mk
+# 各サブフォルダーはコンパイルのみとし、リンクはライブラリルートで行う
+NO_LINK = 1
 ```
 
-`MAKEFW_BUILD := 1` を `makechild.mk` に設定することで、カレント ディレクトリ (`libsrc/`) は走査のみとなり、  
-子ディレクトリ (`libsrc/calcbase/` 等の実際のライブラリ) でビルド テンプレートが選択・実行されます。  
-カレントに `makepart.mk` 等で `MAKEFW_BUILD := 1` を設定してしまうと自身でもビルドが実行されてしまうため、  
-`makechild.mk` を使用して「子のみに有効」にします。
+`NO_LINK = 1` を `makechild.mk` に設定することで、カレント ディレクトリ (`libsubfolder-sample/`) は  
+全サブフォルダーのオブジェクトを収集してリンクし、子ディレクトリ (`audio/` 等) はコンパイルのみとなります。  
+詳細は [サブフォルダーコンパイル](../../../app/c-modernization-kit/docs/subfolder-compilation.md) を参照してください。
 
 ## makelocal.mk
 
@@ -418,7 +417,7 @@ INCDIR += $(WORKSPACE_DIR)/framework/testfw/include
 
 2. makemain.mk
    +-- テンプレート (makelibsrc_c_cpp.mk など)  ※ MAKEFW_BUILD=1 の場合のみ
-   ※ MAKEFW_BUILD 未設定の場合はテンプレートを include しない (サブディレクトリ走査のみ)
+   ※ MAKEFW_BUILD が未設定の場合は直下のソース有無で自動判定し、ソースが存在すればテンプレートを include する
 ```
 
 各ディレクトリ レベルごとに `makepart.mk` → `makechild.mk` の順でインクルードされ、最後にカレント ディレクトリの `makelocal.mk` が読み込まれます。

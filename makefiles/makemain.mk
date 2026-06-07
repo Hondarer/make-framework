@@ -38,7 +38,26 @@ endef
 SUBDIRS := $(foreach d,$(SUBDIRS),$(call _os_filter_subdir,$(d)))
 
 # カレント ディレクトリのパス判定による自動テンプレート選択
-# MAKEFW_BUILD := 1 が設定されている場合のみビルドを実行する (デフォルト: サブディレクトリ走査のみ)
+# MAKEFW_BUILD が未設定の場合は、直下のビルド対象ソース有無で自動判定する
+# (明示設定は自動判定より優先される)
+
+# MAKEFW_BUILD 未設定時の自動判定
+# Auto-detect MAKEFW_BUILD when not explicitly set.
+# 直下にビルド対象ソース (*.c / *.cc / *.cpp / *.csproj) または TEST_SRCS / ADD_SRCS が
+# 存在し、かつパスに /libsrc/ または /src/ を含む場合のみ 1 とする。
+# サブフォルダーのみにソースを持つライブラリルートは 0 と誤判定されるため、
+# その場合は makelocal.mk で MAKEFW_BUILD := 1 を明示する。
+ifeq ($(MAKEFW_BUILD),)
+    ifneq (,$(findstring /libsrc/,$(CURDIR))$(findstring /src/,$(CURDIR)))
+        ifneq ($(strip $(wildcard *.c) $(wildcard *.cc) $(wildcard *.cpp) $(wildcard *.csproj) $(TEST_SRCS) $(ADD_SRCS)),)
+            MAKEFW_BUILD := 1
+        else
+            MAKEFW_BUILD := 0
+        endif
+    else
+        MAKEFW_BUILD := 0
+    endif
+endif
 
 ifeq ($(MAKEFW_BUILD),1)
 
