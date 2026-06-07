@@ -5,13 +5,13 @@
 #
 # 1. プラットフォームの判定を行う
 # 2. testfw の配置パスを解決する
-# 3. ソースファイルのエンコード指定から LANG を得る
-# 4. コンパイルコマンド関連を設定する
+# 3. ソース ファイルのエンコード指定から LANG を得る
+# 4. コンパイル コマンド関連を設定する
 # 5. 親階層から makefile の存在する階層までに存在する makepart.mk を
 #    親階層から makefile の存在する階層に向かって順次 include する
 #    各 makepart.mk の直後に、同ディレクトリの makechild.mk が存在すれば include する
-#    (カレントディレクトリの makechild.mk は子階層以降にのみ適用されるため除く)
-# 6. カレントディレクトリの makelocal.mk を include する
+#    (カレント ディレクトリの makechild.mk は子階層以降にのみ適用されるため除く)
+# 6. カレント ディレクトリの makelocal.mk を include する
 
 SHELL := /bin/bash
 
@@ -94,7 +94,7 @@ export TESTFW_HOME
 
 DEFINES :=
 
-# ソースファイルのエンコード指定から LANG を得る
+# ソース ファイルのエンコード指定から LANG を得る
 # FILES_LANG is stable across recursive make invocations in the same workspace
 ifeq ($(origin MAKEFW_FILES_LANG), undefined)
     MAKEFW_FILES_LANG := $(shell bash $(MAKEFW_HOME)/bin/get_files_lang.sh)
@@ -126,10 +126,10 @@ else
     ICONV := iconv -c -f $(ICONV_FROM) -t UTF-8
 endif
 
-# アーキテクチャ判定
+# アーキテクチャー判定
 # Determine target architecture
 ifeq ($(origin MAKEFW_TARGET_ARCH), undefined)
-    # uname -m は Linux/Windows 共通で1回だけ呼ぶ
+    # uname -m は Linux/Windows 共通で 1 回だけ呼ぶ
     # Call uname -m only once (shared between Linux and Windows)
     UNAME_ARCH := $(shell uname -m)
     # x86_64 を x64 に変換
@@ -141,9 +141,9 @@ ifeq ($(origin MAKEFW_TARGET_ARCH), undefined)
     endif
 
     ifdef PLATFORM_LINUX
-        # RHEL系 (Oracle Linux, RHEL, CentOS, Rocky Linux など) の場合
+        # RHEL 系 (Oracle Linux, RHEL, CentOS, Rocky Linux など) の場合
         # For RHEL-based distributions (Oracle Linux, RHEL, CentOS, Rocky Linux, etc.)
-        # /etc/redhat-release の有無判定と sed を1つの shell 呼び出しに統合
+        # /etc/redhat-release の有無判定と sed を 1 つの shell 呼び出しに統合
         # Combine redhat-release check and sed into single shell invocation
         RHEL_VERSION := $(shell sed -n 's/.*release \([0-9]\+\).*/\1/p' /etc/redhat-release 2>/dev/null)
         ifneq ($(RHEL_VERSION),)
@@ -168,12 +168,12 @@ TARGET_ARCH := $(MAKEFW_TARGET_ARCH)
 CONFIG ?= RelWithDebInfo
 
 # origin 関数は変数がどこから来たかを返します。
-# - default: Makeの組み込みデフォルト値
+# - default: Make の組み込みデフォルト値
 # - environment: 環境変数から
-# - file: makefileで定義
-# - command line: コマンドライン引数から
+# - file: makefile で定義
+# - command line: コマンド ライン引数から
 # 以下は、make のデフォルト値の場合のみ、値を置き換えます。
-# 環境変数やコマンドライン引数で指定された場合はそちらが優先されます。
+# 環境変数やコマンド ライン引数で指定された場合はそちらが優先されます。
 ifdef PLATFORM_LINUX
     # Linux (gcc/g++)
     ifeq ($(origin CC),default)
@@ -191,8 +191,8 @@ ifdef PLATFORM_LINUX
 else ifdef PLATFORM_WINDOWS
     # Windows (MSVC)
 
-    # Windows 環境のインターロックチェック
-    # bash と cl の存在確認を1回の where 呼び出しにまとめて取得
+    # Windows 環境のインターロック チェック
+    # bash と cl の存在確認を 1 回の where 呼び出しにまとめて取得
     # Check bash and cl existence, consolidating where calls
     # 1. bash の存在確認と MinGW (MSYS) bash の検証
     ifeq ($(origin MAKEFW_BASH_PATH), undefined)
@@ -310,7 +310,7 @@ export MAKEFW_REQUEST_ROOT
 #
 # 有効条件: CURDIR が $(WORKSPACE_DIR)/app/<appname>/... 配下であること
 # Valid when: CURDIR is under $(WORKSPACE_DIR)/app/<appname>/...
-# 無効条件: ワークスペースルート、$(WORKSPACE_DIR)/app 直下、app 外ディレクトリ
+# 無効条件: ワークスペース ルート、$(WORKSPACE_DIR)/app 直下、app 外ディレクトリ
 # Invalid at: workspace root, directly under $(WORKSPACE_DIR)/app, or outside app/
 #
 # cross-app 参照は $(APP_DIR)/otherapp/... を使用する
@@ -329,7 +329,7 @@ _MYAPP_IS_VALID :=
 _MYAPP_NEEDS_EVAL := 1
 ifeq ($(origin MYAPP_DIR),environment)
     ifneq ($(findstring $(MYAPP_DIR)/,$(CURDIR)/),)
-        # CURDIR は継承された MYAPP_DIR 配下 — キャッシュヒット、再計算不要
+        # CURDIR は継承された MYAPP_DIR 配下 — キャッシュ ヒット、再計算不要
         # CURDIR is under inherited MYAPP_DIR — cache hit, skip re-evaluation
         APP_DIR := $(WORKSPACE_DIR)/app
         export APP_DIR
@@ -340,7 +340,7 @@ endif
 
 ifneq ($(_MYAPP_NEEDS_EVAL),)
 
-# CURDIR からワークスペースルートを除いた相対パスを取得
+# CURDIR からワークスペース ルートを除いた相対パスを取得
 # Get relative path from CURDIR by removing the workspace root prefix
 _MYAPP_REL_FROM_WS := $(patsubst $(WORKSPACE_DIR)/%,%,$(CURDIR))
 
@@ -353,12 +353,12 @@ ifneq ($(_MYAPP_STARTS_WITH_APP),)
     # Remove app/ prefix to get the remaining path
     _MYAPP_AFTER_APP := $(patsubst app/%,%,$(_MYAPP_REL_FROM_WS))
 
-    # 最初のパスセグメント (appname) を抽出
+    # 最初のパス セグメント (appname) を抽出
     # Extract the first path segment (appname)
     # word 1 of subst /,<space>,path → 最初のセグメント
     _MYAPP_APPNAME := $(firstword $(subst /, ,$(_MYAPP_AFTER_APP)))
 
-    # app 直下 (appname のみ = セグメントが1つ) かどうかを判定
+    # app 直下 (appname のみ = セグメントが 1 つ) かどうかを判定
     # Check if we're directly under app/ (only one segment = appname itself)
     _MYAPP_SEGMENTS := $(words $(subst /, ,$(_MYAPP_AFTER_APP)))
 
@@ -375,7 +375,7 @@ ifneq ($(_MYAPP_STARTS_WITH_APP),)
         MYAPP_DIR = $(error MYAPP_DIR is not available at $(CURDIR). It is only valid under app/<appname>/ directories)
     endif
 else
-    # app/ 配下でない (ワークスペースルート、framework/ 等)
+    # app/ 配下でない (ワークスペース ルート、framework/ 等)
     # Not under app/ (workspace root, framework/, etc.)
     APP_DIR = $(error APP_DIR is not available at $(CURDIR). It is only valid under app/<appname>/ directories)
     MYAPP_DIR = $(error MYAPP_DIR is not available at $(CURDIR). It is only valid under app/<appname>/ directories)
@@ -388,7 +388,7 @@ ifeq ($(_MYAPP_IS_VALID),1)
 endif
 
 # makepart.mk / makechild.mk の検索
-# dirname コマンドの代わりにシェルのパラメータ展開を使用してプロセス生成を削減
+# dirname コマンドの代わりにシェルのパラメーター展開を使用してプロセス生成を削減
 # Use shell parameter expansion instead of dirname command to reduce process creation
 MAKE_INCLUDE_MK := $(shell \
 	cur=`pwd`; \
@@ -421,16 +421,16 @@ MAKE_INCLUDE_MK := $(shell \
 _reverse = $(if $(1),$(call _reverse,$(wordlist 2,$(words $(1)),$(1))) $(firstword $(1)))
 MAKE_INCLUDE_MK := $(strip $(call _reverse,$(MAKE_INCLUDE_MK)))
 
-# Windows の場合、MSVC C ランタイムライブラリの設定
+# Windows の場合、MSVC C ランタイム ライブラリの設定
 # Set MSVC C runtime library configuration for Windows
 ifdef PLATFORM_WINDOWS
-    # MSVC C ランタイムライブラリの種類 (shared または static)
+    # MSVC C ランタイム ライブラリの種類 (shared または static)
     # MSVC C runtime library type (shared or static)
     # shared: Multi-threaded DLL (/MD, /MDd)
     # static: Multi-threaded Static (/MT, /MTd)
     MSVC_CRT ?= shared
 
-    # MSVC C ランタイムライブラリのサブディレクトリを CONFIG と MSVC_CRT から計算
+    # MSVC C ランタイム ライブラリのサブディレクトリを CONFIG と MSVC_CRT から計算
     # Calculate MSVC C runtime library subdirectory from CONFIG and MSVC_CRT
     ifeq ($(CONFIG),Debug)
         ifeq ($(MSVC_CRT),shared)
@@ -460,7 +460,7 @@ endif
 
 # makepart.mk / makechild.mk をインクルード
 # Include makepart.mk / makechild.mk
-# (カレントディレクトリの makechild.mk は子階層以降のみに適用するため除く)
+# (カレント ディレクトリの makechild.mk は子階層以降のみに適用するため除く)
 # (The current directory's makechild.mk applies only to child directories, so it is excluded here)
 define _include_make_config
 $(eval include $(1))
@@ -468,9 +468,9 @@ endef
 
 $(foreach make_config, $(MAKE_INCLUDE_MK), $(call _include_make_config,$(make_config)))
 
-# makelocal.mk の読み込み (カレントディレクトリのみ)
+# makelocal.mk の読み込み (カレント ディレクトリのみ)
 # prepare.mk は各ディレクトリの makefile から include されるため、
-# ここでカレントディレクトリの makelocal.mk を読み込めばよい
+# ここでカレント ディレクトリの makelocal.mk を読み込めばよい
 -include $(CURDIR)/makelocal.mk
 
 MAKEFW_APPDEP_RESOLVER := $(MAKEFW_HOME)/bin/resolve_app_deps.sh
@@ -562,13 +562,13 @@ DEFINES := $(filter-out TARGET_ARCH%,$(DEFINES)) TARGET_ARCH=$(TARGET_ARCH)
 
 # DEFINES の各エントリを make 変数として定義する (makepart.mk などから参照可能にする)
 # キーのみ: KEY → KEY := 1
-# KEY=値 / KEY="値" / KEY='"値"' → KEY := 値 (シングル・ダブルクォートを除去)
+# KEY=値 / KEY="値" / KEY='"値"' → KEY := 値 (シングル・ダブル クォートを除去)
 define _def_var_from_defines
 $(firstword $(subst =, ,$(1))) := $(if $(findstring =,$(1)),$(subst ',$(empty),$(subst ",,$(patsubst $(firstword $(subst =, ,$(1)))=%,%,$(1)))),1)
 endef
 $(foreach _d,$(DEFINES),$(eval $(call _def_var_from_defines,$(_d))))
 
-# IDENT: ソーストレーサビリティ (opt-in: make IDENT=1)
+# IDENT: ソース トレーサビリティ (opt-in: make IDENT=1)
 # Source traceability feature (opt-in: make IDENT=1)
 # /prod/ パスのみ有効。/test/ パスは自然除外される。
 # Enabled only for /prod/ paths. /test/ paths are excluded automatically.

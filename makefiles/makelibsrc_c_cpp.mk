@@ -23,7 +23,7 @@ CFLAGS   += $(addprefix -I, $(INCDIR))
 CXXFLAGS += $(addprefix -I, $(INCDIR))
 
 # OBJS
-# 直下の obj ディレクトリのオブジェクトファイル
+# 直下の obj ディレクトリのオブジェクト ファイル
 # Object files in the current obj directory
 OBJS := $(filter-out $(OBJDIR)/%.inject.o, \
 	$(sort $(addprefix $(OBJDIR)/, \
@@ -35,7 +35,7 @@ ifdef PLATFORM_WINDOWS
     OBJS := $(patsubst %.o, %.obj, $(OBJS))
 endif
 
-# サブディレクトリの obj ディレクトリを再帰的に検索して、オブジェクトファイルを収集
+# サブディレクトリの obj ディレクトリを再帰的に検索して、オブジェクト ファイルを収集
 # Recursively collect object files from subdirectories' obj directories
 # find -exec find を単一の find -path パターンに変更してプロセス生成を削減
 # Replace find -exec find with single find using -path pattern to reduce process creation
@@ -113,7 +113,7 @@ ifeq ($(LIB_TYPE),)
 endif
 
 # 成果物のディレクトリ名
-# 未指定の場合、カレントディレクトリ/lib に成果物を生成する
+# 未指定の場合、カレント ディレクトリ/lib に成果物を生成する
 OUTPUT_DIR ?= $(CURDIR)/lib
 
 # ディレクトリ名をアーカイブ名にする (Make 関数の notdir でプロセス生成を削減)
@@ -144,7 +144,7 @@ else ifdef PLATFORM_WINDOWS
     endif
 endif
 
-# デフォルトターゲットの設定
+# デフォルト ターゲットの設定
 # Default target setting
 # makemain.mk で定義される default ターゲットを使用
 # Use the default target defined in makemain.mk
@@ -158,11 +158,11 @@ endif
 skip_build:
 	@echo "Build skipped (SKIP_BUILD=$(SKIP_BUILD))"
 
-# ライブラリファイルの解決 (LIB_TYPE=shared かつ LIBS が定義されている場合のみ)
+# ライブラリ ファイルの解決 (LIB_TYPE=shared かつ LIBS が定義されている場合のみ)
 
 # default および build ターゲットの定義
 # makemain.mk で default: $(SUBDIRS) および build: $(SUBDIRS) が定義されるため、
-# ここでは実際のビルドターゲットへの依存関係のみを追加
+# ここでは実際のビルド ターゲットへの依存関係のみを追加
 # Define default and build targets
 .PHONY: default
 default: build
@@ -236,7 +236,7 @@ ifneq ($(filter shared both,$(LIB_TYPE)),)
             CURRENT_LIB := $(patsubst lib%,%,$(basename $(TARGET)))
         endif
 
-        # 静的ライブラリファイルの検索
+        # 静的ライブラリ ファイルの検索
         # Search for static library files
         ifdef PLATFORM_LINUX
             # Linux: .a を検索
@@ -249,7 +249,7 @@ ifneq ($(filter shared both,$(LIB_TYPE)),)
             # Windows: .lib を検索
             # 自身を除外し、複数の LIBSDIR を考慮
             # まず lib なしで検索、なければ lib 付きで再検索
-            # (advapi32 等のフレームワークライブラリは lib が付かないための対策)
+            # (advapi32 等のフレームワーク ライブラリは lib が付かないための対策)
             # Windows: search for .lib
             # Exclude self and consider multiple LIBSDIR
             # First search without lib prefix, then retry with lib prefix
@@ -275,7 +275,7 @@ ifneq ($(filter shared both,$(LIB_TYPE)),)
             DYNAMIC_LIBS := $(addsuffix .lib,$(NOT_FOUND_LIBS))
         endif
 
-        # リンクライブラリフォルダ名の解決 (DYNAMIC_LIBS の -l に対応する -L パスを追加)
+        # リンク ライブラリ フォルダー名の解決 (DYNAMIC_LIBS の -l に対応する -L パスを追加)
         # Add library search paths to LDFLAGS for dynamic link flags
         ifdef PLATFORM_LINUX
             LDFLAGS += $(addprefix -L, $(LIBSDIR))
@@ -291,7 +291,7 @@ endif
 #$(info DYNAMIC_LIBS: $(DYNAMIC_LIBS))
 
 ifndef NO_LINK
-    # 最終的なリンクコマンド
+    # 最終的なリンク コマンド
     # Final link command: static libs are embedded, dynamic libs remain as -l
     ifeq ($(LIB_TYPE),shared)
         ifdef PLATFORM_LINUX
@@ -470,13 +470,13 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) | $(OUT
 endif
 
 # コンパイル時の依存関係に $(notdir $(LINK_SRCS)) $(notdir $(CP_SRCS)) を定義しているのは
-# ヘッダ類などを引き込んでおく必要がある場合に、先に処理を行っておきたいため
+# ヘッダー類などを引き込んでおく必要がある場合に、先に処理を行っておきたいため
 # We define $(notdir $(LINK_SRCS)) $(notdir $(CP_SRCS)) as compile-time dependencies to ensure all headers are processed first
 
-# コンパイルルールのテンプレート定義
+# コンパイル ルールのテンプレート定義
 # Compile rule template definition
 # 引数: $(1)=拡張子 (c/cc/cpp), $(2)=コンパイラ変数名 (CC/CXX), $(3)=フラグ変数名 (CFLAGS/CXXFLAGS)
-# Windows でグループコンパイル有効時はパターンルールを定義しない (_group_compile で処理)
+# Windows でグループ コンパイル有効時はパターン ルールを定義しない (_group_compile で処理)
 define compile_rule_template
 ifdef PLATFORM_LINUX
 $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR) $$(OUTPUT_DIR)
@@ -505,19 +505,19 @@ $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP
 endif
 endef
 
-# C ソースファイルのコンパイル
+# C ソース ファイルのコンパイル
 # Compile C source files
 $(eval $(call compile_rule_template,c,CC,CFLAGS))
 
-# C++ ソースファイルのコンパイル (*.cc)
+# C++ ソース ファイルのコンパイル (*.cc)
 # Compile C++ source files (*.cc)
 $(eval $(call compile_rule_template,cc,CXX,CXXFLAGS))
 
-# C++ ソースファイルのコンパイル (*.cpp)
+# C++ ソース ファイルのコンパイル (*.cpp)
 # Compile C++ source files (*.cpp)
 $(eval $(call compile_rule_template,cpp,CXX,CXXFLAGS))
 
-# シンボリックリンク対象のソースファイルをシンボリックリンク
+# シンボリック リンク対象のソース ファイルをシンボリック リンク
 # Create symbolic links for LINK_SRCS
 define generate_link_src_rule
 $(1):
@@ -534,7 +534,7 @@ $(foreach link_src,$(LINK_SRCS), \
     ) \
 )
 
-# コピー対象のソースファイルをコピーして
+# コピー対象のソース ファイルをコピーして
 # 1. フィルター処理をする
 # 2. inject 処理をする
 # Copy target source files, then apply filter processing and inject
@@ -583,12 +583,12 @@ $(OBJDIR):
 
 # 削除対象の定義
 # Define files/directories to clean
-# カレントディレクトリ配下の絶対パスを相対パスに変換する (make の出力を読みやすくする)
+# カレント ディレクトリ配下の絶対パスを相対パスに変換する (make の出力を読みやすくする)
 # Convert absolute paths under $(CURDIR) to relative paths (for readable make output)
 _relpath = $(patsubst $(CURDIR)/%,%,$(1))
 
 # clean 時に .gitignore へ反映する対象:
-# TEST_SRCS/ADD_SRCS のうち、カレントディレクトリ外のソース
+# TEST_SRCS/ADD_SRCS のうち、カレント ディレクトリ外のソース
 MAKEFW_CLEAN_GITIGNORE_SRCS := $(strip $(sort $(shell \
 	cur=$$(cd "$(CURDIR)" 2>/dev/null && pwd); \
 	for src in $(TEST_SRCS) $(ADD_SRCS); do \
@@ -614,7 +614,7 @@ ifndef NO_LINK
             CLEAN_OS := $(call _relpath,$(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET)))
             CLEAN_OS += $(call _relpath,$(OUTPUT_DIR)/$(patsubst %.dll,%.lib,$(TARGET)))
         else ifeq ($(LIB_TYPE),both)
-            # DLL 副産物 (インポートライブラリ・リンカ PDB) + static コンパイラ PDB
+            # DLL 副産物 (インポート ライブラリ・リンカ PDB) + static コンパイラ PDB
             CLEAN_OS := $(call _relpath,$(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET)))
             CLEAN_OS += $(call _relpath,$(OUTPUT_DIR)/$(patsubst %.dll,%.lib,$(TARGET)))
             CLEAN_OS += $(call _relpath,$(OUTPUT_DIR)/$(basename $(TARGET_STATIC)).pdb)
@@ -656,7 +656,7 @@ _clean_main:
 ifeq ($(call should_skip,$(SKIP_TEST)),true)
     # テストのスキップ
     # Skip tests
-    # test スキップ時は、ビルドスキップもチェックする
+    # test スキップ時は、ビルド スキップもチェックする
     ifeq ($(call should_skip,$(SKIP_BUILD)),true)
         # test もビルドもスキップ
 test:

@@ -1,28 +1,28 @@
 # 入力
 # - TEST_SRCS
-#   - テストの対象 (カバレッジ対象) のソースファイル
+#   - テストの対象 (カバレッジ対象) のソース ファイル
 # - ADD_SRCS
-#   - フォルダ外にあるソースファイル
+#   - フォルダー外にあるソース ファイル
 # - INCDIR
 #   - makepart.mk / makelocal.mk で定義した include
 
 # 出力 (コンパイラ区分)
 # - SRCS_C
-#   - C のソースファイル
+#   - C のソース ファイル
 # - SRCS_CPP
-#   - C++ のソースファイル
+#   - C++ のソース ファイル
 
-# 出力 (ソースファイルの扱い)
+# 出力 (ソース ファイルの扱い)
 # - DIRECT_SRCS
-#   - フォルダに存在するソースファイル
-#   - TEST_SRCS, ADD_SRCS に指定されていて、カレントディレクトリに配置されている
+#   - フォルダーに存在するソース ファイル
+#   - TEST_SRCS, ADD_SRCS に指定されていて、カレント ディレクトリに配置されている
 # - LINK_SRCS
-#   - シンボリックリンクして引き込むソースファイル
-#   - Linux にて、inject ファイル および フィルタファイルがない
+#   - シンボリック リンクして引き込むソース ファイル
+#   - Linux にて、inject ファイル および フィルター ファイルがない
 # - CP_SRCS
-#   - フォルダ外からコピーして引き込むソースファイル
-#   - inject ファイル または フィルタファイルがある
-#   - Windows では、inject ファイル および フィルタファイルがない引き込みファイルも CP_SRCS として扱う
+#   - フォルダー外からコピーして引き込むソース ファイル
+#   - inject ファイル または フィルター ファイルがある
+#   - Windows では、inject ファイル および フィルター ファイルがない引き込みファイルも CP_SRCS として扱う
 
 # 出力 (include)
 # - INCDIR
@@ -30,7 +30,7 @@
 
 # 出力 (カバレッジ観点)
 # - GCOVR_SRCS
-#   - カバレッジ収集対象のソースファイル
+#   - カバレッジ収集対象のソース ファイル
 
 # inject, filter 判定
 # Determine inject and filter files
@@ -44,8 +44,8 @@ CP_SRCS := $(foreach src,$(TEST_SRCS) $(ADD_SRCS), \
 # Step 1: $(wildcard) によるファイル存在チェック (Make インプロセス、全バージョン対応)
 _DIRECT_CANDIDATES := $(filter-out $(CP_SRCS),$(TEST_SRCS) $(ADD_SRCS))
 _DIRECT_EXISTS := $(foreach f,$(_DIRECT_CANDIDATES),$(if $(wildcard ./$(notdir $(f))),$(f)))
-# Step 2: シンボリックリンクの除外
-# $(foreach) と $(notdir) で Make 側でベースネームを展開し、シェルには展開済みの値を渡す
+# Step 2: シンボリック リンクの除外
+# $(foreach) と $(notdir) で Make 側でベース ネームを展開し、シェルには展開済みの値を渡す
 # これにより $(shell ...) 内でシェルの # を使用せずに済む (GNU Make 4.2 以前との互換性を確保)
 ifneq ($(_DIRECT_EXISTS),)
     _DIRECT_SYMLINKS := $(shell \
@@ -90,12 +90,12 @@ ifdef PLATFORM_LINUX
     endif
 endif
 
-# Windows ではシンボリックリンク機能に制限があるため、すべて CP_SRCS 扱いとする
+# Windows ではシンボリック リンク機能に制限があるため、すべて CP_SRCS 扱いとする
 ifdef PLATFORM_WINDOWS
     CP_SRCS += $(LINK_SRCS)
     LINK_SRCS :=
-    # Windows ではコピーを行うことにより、inject ファイル および フィルタファイルがないにもかかわらず実体が存在するため、DIRECT_SRCS と判定されることへの対策として、
-    # 外部ファイル (実パスがカレントディレクトリと異なるファイル) を DIRECT_SRCS から CP_SRCS に移動する
+    # Windows ではコピーを行うことにより、inject ファイル および フィルター ファイルがないにもかかわらず実体が存在するため、DIRECT_SRCS と判定されることへの対策として、
+    # 外部ファイル (実パスがカレント ディレクトリと異なるファイル) を DIRECT_SRCS から CP_SRCS に移動する
     # $(foreach) と $(notdir)/$(dir) で Make 側で展開し、シェルには展開済みの値を渡す
     EXTERNAL_SRCS := $(shell \
         cur=$$(pwd); \
@@ -106,15 +106,15 @@ ifdef PLATFORM_WINDOWS
     DIRECT_SRCS := $(filter-out $(EXTERNAL_SRCS),$(DIRECT_SRCS))
 endif
 
-# gcovr のフィルタを作成
-# gcovr では、シンボリックリンクの場合は、実パスを与える必要がある
+# gcovr のフィルターを作成
+# gcovr では、シンボリック リンクの場合は、実パスを与える必要がある
 # Create filters for gcovr (symbolic links require real paths)
 GCOVR_SRCS := $(foreach src,$(TEST_SRCS), \
 	$(if $(filter $(src),$(LINK_SRCS)), \
 		 $(src), \
 		 $(notdir $(src))))
 
-# コンパイル対象のソースファイル (カレントディレクトリから自動収集 + 指定ファイル)
+# コンパイル対象のソース ファイル (カレント ディレクトリから自動収集 + 指定ファイル)
 # Collect source files for compilation (auto-detect + specified files)
 SRCS_C := $(sort $(wildcard *.c) $(notdir $(filter %.c,$(CP_SRCS) $(LINK_SRCS))))
 SRCS_CPP := $(sort $(wildcard *.cc) $(wildcard *.cpp) $(notdir $(filter %.cc,$(CP_SRCS) $(LINK_SRCS)) $(filter %.cpp,$(CP_SRCS) $(LINK_SRCS))))

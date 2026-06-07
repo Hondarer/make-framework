@@ -1,4 +1,4 @@
-# _ident.mk: IDENT ソーストレーサビリティ ルール
+# _ident.mk: IDENT ソース トレーサビリティ ルール
 # IDENT source traceability rules
 #
 # makelibsrc_c_cpp.mk / makesrc_c_cpp.mk の末尾から include される。
@@ -6,8 +6,8 @@
 # Included at the end of makelibsrc_c_cpp.mk / makesrc_c_cpp.mk.
 # Only include when IDENT_ENABLED=1.
 
-# ローカルソースに対応する .ident ファイルのリスト
-# DEPS は SUBDIR_OBJS 追加前に計算済みのためローカルソースのみ
+# ローカル ソースに対応する .ident ファイルのリスト
+# DEPS は SUBDIR_OBJS 追加前に計算済みのためローカル ソースのみ
 # List of .ident files corresponding to local sources only
 # (DEPS is computed before SUBDIR_OBJS is added)
 _IDENT_LOCAL_IDENT_FILES := $(patsubst %.d,%.ident,$(DEPS))
@@ -184,7 +184,7 @@ $(_IDENT_MANIFEST_OBJ): $(_IDENT_MANIFEST_C) | $(OBJDIR)
 
 endif
 
-# 既存リンクターゲットに manifest obj を依存として追加 (recipe は既存のものを維持)
+# 既存リンク ターゲットに manifest obj を依存として追加 (recipe は既存のものを維持)
 # Add manifest obj as a dependency to the existing link target (existing recipe is preserved)
 $(OUTPUT_DIR)/$(TARGET): $(_IDENT_MANIFEST_OBJ)
 

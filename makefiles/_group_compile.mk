@@ -1,15 +1,15 @@
-# Windows 向けグループコンパイルルール
-# 複数ソースファイルを一度に cl.exe に渡し、MSYS プロセス起動オーバーヘッドを削減する
+# Windows 向けグループ コンパイル ルール
+# 複数ソース ファイルを一度に cl.exe に渡し、MSYS プロセス起動オーバーヘッドを削減する
 #
 # 使い方:
-#   make build                             # グループコンパイル有効 (Windows デフォルト)
-#   make build GROUP_COMPILE=0             # グループコンパイル無効 (従来方式)
+#   make build                             # グループ コンパイル有効 (Windows デフォルト)
+#   make build GROUP_COMPILE=0             # グループ コンパイル無効 (従来方式)
 #
 # 依存関係抽出: /sourceDependencies <dir> (JSON, ロケール非依存)
 # 必須環境: VS 2019 16.7 以上 (Visual Studio 2019 version 16.7+)
 #            VS 2019 16.7 未満の場合は GROUP_COMPILE=0 で従来方式を使用すること
 
-# グループコンパイルの有効化条件
+# グループ コンパイルの有効化条件
 # - Windows プラットフォームのみ
 # - GROUP_COMPILE=0 で明示的に無効化可能
 ifdef PLATFORM_WINDOWS
@@ -20,11 +20,11 @@ endif
 
 ifeq ($(GROUP_COMPILE),1)
 
-# /MP は GROUP_COMPILE=1 時のみ付与 (GROUP_COMPILE=0 の個別コンパイルパスは /showIncludes を使用するため D9030 非互換)
+# /MP は GROUP_COMPILE=1 時のみ付与 (GROUP_COMPILE=0 の個別コンパイル パスは /showIncludes を使用するため D9030 非互換)
 CFLAGS   += $(MAKEFW_CL_MPFLAG)
 CXXFLAGS += $(MAKEFW_CL_MPFLAG)
 
-# グループコンパイルスクリプトのパス
+# グループ コンパイル スクリプトのパス
 GROUP_COMPILE_SCRIPT := $(WORKSPACE_DIR)/framework/makefw/bin/msvc_group_compile.ps1
 
 # 再コンパイルが必要なソースを抽出する外部スクリプト
@@ -36,12 +36,12 @@ FIND_DIRTY_SRCS_SCRIPT := $(WORKSPACE_DIR)/framework/makefw/bin/find_dirty_srcs.
 # - .d が存在しない
 # - .d 内のワークスペース内ヘッダーが .obj より新しい
 # 注: ワークスペース外のヘッダー (Windows SDK 等) はチェックしない
-# 引数: $(1)=ソースリスト, $(2)=OBJDIR
+# 引数: $(1)=ソース リスト, $(2)=OBJDIR
 define _find_dirty_srcs
 $(shell bash "$(FIND_DIRTY_SRCS_SCRIPT)" "$(1)" "$(2)" "$(WORKSPACE_DIR)")
 endef
 
-# グループコンパイル時の PDB 生成ルール
+# グループ コンパイル時の PDB 生成ルール
 # - static lib: OUTPUT_DIR 配下のターゲット名 PDB
 # - それ以外  : OBJDIR 配下のターゲット名 PDB
 # _group_compile.mk は LIB_TYPE/TARGET 決定前に include されるため遅延評価にする
@@ -67,12 +67,12 @@ GROUP_CXXFLAGS = $(filter-out /Fd:%,$(CXXFLAGS)) /Fd:$(GROUP_PDB)
 GROUP_CFLAGS_TEST = $(filter-out /Fd:%,$(CFLAGS_TEST)) /Fd:$(GROUP_PDB)
 GROUP_CXXFLAGS_TEST = $(filter-out /Fd:%,$(CXXFLAGS_TEST)) /Fd:$(GROUP_PDB)
 
-# グループコンパイルターゲット
+# グループ コンパイル ターゲット
 .PHONY: _group_compile _group_compile_c_normal _group_compile_c_test _group_compile_cpp_normal _group_compile_cpp_test
 
 _group_compile: _group_compile_c_normal _group_compile_c_test _group_compile_cpp_normal _group_compile_cpp_test
 
-# 8192 バイト分割でグループコンパイルを実行するヘルパー
+# 8192 バイト分割でグループ コンパイルを実行するヘルパー
 # 引数: compiler, flags, objdir, sources, extra_flags (optional)
 define _run_group_compile
 	@srcs="$(4)"; \

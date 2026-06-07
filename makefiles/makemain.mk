@@ -1,11 +1,11 @@
-# サブディレクトリの検出 (GNUmakefile/makefile/Makefileを含むディレクトリのみ)
+# サブディレクトリの検出 (GNUmakefile/makefile/Makefile を含むディレクトリのみ)
 # Detect subdirectories containing GNUmakefile/makefile
 SUBDIRS ?= $(sort $(dir $(wildcard */GNUmakefile */makefile */Makefile)))
 
 # サブディレクトリの OS フィルタリング
 # OS-based subdirectory filtering
 #
-# 最終ディレクトリ名 (大文字小文字無視) に基づくフィルタルール:
+# 最終ディレクトリ名 (大文字小文字無視) に基づくフィルター ルール:
 # Filter rules based on the last directory component (case-insensitive):
 #   "linux"   → Linux の場合のみ有効 / active only on Linux
 #   "windows" → Windows の場合のみ有効 / active only on Windows
@@ -16,12 +16,12 @@ SUBDIRS ?= $(sort $(dir $(wildcard */GNUmakefile */makefile */Makefile)))
 # Lowercase conversion function
 _lc = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(subst G,g,$(subst H,h,$(subst I,i,$(subst J,j,$(subst K,k,$(subst L,l,$(subst M,m,$(subst N,n,$(subst O,o,$(subst P,p,$(subst Q,q,$(subst R,r,$(subst S,s,$(subst T,t,$(subst U,u,$(subst V,v,$(subst W,w,$(subst X,x,$(subst Y,y,$(subst Z,z,$(1)))))))))))))))))))))))))))
 
-# ディレクトリパスの最終コンポーネントを小文字で取得
+# ディレクトリ パスの最終コンポーネントを小文字で取得
 # Get the last component of a directory path in lowercase
 # e.g., "foo/Linux/" -> "linux", "Windows/" -> "windows"
 _dir_lc_name = $(call _lc,$(notdir $(patsubst %/,%,$(1))))
 
-# OS フィルタ: 現在の OS に適合するサブディレクトリのみ残す
+# OS フィルター: 現在の OS に適合するサブディレクトリのみ残す
 # OS filter: keep only subdirectories matching the current OS
 #   "linux"   dir on Windows -> excluded
 #   "windows" dir on Linux   -> excluded
@@ -37,7 +37,7 @@ endef
 
 SUBDIRS := $(foreach d,$(SUBDIRS),$(call _os_filter_subdir,$(d)))
 
-# カレントディレクトリのパス判定による自動テンプレート選択
+# カレント ディレクトリのパス判定による自動テンプレート選択
 # MAKEFW_BUILD := 1 が設定されている場合のみビルドを実行する (デフォルト: サブディレクトリ走査のみ)
 
 ifeq ($(MAKEFW_BUILD),1)

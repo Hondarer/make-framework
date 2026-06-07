@@ -1,20 +1,20 @@
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_flags.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_hooks.mk
 
-# カレントディレクトリ配下の絶対パスを相対パスに変換する (make の出力を読みやすくする)
+# カレント ディレクトリ配下の絶対パスを相対パスに変換する (make の出力を読みやすくする)
 # Convert absolute paths under $(CURDIR) to relative paths (for readable make output)
 _relpath = $(patsubst $(CURDIR)/%,%,$(1))
 
 # 成果物のディレクトリ名
-# 未指定の場合、カレントディレクトリ/bin に成果物を生成する
+# 未指定の場合、カレント ディレクトリ/bin に成果物を生成する
 OUTPUT_DIR ?= $(CURDIR)/bin
 
-# テストスクリプトのパス
+# テスト スクリプトのパス
 ifneq ($(strip $(TESTFW_HOME)),)
     TESTSH := $(TESTFW_HOME)/bin/exec_test_dotnet.sh
 endif
 
-# プロジェクト名 (カレントディレクトリ名から取得)
+# プロジェクト名 (カレント ディレクトリ名から取得)
 PROJECT_NAME := $(notdir $(patsubst %/,%,$(CURDIR)))
 
 # 実行体名の解決
@@ -25,10 +25,10 @@ ifdef PLATFORM_WINDOWS
     TARGET := $(TARGET).exe
 endif
 
-# make での更新判定用ビルドターゲット
+# make での更新判定用ビルド ターゲット
 OUTPUT_ASSEMBLY := $(OUTPUT_DIR)/$(PROJECT_NAME).dll
 
-# ソースファイルの検出 (obj/bin ディレクトリを除外)
+# ソース ファイルの検出 (obj/bin ディレクトリを除外)
 SOURCES := $(shell find . -name "*.cs" -not -path "*/obj/*" -not -path "*/bin/*" 2>/dev/null)
 PROJECT_FILE := $(wildcard *.csproj)
 
@@ -42,7 +42,7 @@ default: build
 DOTNET_BUILD := $(WORKSPACE_DIR)/framework/makefw/bin/dotnet_build.sh
 
 $(OUTPUT_ASSEMBLY): $(SOURCES) $(PROJECT_FILE)
-    # dotnet_build.sh 側にてビルドコマンドは echo される
+    # dotnet_build.sh 側にてビルド コマンドは echo される
 	@makeflags="$${MAKEFLAGS:-} $${MFLAGS:-}"; \
 	jobs=""; \
 	allow_job_fallback="$(MAKEFW_ALLOW_JOB_FALLBACK)"; \

@@ -1,4 +1,4 @@
-# _flags.mk 自身のディレクトリを include 時に確定（後から MAKEFILE_LIST が変化するため）
+# _flags.mk 自身のディレクトリを include 時に確定 (後から MAKEFILE_LIST が変化するため)
 _MAKEFW_MAKEFILES_DIR := $(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST))))
 
 # ユーザー設定のデフォルト値
@@ -11,7 +11,7 @@ CONFIG            ?= RelWithDebInfo # ビルド構成
 
 # 並列ジョブ数の既定値
 # 明示的な -j / jobserver の解決は recipe 実行時に行い、
-# 再帰 make では JOBS_EFFECTIVE をコマンドライン変数として明示的に伝播する。
+# 再帰 make では JOBS_EFFECTIVE をコマンド ライン変数として明示的に伝播する。
 JOBS           ?= 6
 JOBS_EFFECTIVE ?= $(JOBS)
 MAKEFW_IS_LEAF := $(if $(strip $(SUBDIRS)),1,)
@@ -148,7 +148,7 @@ ifdef PLATFORM_WINDOWS
 endif
 
 # WIN32_MANIFEST: マニフェスト埋め込み (Windows EXE のみ)
-# 使い方: makepart.mk に WIN32_MANIFEST = utf8 (または任意の .manifest ファイルパス) を記述
+# 使い方: makepart.mk に WIN32_MANIFEST = utf8 (または任意の .manifest ファイル パス) を記述
 # 効果: activeCodePage=UTF-8 により argv を含むプロセス全体を UTF-8 モードにする (Win10 1903+)
 ifdef PLATFORM_WINDOWS
   ifdef WIN32_MANIFEST
@@ -159,7 +159,7 @@ ifdef PLATFORM_WINDOWS
     endif
     # link.exe には Windows パスが必要。MSYS 環境では cygpath -m で変換する
     # -w (バックスラッシュ形式) は sh 経由でコマンドを実行する際にエスケープされてパスが壊れるため
-    # -m (フォワードスラッシュ形式: D:/a/...) を使用する
+    # -m (フォワード スラッシュ形式: D:/a/...) を使用する
     _WIN32_MANIFEST_WIN := $(shell cygpath -m "$(abspath $(_WIN32_MANIFEST_FILE))" 2>/dev/null)
     ifeq ($(_WIN32_MANIFEST_WIN),)
       _WIN32_MANIFEST_WIN := $(abspath $(_WIN32_MANIFEST_FILE))
@@ -196,7 +196,7 @@ else ifdef PLATFORM_WINDOWS
     CFLAGS   += /EHsc /FS
     CXXFLAGS += /EHsc /FS
 
-    # ランタイムライブラリフラグの設定
+    # ランタイム ライブラリ フラグの設定
     # Set runtime library flags based on MSVC_CRT (defined in prepare.mk)
     ifeq ($(MSVC_CRT),shared)
         # Multi-threaded DLL (/MD, /MDd)
@@ -245,12 +245,12 @@ CXXFLAGS += $(CPPFLAGS)
 ifdef PLATFORM_LINUX
     OBJDIR  := obj
 else ifdef PLATFORM_WINDOWS
-    # ランタイムライブラリごとにサブディレクトリを分ける
+    # ランタイム ライブラリごとにサブディレクトリを分ける
     # Separate subdirectories for each runtime library to avoid mixing object files
     OBJDIR  := obj/$(MSVC_CRT_SUBDIR)
 endif
 
-# 警告キャプチャスクリプト (コンパイラ/リンカ出力から .warn ファイルを生成)
+# 警告キャプチャ スクリプト (コンパイラ/リンカー出力から .warn ファイルを生成)
 # Warning capture script (generates .warn files from compiler/linker output)
 CAPTURE_WARNINGS := "$(SHELL)" "$(WORKSPACE_DIR)/framework/makefw/bin/capture_warnings.sh"
 
@@ -273,12 +273,12 @@ endif
 
 # wrap-main
 ifeq ($(USE_WRAP_MAIN),1)
-    # リンクオプションの追加
+    # リンク オプションの追加
     ifdef PLATFORM_LINUX
-        # -Wl,--wrap=main により、エントリポイントを __wrap_main() に、元々のエントリポイントを __real_main() に変更
+        # -Wl,--wrap=main により、エントリ ポイントを __wrap_main() に、元々のエントリ ポイントを __real_main() に変更
         LDFLAGS += -Wl,--wrap=main
     else ifdef PLATFORM_WINDOWS
-        # /Dmain=__real_main により、元々のエントリポイントを __real_main() に変更 (エントリポイントは main のまま)
+        # /Dmain=__real_main により、元々のエントリ ポイントを __real_main() に変更 (エントリ ポイントは main のまま)
         DEFINES += main=__real_main
         # wrapmain.lib により、main() から __wrap_main() をコール
         LIBS += wrapmain
@@ -289,8 +289,8 @@ endif
 ifdef PLATFORM_LINUX
     DEPFLAGS = -MT $@ -MMD -MP -MF $(OBJDIR)/$*.d
 else ifdef PLATFORM_WINDOWS
-    # GROUP_COMPILE=0 の個別コンパイルパス (/showIncludes + msvc_cl_filter.ps1) のみで使用
-    # GROUP_COMPILE=1 のグループコンパイルパスは /sourceDependencies を使用するため不要
+    # GROUP_COMPILE=0 の個別コンパイル パス (/showIncludes + msvc_cl_filter.ps1) のみで使用
+    # GROUP_COMPILE=1 のグループ コンパイル パスは /sourceDependencies を使用するため不要
     DEPFLAGS = /showIncludes
 endif
 

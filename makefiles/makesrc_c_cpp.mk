@@ -4,7 +4,7 @@ include $(WORKSPACE_DIR)/framework/makefw/makefiles/_should_skip.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_hooks.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_group_compile.mk
 
-# テストライブラリの設定
+# テスト ライブラリの設定
 # Set test libraries
 # LINK_TEST が 1 の場合にのみ設定する
 ifneq ($(strip $(TESTFW_HOME)),)
@@ -66,7 +66,7 @@ endif
 # Resolve LIBSFILES from only the libraries requested by LIBS (.a/.so/.lib).
 # (After LINK_TEST block so gtest path is included.)
 ifdef PLATFORM_LINUX
-    # .a を優先し、なければ .so にフォールバック (.a → .so はリンカの探索順と一致)
+    # .a を優先し、なければ .so にフォールバック (.a → .so はリンカーの探索順と一致)
     # Prefer .a; fall back to .so if not found (mirrors linker search order)
     LIBSFILES := $(foreach lib,$(LIBS),\
         $(or \
@@ -74,7 +74,7 @@ ifdef PLATFORM_LINUX
             $(firstword $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/lib$(lib).so)))))
 else ifdef PLATFORM_WINDOWS
     # まず lib なしで検索、なければ lib 付きで再検索
-    # (advapi32 等のフレームワークライブラリは lib が付かないための対策)
+    # (advapi32 等のフレームワーク ライブラリは lib が付かないための対策)
     # First search without lib prefix, then retry with lib prefix
     # (because framework libraries like advapi32 don't have lib prefix)
     LIBSFILES := $(foreach lib,$(LIBS),\
@@ -140,7 +140,7 @@ ifdef PLATFORM_LINUX
     # ステップ実行/カバレッジに支障となるオプションを除去
     #   -O1, -O2, -O3, -Os, -Ofast: 最適化レベル
     #   -finline-functions: インライン展開
-    #   -fomit-frame-pointer: フレームポインタ省略
+    #   -fomit-frame-pointer: フレーム ポインター省略
     CFLAGS_TEST := $(filter-out -O1 -O2 -O3 -Os -Ofast -finline-functions -fomit-frame-pointer,$(CFLAGS_TEST))
     CXXFLAGS_TEST := $(filter-out -O1 -O2 -O3 -Os -Ofast -finline-functions -fomit-frame-pointer,$(CXXFLAGS_TEST))
     # ステップ実行/カバレッジに必要なオプションを追加 (未定義の場合のみ)
@@ -167,9 +167,9 @@ else ifdef PLATFORM_WINDOWS
     #   /O1, /O2: 最適化 (コード再配置・省略が発生)
     #   /Ob1, /Ob2: インライン展開 (関数呼び出しが消える)
     #   /Oi: 組み込み関数 (標準関数がインライン化)
-    #   /Oy: フレームポインタ省略 (スタックトレース不正確)
+    #   /Oy: フレーム ポインター省略 (スタック トレース不正確)
     #   /GL: リンク時最適化 (LTCG)
-    #   /Gw: グローバルデータ最適化
+    #   /Gw: グローバル データ最適化
     CFLAGS_TEST := $(filter-out /O1 /O2 /Ob1 /Ob2 /Oi /Oy /GL /Gw,$(CFLAGS_TEST))
     CXXFLAGS_TEST := $(filter-out /O1 /O2 /Ob1 /Ob2 /Oi /Oy /GL /Gw,$(CXXFLAGS_TEST))
     # ステップ実行/カバレッジに必要なオプションを追加 (未定義の場合のみ)
@@ -208,12 +208,12 @@ endif
 CFLAGS   += $(addprefix -I, $(INCDIR))
 CXXFLAGS += $(addprefix -I, $(INCDIR))
 
-# リンクライブラリファイル名の解決
+# リンク ライブラリ ファイル名の解決
 ifdef PLATFORM_LINUX
     LIBS := $(addprefix -l, $(LIBS))
 else ifdef PLATFORM_WINDOWS
     # まず lib なしでファイルを探索し、無い場合は lib を付けて再探索
-    # (advapi32 等のフレームワークライブラリは lib が付かないための対策)
+    # (advapi32 等のフレームワーク ライブラリは lib が付かないための対策)
     # First search without lib prefix, then retry with lib prefix
     # (because framework libraries like advapi32 don't have lib prefix)
     LIBS := $(foreach lib,$(LIBS),\
@@ -224,7 +224,7 @@ else ifdef PLATFORM_WINDOWS
                 $(lib).lib)))
 endif
 
-# リンクライブラリフォルダ名の解決
+# リンク ライブラリ フォルダー名の解決
 ifdef PLATFORM_LINUX
     LDFLAGS := $(LDFLAGS) $(addprefix -L, $(LIBSDIR))
 else ifdef PLATFORM_WINDOWS
@@ -232,7 +232,7 @@ else ifdef PLATFORM_WINDOWS
 endif
 
 # OBJS
-# 直下の obj ディレクトリのオブジェクトファイル
+# 直下の obj ディレクトリのオブジェクト ファイル
 # Object files in the current obj directory
 OBJS := $(filter-out $(OBJDIR)/%.inject.o, \
 	$(sort $(addprefix $(OBJDIR)/, \
@@ -244,7 +244,7 @@ ifdef PLATFORM_WINDOWS
     OBJS := $(patsubst %.o, %.obj, $(OBJS))
 endif
 
-# サブディレクトリの obj ディレクトリを再帰的に検索して、オブジェクトファイルを収集
+# サブディレクトリの obj ディレクトリを再帰的に検索して、オブジェクト ファイルを収集
 # Recursively collect object files from subdirectories' obj directories
 # find -exec find を単一の find -path パターンに変更してプロセス生成を削減
 # Replace find -exec find with single find using -path pattern to reduce process creation
@@ -283,7 +283,7 @@ _makefw_parent_artifact:
 	$(MAKE) -C "$(MAKEFW_ARTIFACT_ROOT)" MAKEFW_ARTIFACT_ONLY=1 _build_main
 
 # 成果物のディレクトリ名
-# 未指定の場合、カレントディレクトリ/bin に成果物を生成する
+# 未指定の場合、カレント ディレクトリ/bin に成果物を生成する
 OUTPUT_DIR ?= $(CURDIR)/bin
 
 # ディレクトリ名を実行体名にする (Make 関数の notdir でプロセス生成を削減)
@@ -295,7 +295,7 @@ ifdef PLATFORM_WINDOWS
     TARGET := $(TARGET).exe
 endif
 
-# デフォルトターゲットの設定
+# デフォルト ターゲットの設定
 # Default target setting
 ifeq ($(call should_skip,$(SKIP_BUILD)),true)
     .DEFAULT_GOAL := skip_build
@@ -313,7 +313,7 @@ skip_build:
 
 # default および build ターゲットの定義
 # makemain.mk で default: $(SUBDIRS) および build: $(SUBDIRS) が定義されるため、
-# ここでは実際のビルドターゲットへの依存関係のみを追加
+# ここでは実際のビルド ターゲットへの依存関係のみを追加
 # Define default and build targets
 .PHONY: default
 default: build
@@ -429,13 +429,13 @@ show-exepath:
 	@echo $(OUTPUT_DIR)/$(TARGET)
 
 # コンパイル時の依存関係に $(notdir $(LINK_SRCS)) $(notdir $(CP_SRCS)) を定義しているのは
-# ヘッダ類などを引き込んでおく必要がある場合に、先に処理を行っておきたいため
+# ヘッダー類などを引き込んでおく必要がある場合に、先に処理を行っておきたいため
 # We define $(notdir $(LINK_SRCS)) $(notdir $(CP_SRCS)) as compile-time dependencies to ensure all headers are processed first
 
-# コンパイルルールのテンプレート定義
+# コンパイル ルールのテンプレート定義
 # Compile rule template definition
 # 引数: $(1)=拡張子 (c/cc/cpp), $(2)=コンパイラ変数名 (CC/CXX), $(3)=フラグ変数名 (CFLAGS/CXXFLAGS)
-# Windows でグループコンパイル有効時はパターンルールを定義しない (_group_compile で処理)
+# Windows でグループ コンパイル有効時はパターン ルールを定義しない (_group_compile で処理)
 define compile_rule_template
 ifdef PLATFORM_LINUX
 $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR)
@@ -460,19 +460,19 @@ $$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP
 endif
 endef
 
-# C ソースファイルのコンパイル
+# C ソース ファイルのコンパイル
 # Compile C source files
 $(eval $(call compile_rule_template,c,CC,CFLAGS))
 
-# C++ ソースファイルのコンパイル (*.cc)
+# C++ ソース ファイルのコンパイル (*.cc)
 # Compile C++ source files (*.cc)
 $(eval $(call compile_rule_template,cc,CXX,CXXFLAGS))
 
-# C++ ソースファイルのコンパイル (*.cpp)
+# C++ ソース ファイルのコンパイル (*.cpp)
 # Compile C++ source files (*.cpp)
 $(eval $(call compile_rule_template,cpp,CXX,CXXFLAGS))
 
-# シンボリックリンク対象のソースファイルをシンボリックリンク
+# シンボリック リンク対象のソース ファイルをシンボリック リンク
 # Create symbolic links for LINK_SRCS
 define generate_link_src_rule
 $(1):
@@ -489,7 +489,7 @@ $(foreach link_src,$(LINK_SRCS), \
     ) \
 )
 
-# コピー対象のソースファイルをコピーして
+# コピー対象のソース ファイルをコピーして
 # 1. フィルター処理をする
 # 2. inject 処理をする
 # Copy target source files, then apply filter processing and inject
@@ -538,12 +538,12 @@ $(OBJDIR):
 
 # 削除対象の定義
 # Define files/directories to clean
-# カレントディレクトリ配下の絶対パスを相対パスに変換する (make の出力を読みやすくする)
+# カレント ディレクトリ配下の絶対パスを相対パスに変換する (make の出力を読みやすくする)
 # Convert absolute paths under $(CURDIR) to relative paths (for readable make output)
 _relpath = $(patsubst $(CURDIR)/%,%,$(1))
 
 # clean 時に .gitignore へ反映する対象:
-# TEST_SRCS/ADD_SRCS のうち、カレントディレクトリ外のソース
+# TEST_SRCS/ADD_SRCS のうち、カレント ディレクトリ外のソース
 MAKEFW_CLEAN_GITIGNORE_SRCS := $(strip $(sort $(shell \
 	cur=$$(cd "$(CURDIR)" 2>/dev/null && pwd); \
 	for src in $(TEST_SRCS) $(ADD_SRCS); do \
@@ -591,7 +591,7 @@ test: _test_impl
 ifeq ($(call should_skip,$(SKIP_TEST)),true)
     # テストのスキップ
     # Skip tests
-    # test スキップ時は、ビルドスキップもチェックする
+    # test スキップ時は、ビルド スキップもチェックする
     ifeq ($(call should_skip,$(SKIP_BUILD)),true)
         # test もビルドもスキップ
 _test_impl:

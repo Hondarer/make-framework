@@ -13,7 +13,7 @@
 #   1, BOTH, both, Both       -> 常にスキップ / always skip
 #   WINDOWS, windows, Windows -> Windows のみスキップ / skip on Windows only
 #   LINUX, linux, Linux       -> Linux のみスキップ / skip on Linux only
-#   未定義(空) / undefined    -> スキップしない / not skip
+#   未定義 (空) / undefined   -> スキップしない / not skip
 #   その他 / other            -> スキップしない / not skip
 #
 # 例 / Examples:

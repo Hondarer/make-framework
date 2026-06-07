@@ -1,8 +1,8 @@
 # フック機能の共通処理
 # Common hook processing
 #
-# このファイルは各テンプレートファイルからインクルードされ、
-# makelocal.mk で定義されたフックターゲットを検出し、
+# このファイルは各テンプレート ファイルからインクルードされ、
+# makelocal.mk で定義されたフック ターゲットを検出し、
 # 適切なタイミングで呼び出すための内部ターゲットを定義します。
 #
 # This file is included from each template file to detect hook targets
@@ -15,7 +15,7 @@
 # Note: makelocal.mk is included in prepare.mk
 MAKELOCAL_MK := $(wildcard $(CURDIR)/makelocal.mk)
 
-# makelocal.mk 内のフックターゲット検出 (1回の awk 呼び出しで全フック検出)
+# makelocal.mk 内のフック ターゲット検出 (1 回の awk 呼び出しで全フック検出)
 # Detect hook targets in makelocal.mk (single awk invocation for all hooks)
 ifneq ($(MAKELOCAL_MK),)
     _HOOKS_DETECTED := $(shell awk '/^pre-build[[:space:]]*:/{printf "PRE_BUILD "} /^post-build[[:space:]]*:/{printf "POST_BUILD "} /^pre-clean[[:space:]]*:/{printf "PRE_CLEAN "} /^post-clean[[:space:]]*:/{printf "POST_CLEAN "} /^pre-test[[:space:]]*:/{printf "PRE_TEST "} /^post-test[[:space:]]*:/{printf "POST_TEST "} /^install[[:space:]]*:/{printf "INSTALL "}' $(MAKELOCAL_MK) 2>/dev/null)
