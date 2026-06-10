@@ -469,6 +469,29 @@ MY_LOCAL_VAR := 1
 - `CFLAGS += -DCHILD_ONLY_FLAG` が **適用される** (makechild.mk が子階層に適用)
 - `MY_LOCAL_VAR := 1` は **適用されない** (makelocal.mk は自ディレクトリ限定)
 
+## ホスト環境プローブと同期評価 (MAKEFW_SYNC_EVAL)
+
+`bin/sync_c_cpp_properties.sh` は `.vscode/c_cpp_properties.json` の同期のために、ホスト OS に関係なく Linux 構成 (`PLATFORM_LINUX := 1`) と Windows 構成 (`PLATFORM_WINDOWS := 1`) の両方で各 `makepart.mk` を評価します。
+このため、Windows ホスト上でも `ifdef PLATFORM_LINUX` ブロックが評価されます (逆も同様)。
+
+この同期評価では、一時 makefile に `MAKEFW_SYNC_EVAL := 1` が定義されます。
+`makepart.mk` で `$(shell ...)` によるホスト環境のプローブ (`pkg-config` など) と `$(error)` を組み合わせる場合は、必ず `ifndef MAKEFW_SYNC_EVAL` でガードし、実ビルド時のみ前提条件チェックを行ってください。
+ガードがないと、対象プラットフォームのコマンドやライブラリが存在しないホストでの同期評価が `$(error)` で失敗し、ビルド後の同期チェック全体がエラー終了します。
+
+```makefile
+# app/service-sample/prod/src/cmd/makepart.mk
+ifdef PLATFORM_LINUX
+    # libsystemd を直接リンクする
+    # ホスト環境のプローブは実ビルド時 (MAKEFW_SYNC_EVAL 未定義時) のみ行う
+    ifndef MAKEFW_SYNC_EVAL
+        ifneq ($(shell pkg-config --exists libsystemd && echo 1),1)
+            $(error libsystemd の開発ファイルが見つかりません)
+        endif
+    endif
+    LIBS += systemd
+endif
+```
+
 ## TEST_SRCS / ADD_SRCS の留意事項
 
 ### ビルド システムによるソース ファイルの分類

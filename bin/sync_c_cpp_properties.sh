@@ -170,6 +170,7 @@ TESTFW_DIR := $TESTFW_DIR
 PLATFORM := $make_platform
 $platform_flag
 TARGET_ARCH := $target_arch
+MAKEFW_SYNC_EVAL := 1
 INCDIR :=
 LIBSDIR :=
 DEFINES :=
