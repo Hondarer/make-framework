@@ -144,6 +144,19 @@ else ifdef PLATFORM_WINDOWS
     endif
 endif
 
+# Windows DLL は IDENT 指定の有無にかかわらず manifest object をリンクする。
+# これにより空の翻訳単位でも DLL と import library を通常経路で生成できる。
+# Windows DLLs always link the manifest object, even without IDENT.
+# This lets empty translation units produce a DLL and import library through the normal path.
+MAKEFW_DLL_IDENT_ENABLED :=
+MAKEFW_IDENT_EXPORT :=
+ifdef PLATFORM_WINDOWS
+    ifneq (,$(filter shared both,$(LIB_TYPE)))
+        MAKEFW_DLL_IDENT_ENABLED := 1
+        MAKEFW_IDENT_EXPORT := 1
+    endif
+endif
+
 # デフォルト ターゲットの設定
 # Default target setting
 # makemain.mk で定義される default ターゲットを使用
@@ -694,6 +707,6 @@ _test_main: $(OBJS)
     endif
 endif
 
-ifeq ($(IDENT_ENABLED),1)
+ifneq (,$(filter 1,$(IDENT_ENABLED) $(MAKEFW_DLL_IDENT_ENABLED)))
 include $(MAKEFW_HOME)/makefiles/_ident.mk
 endif

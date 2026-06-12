@@ -257,6 +257,7 @@ def mode_combine(args):
     workspace = normalize_workspace(args.workspace)
     target = args.target or "unknown"
     target_arch = args.target_arch or ""
+    msvc_export_ident = args.msvc_export_ident
     out_path = args.out
 
     # Read git rev
@@ -308,7 +309,10 @@ def mode_combine(args):
     lines.append("#  else")
     lines.append(f'#    pragma comment(linker, "/INCLUDE:{sym}")')
     lines.append("#  endif")
-    lines.append("#  define IDENT_USED")
+    if msvc_export_ident:
+        lines.append("#  define IDENT_USED __declspec(dllexport)")
+    else:
+        lines.append("#  define IDENT_USED")
     lines.append("#else")
     lines.append('#  define IDENT_USED static __attribute__((used, section(".ident")))')
     lines.append("#endif")
@@ -366,6 +370,11 @@ def main():
     parser.add_argument("--target-arch", help="Target architecture string")
     parser.add_argument(
         "--rev-file", help="Path to file containing git short hash"
+    )
+    parser.add_argument(
+        "--msvc-export-ident",
+        action="store_true",
+        help="Export the ident symbol when compiling with MSVC",
     )
 
     # common

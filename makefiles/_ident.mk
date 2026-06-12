@@ -136,6 +136,7 @@ endif
 # Git short hash stamp
 _IDENT_GIT_HEAD := $(wildcard $(WORKSPACE_DIR)/.git/HEAD)
 _IDENT_REV_FILE := $(OBJDIR)/.ident_rev
+_IDENT_EXPORT_FLAG := $(if $(filter 1,$(MAKEFW_IDENT_EXPORT)),--msvc-export-ident,)
 
 $(_IDENT_REV_FILE): $(_IDENT_GIT_HEAD) | $(OBJDIR)
 	@git -C "$(WORKSPACE_DIR)" rev-parse --short HEAD > "$@.tmp" 2>/dev/null \
@@ -170,6 +171,7 @@ $(_IDENT_MANIFEST_C): $(_IDENT_LOCAL_IDENT_FILES) $(_IDENT_SUBDIR_IDENT_FILES) $
 		--target-arch "$(TARGET_ARCH)" \
 		--rev-file "$(_IDENT_REV_FILE)" \
 		--workspace "$(WORKSPACE_DIR)" \
+		$(_IDENT_EXPORT_FLAG) \
 		--out "$@"
 
 # manifest のコンパイル
@@ -187,6 +189,9 @@ endif
 # 既存リンク ターゲットに manifest obj を依存として追加 (recipe は既存のものを維持)
 # Add manifest obj as a dependency to the existing link target (existing recipe is preserved)
 $(OUTPUT_DIR)/$(TARGET): $(_IDENT_MANIFEST_OBJ)
+ifeq ($(LIB_TYPE),both)
+$(OUTPUT_DIR)/$(TARGET_STATIC): $(_IDENT_MANIFEST_OBJ)
+endif
 
 endif # LIB_TYPE != static
 
