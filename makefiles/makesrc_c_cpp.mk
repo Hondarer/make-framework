@@ -377,17 +377,17 @@ ifndef NO_LINK
     # 実行体の生成
     # Build the executable
     ifdef PLATFORM_LINUX
-$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(LINK_INPUTS) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_LINUX); \
 				if [ "$$rebuild" = 0 ]; then \
-					for dep in $(LIBSFILES); do \
+					for dep in $(LINK_INPUTS) $(LIBSFILES); do \
 						if [ "$$dep" -nt "$@" ]; then rebuild=1; break; fi; \
 					done; \
 				fi; \
 				if [ "$$rebuild" = 1 ]; then \
 					all_objs=$$(tr '\n' ' ' < "$$objs_file" | xargs); \
-					printf '%s\n' "$(strip $(LD) $(LDFLAGS) -o $(call _relpath,$@) $$all_objs $(LIBS))"; \
-					set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $$all_objs $(LIBS) -fdiagnostics-color=always 2>&1 | $(ICONV) | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
+					printf '%s\n' "$(strip $(LD) $(LDFLAGS) -o $(call _relpath,$@) $$all_objs $(LINK_INPUTS) $(LIBS))"; \
+					set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $$all_objs $(LINK_INPUTS) $(LIBS) -fdiagnostics-color=always 2>&1 | $(ICONV) | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
 				else \
 					_rc=0; \
@@ -396,19 +396,20 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(LIBSF
 				exit $$_rc
     else ifdef PLATFORM_WINDOWS
         ifeq ($(GROUP_COMPILE),1)
-$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_GROUP_COMPILE) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_GROUP_COMPILE) $(LINK_INPUTS) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
         else
-$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(LINK_INPUTS) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
         endif
 				@$(_MAKEFW_OBJLIST_WINDOWS); \
 				if [ "$$rebuild" = 0 ]; then \
-					for dep in $(LIBSFILES); do \
+					for dep in $(LINK_INPUTS) $(LIBSFILES); do \
 						if [ "$$dep" -nt "$@" ]; then rebuild=1; break; fi; \
 					done; \
 				fi; \
 				if [ "$$rebuild" = 1 ]; then \
 					rsp_file="$(OBJDIR)/link_$$.rsp"; \
 					cp "$$objs_file" "$$rsp_file"; \
+					printf '%s\n' $(LINK_INPUTS) >> "$$rsp_file"; \
 					echo "$(strip $(basename $(notdir $(LD))) $(LDFLAGS) /PDB:$(call _relpath,$(patsubst %.exe,%.pdb,$@)) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(LIBS))" | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_format_cmd.ps1; \
 					set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ @$$rsp_file $(LIBS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_link_filter.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \

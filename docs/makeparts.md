@@ -91,6 +91,7 @@ MAKE_INCLUDE_MK := $(strip $(call _reverse,$(MAKE_INCLUDE_MK)))
 | `CXXFLAGS` | C++ コンパイラ フラグ | `CXXFLAGS += -std=c++17` |
 | `OUTPUT_DIR` | 出力先ディレクトリ | `OUTPUT_DIR := $(MYAPP_DIR)/prod/bin` |
 | `LIB_TYPE` | ライブラリ種別 | `LIB_TYPE = shared` (デフォルトは static、`both` で両方生成) |
+| `LINK_INPUTS` | リンカーへ直接渡す追加入力 | `LINK_INPUTS += $(OBJDIR)/messages.res` |
 | `LINK_TEST` | テスト フレームワーク リンク | `LINK_TEST = 1` |
 | `TEST_SRCS` | テスト対象ソース ファイル | `TEST_SRCS := $(MYAPP_DIR)/prod/.../add.c` |
 
@@ -158,7 +159,22 @@ TEST_SRCS := \
     $(MYAPP_DIR)/prod/libsrc/calcbase/add.c
 ```
 
-**例 5: app 直下で IntelliSense 用の正本を持つ**
+**例 5: リソース ファイルを直接リンクする**
+
+```makefile
+# app/myapp/prod/src/cmd/myapp/makelocal.mk
+MY_RES := obj/$(MSVC_CRT_SUBDIR)/messages.res
+
+$(MY_RES): messages.rc
+	rc.exe /nologo /fo $(MY_RES) messages.rc
+
+LINK_INPUTS += $(MY_RES)
+```
+
+`LINK_INPUTS` は EXE リンク時の依存関係と再リンク判定に使われ、リンカー入力として直接渡されます。
+Windows の `.res` のように、`obj/<CRT>/*.obj` の自動収集へ変換せずに `link.exe` に渡したいファイルに使用します。
+
+**例 6: app 直下で IntelliSense 用の正本を持つ**
 
 ```makefile
 # app/calc/makepart.mk
