@@ -19,7 +19,10 @@ for src in $SRCS; do
 
     # .d 内のワークスペース内ヘッダーを grep で高速抽出
     # 末尾のコロンを除去し、重複を排除
-    headers=$(grep -o "$WORKSPACE_DIR[^ \\]*" "$dep" 2>/dev/null | sed 's/:$//' | sort -u)
+    # MSVC が生成する .d のパスは小文字化される一方 WORKSPACE_DIR は実際の表記のため、
+    # 大文字小文字を無視して照合する (-i)。Windows の FS は case-insensitive なので
+    # 抽出した小文字パスでも後続の -f / -nt は正しく評価される。
+    headers=$(grep -io "$WORKSPACE_DIR[^ \\]*" "$dep" 2>/dev/null | sed 's/:$//' | sort -u)
 
     dirty=0
     for h in $headers; do
