@@ -271,7 +271,7 @@ is_signature_file() {
     esac
 
     case "${base,,}" in
-        *.c|*.cc|*.cpp|*.cxx|*.h|*.hh|*.hpp|*.hxx|*.cs)
+        *.c|*.cc|*.cpp|*.cxx|*.h|*.hh|*.hpp|*.hxx|*.cs|*.mc|*.rc)
             return 0
             ;;
     esac
