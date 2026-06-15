@@ -3,6 +3,7 @@ include $(WORKSPACE_DIR)/framework/makefw/makefiles/_flags.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_should_skip.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_hooks.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_group_compile.mk
+include $(WORKSPACE_DIR)/framework/makefw/makefiles/_resource_compile.mk
 
 # -fPIC オプションが含まれていない場合に追加
 # Add -fPIC option if not already included
@@ -308,17 +309,17 @@ ifndef NO_LINK
     # Final link command: static libs are embedded, dynamic libs remain as -l
     ifeq ($(LIB_TYPE),shared)
         ifdef PLATFORM_LINUX
-$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(STATIC_LIBS) $(LINK_INPUTS) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_LINUX); \
 				if [ "$$rebuild" = 0 ]; then \
-					for dep in $(STATIC_LIBS); do \
+					for dep in $(STATIC_LIBS) $(LINK_INPUTS); do \
 						if [ "$$dep" -nt "$@" ]; then rebuild=1; break; fi; \
 					done; \
 				fi; \
 				if [ "$$rebuild" = 1 ]; then \
 					all_objs=$$(tr '\n' ' ' < "$$objs_file" | xargs); \
-					printf '%s\n' "$(strip $(CC) -shared -o $(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
-					set -o pipefail; $(CC) -shared -o $@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
+					printf '%s\n' "$(strip $(CC) -shared -o $(call _relpath,$@) $$all_objs $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
+					set -o pipefail; $(CC) -shared -o $@ $$all_objs $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
 				else \
 					_rc=0; \
@@ -333,21 +334,21 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(STATI
                 _DLL_SIDE_CHECK += || [ ! -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET))" ]
             endif
             ifeq ($(GROUP_COMPILE),1)
-$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_GROUP_COMPILE) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_GROUP_COMPILE) $(STATIC_LIBS) $(LINK_INPUTS) | $(OUTPUT_DIR) $(OBJDIR)
             else
-$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(STATIC_LIBS) $(LINK_INPUTS) | $(OUTPUT_DIR) $(OBJDIR)
             endif
 				@$(_MAKEFW_OBJLIST_WINDOWS); \
 				if [ "$$rebuild" = 0 ]; then \
-					for dep in $(STATIC_LIBS); do \
+					for dep in $(STATIC_LIBS) $(LINK_INPUTS); do \
 						if [ "$$dep" -nt "$@" ]; then rebuild=1; break; fi; \
 					done; \
 				fi; \
 				if [ "$$rebuild" = 1 ] || $(_DLL_SIDE_CHECK); then \
 					rsp_file="$(OBJDIR)/link_$$.rsp"; \
 					cp "$$objs_file" "$$rsp_file"; \
-					echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))" | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_format_cmd.ps1; \
-					set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ @$$rsp_file $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_link_filter.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
+					echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))" | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_format_cmd.ps1; \
+					set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ @$$rsp_file $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_link_filter.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
 				else \
 					_rc=0; \
@@ -372,17 +373,17 @@ $(OUTPUT_DIR)/$(TARGET_STATIC): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) 
 				if [ ! -s "$(OUTPUT_DIR)/$(TARGET_STATIC).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET_STATIC).warn"; fi; \
 				exit $$_rc
 # shared lib: static lib 完成後にリンク
-$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS) $(LINK_INPUTS) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_LINUX); \
 				if [ "$$rebuild" = 0 ]; then \
-					for dep in $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS); do \
+					for dep in $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS) $(LINK_INPUTS); do \
 						if [ "$$dep" -nt "$@" ]; then rebuild=1; break; fi; \
 					done; \
 				fi; \
 				if [ "$$rebuild" = 1 ]; then \
 					all_objs=$$(tr '\n' ' ' < "$$objs_file" | xargs); \
-					printf '%s\n' "$(strip $(CC) -shared -o $(call _relpath,$@) $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
-					set -o pipefail; $(CC) -shared -o $@ $$all_objs $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
+					printf '%s\n' "$(strip $(CC) -shared -o $(call _relpath,$@) $$all_objs $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
+					set -o pipefail; $(CC) -shared -o $@ $$all_objs $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
 				else \
 					_rc=0; \
@@ -420,18 +421,18 @@ $(OUTPUT_DIR)/$(TARGET_STATIC): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) 
 				if [ ! -s "$(OUTPUT_DIR)/$(TARGET_STATIC).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET_STATIC).warn"; fi; \
 				exit $$_rc
 # DLL: static lib 完成後にリンク
-$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS) | $(OUTPUT_DIR) $(OBJDIR)
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS) $(LINK_INPUTS) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_WINDOWS); \
 				if [ "$$rebuild" = 0 ]; then \
-					for dep in $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS); do \
+					for dep in $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS) $(LINK_INPUTS); do \
 						if [ "$$dep" -nt "$@" ]; then rebuild=1; break; fi; \
 					done; \
 				fi; \
 				if [ "$$rebuild" = 1 ] || $(_DLL_SIDE_CHECK); then \
 					rsp_file="$(OBJDIR)/link_$$.rsp"; \
 					cp "$$objs_file" "$$rsp_file"; \
-					echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))" | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_format_cmd.ps1; \
-					set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ @$$rsp_file $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_link_filter.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
+					echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))" | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_format_cmd.ps1; \
+					set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ @$$rsp_file $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | powershell -ExecutionPolicy Bypass -File $(WORKSPACE_DIR)/framework/makefw/bin/msvc_link_filter.ps1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
 				else \
 					_rc=0; \

@@ -119,6 +119,14 @@ GCOVR_SRCS := $(foreach src,$(TEST_SRCS), \
 SRCS_C := $(sort $(wildcard *.c) $(notdir $(filter %.c,$(CP_SRCS) $(LINK_SRCS))))
 SRCS_CPP := $(sort $(wildcard *.cc) $(wildcard *.cpp) $(notdir $(filter %.cc,$(CP_SRCS) $(LINK_SRCS)) $(filter %.cpp,$(CP_SRCS) $(LINK_SRCS))))
 
+# Windows リソース ソース (.mc メッセージ テーブル / .rc) の自動収集
+# Auto-collect Windows resource sources (.mc message table / .rc)
+# Windows 専用。コンパイルは _resource_compile.mk が担当する。
+ifdef PLATFORM_WINDOWS
+    SRCS_MC := $(sort $(wildcard *.mc))
+    SRCS_RC := $(sort $(wildcard *.rc))
+endif
+
 # INCDIR は prepare.mk で正規化済み (realpath -m + sort による重複除去)
 # INCDIR is already normalized in prepare.mk (realpath -m + sort for dedup)
 

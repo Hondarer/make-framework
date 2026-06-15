@@ -3,6 +3,7 @@ include $(WORKSPACE_DIR)/framework/makefw/makefiles/_flags.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_should_skip.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_hooks.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_group_compile.mk
+include $(WORKSPACE_DIR)/framework/makefw/makefiles/_resource_compile.mk
 
 # テスト ライブラリの設定
 # Set test libraries

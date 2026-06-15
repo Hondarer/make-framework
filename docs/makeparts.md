@@ -91,7 +91,7 @@ MAKE_INCLUDE_MK := $(strip $(call _reverse,$(MAKE_INCLUDE_MK)))
 | `CXXFLAGS` | C++ コンパイラ フラグ | `CXXFLAGS += -std=c++17` |
 | `OUTPUT_DIR` | 出力先ディレクトリ | `OUTPUT_DIR := $(MYAPP_DIR)/prod/bin` |
 | `LIB_TYPE` | ライブラリ種別 | `LIB_TYPE = shared` (デフォルトは static、`both` で両方生成) |
-| `LINK_INPUTS` | リンカーへ直接渡す追加入力 | `LINK_INPUTS += $(OBJDIR)/messages.res` |
+| `LINK_INPUTS` | リンカーへ直接渡す追加入力 (EXE / DLL) | `LINK_INPUTS += path/to/prebuilt.res` |
 | `LINK_TEST` | テスト フレームワーク リンク | `LINK_TEST = 1` |
 | `TEST_SRCS` | テスト対象ソース ファイル | `TEST_SRCS := $(MYAPP_DIR)/prod/.../add.c` |
 
@@ -159,20 +159,31 @@ TEST_SRCS := \
     $(MYAPP_DIR)/prod/libsrc/calcbase/add.c
 ```
 
-**例 5: リソース ファイルを直接リンクする**
+**例 5: Windows リソース (.mc / .rc) を埋め込む**
 
-```makefile
-# app/myapp/prod/src/cmd/myapp/makelocal.mk
-MY_RES := obj/$(MSVC_CRT_SUBDIR)/messages.res
+ソース ディレクトリに `.mc` (メッセージ テーブル) または `.rc` を置くだけで、makefw が自動的に `mc.exe` / `rc.exe` で `.res` へコンパイルし、実行体 (EXE) または共有ライブラリ (DLL) のリンクに含めます。
+makepart.mk / makelocal.mk への記述は不要です。
 
-$(MY_RES): messages.rc
-	rc.exe /nologo /fo $(MY_RES) messages.rc
-
-LINK_INPUTS += $(MY_RES)
+```text
+src/cmd/myapp/
+  myapp.c
+  messages.mc   <- 置くだけで自動コンパイル・リンク
 ```
 
-`LINK_INPUTS` は EXE リンク時の依存関係と再リンク判定に使われ、リンカー入力として直接渡されます。
-Windows の `.res` のように、`obj/<CRT>/*.obj` の自動収集へ変換せずに `link.exe` に渡したいファイルに使用します。
+- Windows 専用です (`mc.exe` / `rc.exe` は Windows SDK のツール)。Linux では無視されます。
+- `.mc` は `mc.exe` でヘッダー / `.rc` / `.bin` を生成した後、`rc.exe` で `.res` にします。単体 `.rc` は `rc.exe` で直接 `.res` にします。
+- メッセージ コンパイラのフラグは `MCFLAGS` (既定 `-U`)、リソース コンパイラのフラグは `RCFLAGS` で上書きできます。
+- 静的ライブラリ (`.lib` / `.a`) は `.res` を保持できないため対象外です。
+- 同名 stem の `.mc` と `.rc` を同一ディレクトリに置かないでください (どちらも `<name>.res` を生成し衝突します)。
+
+生成済みの `.res` など、makefw のコンパイル対象外のファイルを手動でリンカーへ渡したい場合は、`LINK_INPUTS` に直接追加します。
+
+```makefile
+# 任意: 外部で用意した .res を直接リンクする (高度なケース)
+LINK_INPUTS += path/to/prebuilt.res
+```
+
+`LINK_INPUTS` は EXE / DLL リンク時の依存関係と再リンク判定に使われ、リンカー入力として直接渡されます。
 
 **例 6: app 直下で IntelliSense 用の正本を持つ**
 
