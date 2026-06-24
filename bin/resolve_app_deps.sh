@@ -44,16 +44,15 @@ to_make_include_path() {
     printf '%s\n' "$path"
 }
 
-read_direct_deps() {
+# appdeps.mk から APP_DEPS の値を make 経由で取得するフォールバック。
+# make 関数 ($(...)) やバッククォートを含む複雑な appdeps.mk のための保険。
+read_direct_deps_via_make() {
     local app_name="$1"
     local deps_file="$APP_ROOT_DIR/$app_name/appdeps.mk"
     local deps_makefile_path
     local tmp_makefile
     local output
 
-    if [[ ! -f "$deps_file" ]]; then
-        return 0
-    fi
     deps_makefile_path=$(to_make_include_path "$deps_file")
 
     tmp_makefile=$(mktemp)
@@ -68,6 +67,59 @@ EOF
 
     output=$(MAKEFLAGS= MFLAGS= make --no-print-directory -f "$tmp_makefile" print)
     rm -f "$tmp_makefile"
+
+    if [[ -n "$output" ]]; then
+        printf '%s\n' $output
+    fi
+}
+
+read_direct_deps() {
+    local app_name="$1"
+    local deps_file="$APP_ROOT_DIR/$app_name/appdeps.mk"
+    local output
+    local rc=0
+
+    if [[ ! -f "$deps_file" ]]; then
+        return 0
+    fi
+
+    # appdeps.mk は通常 `APP_DEPS := <names>` の自明な代入のみ。
+    # make の起動 (約 600[ms]/回) を避けるため awk 1 回で直接解析する。
+    # make 関数呼び出し ($(...)) やバッククォートを検出した場合は exit 9 を返し、
+    # make による厳密な評価へフォールバックする。
+    output=$(awk '
+        BEGIN { collecting = 0; complex = 0; n = 0 }
+        ($0 ~ /\$\(/ || $0 ~ /`/) { complex = 1 }
+        {
+            line = $0
+            sub(/#.*/, "", line)
+            if (collecting) {
+                cont = (line ~ /\\[[:space:]]*$/)
+                sub(/\\[[:space:]]*$/, "", line)
+                m = split(line, a, /[[:space:]]+/)
+                for (i = 1; i <= m; i++) if (a[i] != "") tok[++n] = a[i]
+                if (!cont) collecting = 0
+                next
+            }
+            if (line ~ /^[[:space:]]*APP_DEPS[[:space:]]*[:+]?=/) {
+                sub(/^[[:space:]]*APP_DEPS[[:space:]]*[:+]?=/, "", line)
+                cont = (line ~ /\\[[:space:]]*$/)
+                sub(/\\[[:space:]]*$/, "", line)
+                m = split(line, a, /[[:space:]]+/)
+                for (i = 1; i <= m; i++) if (a[i] != "") tok[++n] = a[i]
+                if (cont) collecting = 1
+            }
+        }
+        END {
+            if (complex) exit 9
+            for (i = 1; i <= n; i++) print tok[i]
+        }
+    ' "$deps_file") || rc=$?
+
+    if [[ "$rc" -eq 9 ]]; then
+        read_direct_deps_via_make "$app_name"
+        return 0
+    fi
 
     if [[ -n "$output" ]]; then
         printf '%s\n' $output
@@ -185,6 +237,7 @@ emit_signature() {
     local root_app
     local app
     local tmp_entries
+    local tmp_paths
     local rel
     local hash
     local digest
@@ -208,10 +261,28 @@ emit_signature() {
 
     root_app=$(resolve_root_app "$app_dir")
     tmp_entries=$(mktemp)
+    tmp_paths=$(mktemp)
 
     while IFS= read -r app; do
         collect_signature_files "$app" "$mode" "$root_app"
     done < <(collect_app_closure "$root_app")
+
+    # 収集した全ファイルを 1 回の sha256sum 起動で一括ハッシュする
+    # (xargs が引数長制限に応じて自動分割する)。
+    # sha256sum 出力 "<64桁hash>  <abspath>" を "<rel>\t<hash>" 形式へ変換する。
+    if [[ -s "$tmp_paths" ]]; then
+        xargs -0 sha256sum < "$tmp_paths" \
+            | awk -v ws="$WORKSPACE_DIR/" '
+                {
+                    hash = substr($0, 1, 64)
+                    path = substr($0, 67)
+                    if (substr(path, 1, length(ws)) == ws) {
+                        path = substr(path, length(ws) + 1)
+                    }
+                    print path "\t" hash
+                }' >> "$tmp_entries"
+    fi
+    rm -f "$tmp_paths"
 
     {
         printf 'MODE\t%s\n' "$mode"
@@ -294,10 +365,13 @@ is_excluded_signature_path() {
     return 1
 }
 
+# 署名対象ファイルを収集する。ハッシュ計算はここでは行わず、
+# 絶対パスを NUL 区切りで $tmp_paths へ追記するのみとする。
+# 全ファイルを集めた後に emit_signature が一括で sha256sum する
+# (ファイル 1 個ごとの sha256sum 起動を避ける)。
 add_signature_file() {
     local path="$1"
     local rel
-    local hash
 
     if [[ ! -f "$path" ]]; then
         return 0
@@ -314,8 +388,7 @@ add_signature_file() {
         return 0
     fi
 
-    hash=$(sha256sum "$path" | awk '{ print $1 }')
-    printf '%s\t%s\n' "$rel" "$hash" >> "$tmp_entries"
+    printf '%s\0' "$path" >> "$tmp_paths"
 }
 
 collect_tree_signature_files() {
