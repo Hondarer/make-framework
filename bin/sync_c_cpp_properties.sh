@@ -30,6 +30,13 @@ WORKSPACE_DIR=$(find_workspace_root "$SCRIPT_DIR") || {
     echo "workspace root not found" >&2
     exit 2
 }
+# Windows では resolve_app_deps.sh が cygpath -m で Windows mixed 形式 (D:/...) のパスを返すため、
+# pwd -P 由来の MSYS POSIX 形式 ($WORKSPACE_DIR) との両形式で接頭辞判定できるよう mixed 形式も保持する
+if command -v cygpath >/dev/null 2>&1; then
+    WORKSPACE_DIR_M=$(cygpath -m "$WORKSPACE_DIR")
+else
+    WORKSPACE_DIR_M=""
+fi
 APP_DIR="$WORKSPACE_DIR/app"
 VSCODE_FILE="$WORKSPACE_DIR/.vscode/c_cpp_properties.json"
 WARN_FILE="$APP_DIR/c_cpp_properties.warn"
@@ -73,6 +80,8 @@ normalize_path() {
 
     if [[ "$path" == "$WORKSPACE_DIR"* ]]; then
         printf '%s\n' '${workspaceFolder}'"${path#$WORKSPACE_DIR}"
+    elif [[ -n "$WORKSPACE_DIR_M" && "$path" == "$WORKSPACE_DIR_M"* ]]; then
+        printf '%s\n' '${workspaceFolder}'"${path#$WORKSPACE_DIR_M}"
     else
         printf '%s\n' "$path"
     fi
