@@ -4,11 +4,11 @@
 
 ## 概要
 
-makefw では、`app/<app_name>/makefile` 用の app 直下テンプレート (`__app_root_template.mk`) と、配下の makefile (最終ビルド層・中間走査層) 用の統一テンプレート (`__template.mk`) を使い分けます。ビルドを行うかどうかは `MAKEFW_BUILD` フラグで制御します。フラグが未設定の場合はカレント ディレクトリ直下のビルド対象ソース有無で自動判定し、直下にソースがあればビルドを実行します。
+makefw では、`app/makefile` 用の app 直下テンプレート (`__app_template.mk`)、`app/<app_name>/makefile` 用の各 app 直下テンプレート (`__each_app_template.mk`)、配下の makefile (最終ビルド層・中間走査層) 用の統一テンプレート (`__template.mk`) を使い分けます。ビルドを行うかどうかは `MAKEFW_BUILD` フラグで制御します。フラグが未設定の場合はカレント ディレクトリ直下のビルド対象ソース有無で自動判定し、直下にソースがあればビルドを実行します。
 
 これにより、以下のメリットが得られます:
 
-- **役割ごとの統一**: app 直下用と配下用でテンプレートを固定し、メンテナンスを容易にする
+- **役割ごとの統一**: app 直下用・各 app 直下用・配下用でテンプレートを固定し、メンテナンスを容易にする
 - **ビルド/走査の自動分離**: 直下のソース有無で自動判定し、新規ディレクトリへの明示設定が不要
 - **自動判定**: ディレクトリ パスと .csproj の有無で自動的に適切なビルド テンプレートを選択
 - **柔軟性**: プロジェクト固有の設定は makepart.mk で管理
@@ -19,7 +19,8 @@ makefw では、`app/<app_name>/makefile` 用の app 直下テンプレート (`
 
 ```text
 framework/makefw/makefiles/
-+-- __app_root_template.mk  # app/<app_name>/makefile 用テンプレート
++-- __app_template.mk       # app/makefile 用テンプレート
++-- __each_app_template.mk  # app/<app_name>/makefile 用テンプレート
 +-- __template.mk           # 配下の makefile 用統一テンプレート
 +-- prepare.mk              # 準備処理（コンパイラ設定、makepart.mk / makechild.mk / makelocal.mk 読み込み）
 +-- makemain.mk             # MAKEFW_BUILD フラグに基づくビルドテンプレート選択ロジック
@@ -92,7 +93,7 @@ endif
 @enduml
 ```
 
-## app 直下テンプレート (__app_root_template.mk)
+## 各 app 直下テンプレート (__each_app_template.mk)
 
 `app/<app_name>/makefile` で使用する標準テンプレートです。`prod` / `test` の呼び出し、`doxy` 実行、ログ ファイル管理を担当します。
 

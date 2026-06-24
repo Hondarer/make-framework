@@ -6,7 +6,11 @@ update_template_makefiles.py - テンプレート由来の makefile を最新版
   makefw ワークスペース配下の makefile で、先頭行が既知の
   テンプレート識別子で始まるファイル。
 
-  手書き makefile は対象外。
+  - app 配下テンプレート: app/<app_name>/.../makefile (末端・走査層)
+  - 各 app 直下テンプレート: app/<app_name>/makefile
+  - app 直下テンプレート: app/makefile
+
+  上記いずれの識別子も持たない手書き makefile は対象外。
 
 【使い方】
   python framework/makefw/bin/update_template_makefiles.py [--dry-run]
@@ -26,8 +30,11 @@ TEMPLATE_MAP = {
     "# app 配下 makefile テンプレート": Path(
         "framework/makefw/makefiles/__template.mk"
     ),
+    "# 各 app 直下 makefile テンプレート": Path(
+        "framework/makefw/makefiles/__each_app_template.mk"
+    ),
     "# app 直下 makefile テンプレート": Path(
-        "framework/makefw/makefiles/__app_root_template.mk"
+        "framework/makefw/makefiles/__app_template.mk"
     ),
 }
 
@@ -53,7 +60,7 @@ def get_template_header(path: Path) -> str | None:
         return None
 
 
-def is_app_root_makefile(workspace: Path, path: Path) -> bool:
+def is_each_app_makefile(workspace: Path, path: Path) -> bool:
     """path が app/<app_name>/makefile かを判定する。"""
     try:
         relative_parts = path.relative_to(workspace).parts
@@ -67,14 +74,33 @@ def is_app_root_makefile(workspace: Path, path: Path) -> bool:
     )
 
 
+def is_app_makefile(workspace: Path, path: Path) -> bool:
+    """path が app/makefile (app ディレクトリ直下) かを判定する。"""
+    try:
+        relative_parts = path.relative_to(workspace).parts
+    except ValueError:
+        return False
+
+    return (
+        len(relative_parts) == 2
+        and relative_parts[0] == "app"
+        and relative_parts[1] == "makefile"
+    )
+
+
 def validate_template_location(workspace: Path, makefile: Path, header: str) -> str | None:
     """テンプレート識別子と配置場所の整合性エラーを返す。問題なければ None。"""
-    if header == "# app 直下 makefile テンプレート" and not is_app_root_makefile(
+    if header == "# 各 app 直下 makefile テンプレート" and not is_each_app_makefile(
         workspace, makefile
     ):
         return (
-            "app 直下テンプレートは app/<app_name>/makefile にのみ配置できます"
+            "各 app 直下テンプレートは app/<app_name>/makefile にのみ配置できます"
         )
+
+    if header == "# app 直下 makefile テンプレート" and not is_app_makefile(
+        workspace, makefile
+    ):
+        return "app 直下テンプレートは app/makefile にのみ配置できます"
 
     return None
 
