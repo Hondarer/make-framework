@@ -155,7 +155,7 @@ find app/calc/test -name '*.ident' -print
 ### コンパイル時 (各 .c ごと)
 
 1. `.c` のコンパイル完了時に `.d` 依存ファイルが生成される  
-   (GCC: `-MMD -MP -MF`、MSVC: `/showIncludes` + フィルター、GROUP_COMPILE: `/sourceDependencies`)
+   (GCC: `-MMD -MP -MF`、MSVC: `/sourceDependencies`)
 2. `.d` ファイルを読んでヘッダーパスを抽出し、SHA-256 を計算
 3. ソースと各ヘッダーの SHA-256 を `.ident` JSON ファイルへ保存
 

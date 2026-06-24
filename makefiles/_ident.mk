@@ -26,10 +26,9 @@ $(OBJDIR)/%.ident: $(OBJDIR)/%.o | $(OBJDIR)
 
 else ifdef PLATFORM_WINDOWS
 
-ifeq ($(GROUP_COMPILE),1)
-# GROUP_COMPILE=1: _group_compile が .d を生成するため、その完了後に .ident を生成
-# GROUP_COMPILE=1: _group_compile generates .d files; build .ident after it completes
-$(_IDENT_LOCAL_IDENT_FILES): _group_compile
+# _msvc_compile が .d を生成するため、その完了後に .ident を生成
+# _msvc_compile generates .d files; build .ident after it completes
+$(_IDENT_LOCAL_IDENT_FILES): _msvc_compile
 
 $(OBJDIR)/%.ident: $(OBJDIR)/%.d | $(OBJDIR)
 	@python3 "$(MAKEFW_HOME)/bin/gen_ident_manifest.py" \
@@ -38,20 +37,6 @@ $(OBJDIR)/%.ident: $(OBJDIR)/%.d | $(OBJDIR)
 		--src-dir "$(CURDIR)" \
 		--workspace "$(WORKSPACE_DIR)" \
 		--out "$@"
-
-else
-# GROUP_COMPILE=0: .obj のコンパイル完了後に .ident を生成
-# GROUP_COMPILE=0: generate .ident after .obj compilation completes
-$(OBJDIR)/%.ident: $(OBJDIR)/%.obj | $(OBJDIR)
-	@python3 "$(MAKEFW_HOME)/bin/gen_ident_manifest.py" \
-		--mode source-info \
-		--dep-file "$(OBJDIR)/$*.d" \
-		--src-dir "$(CURDIR)" \
-		--workspace "$(WORKSPACE_DIR)" \
-		--out "$@"
-
-endif
-
 endif # PLATFORM
 
 # NO_LINK=1: アーカイブを生成しないコンパイル専用サブディレクトリ (LIB_TYPE を問わず優先)

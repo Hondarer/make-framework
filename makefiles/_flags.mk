@@ -262,10 +262,6 @@ endif
 # 依存関係出力用フラグ
 ifdef PLATFORM_LINUX
     DEPFLAGS = -MT $@ -MMD -MP -MF $(OBJDIR)/$*.d
-else ifdef PLATFORM_WINDOWS
-    # GROUP_COMPILE=0 の個別コンパイル パス (/showIncludes + msvc_cl_filter.ps1) のみで使用
-    # GROUP_COMPILE=1 のグループ コンパイル パスは /sourceDependencies を使用するため不要
-    DEPFLAGS = /showIncludes
 endif
 
 # デバッグ出力

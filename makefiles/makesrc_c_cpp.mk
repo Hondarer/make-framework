@@ -2,7 +2,7 @@ include $(WORKSPACE_DIR)/framework/makefw/makefiles/_collect_srcs.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_flags.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_should_skip.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_hooks.mk
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_group_compile.mk
+include $(WORKSPACE_DIR)/framework/makefw/makefiles/_msvc_compile.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_resource_compile.mk
 
 # テスト ライブラリの設定
@@ -252,12 +252,6 @@ endif
 ifdef PLATFORM_LINUX
     # Linux: .o ファイルを検索
     SUBDIR_OBJS := $(shell find . -path "./obj" -prune -o -path "*/obj/*.o" -type f -print 2>/dev/null)
-else ifdef PLATFORM_WINDOWS
-    # Windows: MSVC_CRT_SUBDIR サブディレクトリの .obj ファイルのみ検索
-    # グループ コンパイル時はリンク recipe が実行時に列挙するため、解析時の find は不要。
-    ifneq ($(GROUP_COMPILE),1)
-        SUBDIR_OBJS := $(shell find . -path "./obj" -prune -o -path "*/obj/$(MSVC_CRT_SUBDIR)/*.obj" -type f -print 2>/dev/null)
-    endif
 endif
 OBJS += $(SUBDIR_OBJS)
 
@@ -276,7 +270,7 @@ MAKEFW_ARTIFACT_ROOT := $(shell \
 )
 MAKEFW_ARTIFACT_DEPS := $(if $(MAKEFW_ARTIFACT_ONLY),_makefw_artifact_recheck,$(SUBDIRS))
 MAKEFW_ARTIFACT_OBJS := $(if $(MAKEFW_ARTIFACT_ONLY),,$(OBJS))
-MAKEFW_ARTIFACT_GROUP_COMPILE := $(if $(MAKEFW_ARTIFACT_ONLY),,_group_compile)
+MAKEFW_ARTIFACT_MSVC_COMPILE := $(if $(MAKEFW_ARTIFACT_ONLY),,_msvc_compile)
 MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT := $(if $(filter $(CURDIR),$(MAKEFW_REQUEST_ROOT)),$(if $(filter-out $(MAKEFW_ARTIFACT_ROOT),$(CURDIR)),$(if $(filter command\ line,$(origin NO_LINK)),,1),),)
 
 .PHONY: _makefw_artifact_recheck _makefw_parent_artifact
@@ -336,19 +330,15 @@ _build_impl: _pre_build_hook _build_main _post_build_hook
 
 # 実際のビルド処理
 # Actual build process
-# _group_compile が完了してから _build_main を実行
+# Windows では _msvc_compile が完了してから _build_main を実行
 ifeq ($(call should_skip,$(SKIP_BUILD)),true)
-_build_main: _group_compile
+_build_main: _msvc_compile
 	@:
 else
     ifndef NO_LINK
-_build_main: $(MAKEFW_ARTIFACT_GROUP_COMPILE) $(OUTPUT_DIR)/$(TARGET)
+_build_main: $(MAKEFW_ARTIFACT_MSVC_COMPILE) $(OUTPUT_DIR)/$(TARGET)
     else
-        ifeq ($(GROUP_COMPILE),1)
-_build_main: _group_compile $(LIBSFILES) $(if $(MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT),_makefw_parent_artifact)
-        else
-_build_main: _group_compile $(OBJS) $(LIBSFILES) $(if $(MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT),_makefw_parent_artifact)
-        endif
+_build_main: $(if $(PLATFORM_WINDOWS),_msvc_compile,$(OBJS)) $(LIBSFILES) $(if $(MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT),_makefw_parent_artifact)
     endif
 endif
 
@@ -399,11 +389,7 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(LINK_
 				if [ ! -s "$(OUTPUT_DIR)/$(TARGET).warn" ]; then rm -f "$(OUTPUT_DIR)/$(TARGET).warn"; fi; \
 				exit $$_rc
     else ifdef PLATFORM_WINDOWS
-        ifeq ($(GROUP_COMPILE),1)
-$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_GROUP_COMPILE) $(LINK_INPUTS) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
-        else
-$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(LINK_INPUTS) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
-        endif
+$(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_MSVC_COMPILE) $(LINK_INPUTS) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_WINDOWS); \
 				if [ "$$rebuild" = 0 ]; then \
 					for dep in $(LINK_INPUTS) $(LIBSFILES); do \
@@ -440,7 +426,7 @@ show-exepath:
 # コンパイル ルールのテンプレート定義
 # Compile rule template definition
 # 引数: $(1)=拡張子 (c/cc/cpp), $(2)=コンパイラ変数名 (CC/CXX), $(3)=フラグ変数名 (CFLAGS/CXXFLAGS)
-# Windows でグループ コンパイル有効時はパターン ルールを定義しない (_group_compile で処理)
+# Windows のコンパイルは _msvc_compile で処理するため、パターン ルールは Linux のみ定義する
 define compile_rule_template
 ifdef PLATFORM_LINUX
 $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR)
@@ -451,17 +437,6 @@ $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_S
 			echo $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$<; \
 			LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV) | $$(CAPTURE_WARNINGS) $$<.warn; \
 		fi
-else ifdef PLATFORM_WINDOWS
-  ifneq ($$(GROUP_COMPILE),1)
-$$(OBJDIR)/%.obj: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR)
-		@set -o pipefail; if echo $$(TEST_SRCS) | grep -q $$(notdir $$<); then \
-			echo $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) /Fd:$$(OBJDIR)/$$(basename $$(TARGET)).pdb -D_IN_TEST_SRC /c /Fo$$@ $$<; \
-			MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) /Fd:$$(OBJDIR)/$$(basename $$(TARGET)).pdb -D_IN_TEST_SRC /c /Fo$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_DIR)/framework/makefw/bin/msvc_cl_filter.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$<.warn $$(WORKSPACE_DIR); \
-		else \
-			echo $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OBJDIR)/$$(basename $$(TARGET)).pdb /c /Fo$$@ $$<; \
-			MSYS_NO_PATHCONV=1 $$($(2)) $$(DEPFLAGS) $$($(3)) /Fd:$$(OBJDIR)/$$(basename $$(TARGET)).pdb /c /Fo$$@ $$< 2>&1 | powershell -ExecutionPolicy Bypass -File $$(WORKSPACE_DIR)/framework/makefw/bin/msvc_cl_filter.ps1 $$@ $$< $$(OBJDIR)/$$*.d $$<.warn $$(WORKSPACE_DIR); \
-		fi
-  endif
 endif
 endef
 

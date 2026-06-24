@@ -1,15 +1,15 @@
 ﻿#!/usr/bin/env pwsh
-# MSVC グループコンパイルスクリプト
+# MSVC 並列コンパイルスクリプト
 # 複数ソースファイルを一度に cl.exe に渡し、MSYS プロセス起動オーバーヘッドを削減する
 #
 # /sourceDependencies <dir> を使用して依存関係を JSON で生成する
 # - ロケール非依存 (日本語/英語の正規表現が不要)
 # - stdout が軽量化 (インクルード情報が stdout に流れない)
 # - /MP との併用が可能 (ディレクトリ引数を使用するため競合しない)
-# - VS 2019 16.7+ 必須
+# - Visual Studio 2022 以降が必須
 #
 # 使用方法:
-#   powershell -ExecutionPolicy Bypass -File msvc_group_compile.ps1 `
+#   powershell -ExecutionPolicy Bypass -File msvc_compile.ps1 `
 #       -Compiler "cl" -Flags "/EHsc /MP /FS" -ObjDir "obj/md" `
 #       -Sources "foo.c bar.c baz.c" [-ExtraFlags "-D_IN_TEST_SRC"]
 
@@ -46,7 +46,7 @@ if (-not (Test-Path $ObjDir)) {
 $objDirWin = $ObjDir.Replace('/', '\')
 
 # レスポンスファイルを作成 (並列ビルド対応で一意のファイル名を使用)
-$rspFile = Join-Path $ObjDir "group_compile_$([guid]::NewGuid().ToString('N').Substring(0,8)).rsp"
+$rspFile = Join-Path $ObjDir "msvc_compile_$([guid]::NewGuid().ToString('N').Substring(0,8)).rsp"
 
 # レスポンスファイルの内容を構築
 $rspContent = @()

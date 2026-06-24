@@ -71,11 +71,15 @@ make CONFIG=RelWithDebInfo MSVC_CRT=static
 
 ## Windows の並列ビルド
 
-Windows で並列度を指定せずに app 直下から make を実行すると、makefw は論理 CPU 数から make と MSVC の並列度を算出します。
-make の並列度には論理 CPU 数の平方根を切り上げた値を使い、上限を 8 とします。
+Windows ビルドには Visual Studio 2022 以降が必要です。  
+MSVC のコンパイルでは複数のソース ファイルを `cl.exe` に渡し、`/MP` で並列処理します。  
+ヘッダー依存関係は `/sourceDependencies` で取得します。
+
+Windows で並列度を指定せずに app 直下から make を実行すると、makefw は論理 CPU 数から make と MSVC の並列度を算出します。  
+make の並列度には論理 CPU 数の平方根を切り上げた値を使い、上限を 8 とします。  
 MSVC の `/MP` には論理 CPU 数を make の並列度で割った値を使い、上限を 16 とします。
 
-たとえば、論理 CPU が 72 個ある環境では、make に `-j8`、MSVC に `/MP9` を指定します。
+たとえば、論理 CPU が 72 個ある環境では、make に `-j8`、MSVC に `/MP9` を指定します。  
 make の再帰処理と `cl.exe` の並列処理を合わせた上限が論理 CPU 数を超えないため、二重の並列化による過剰なプロセス生成を避けられます。
 
 コマンド ラインで指定した値は自動算出より優先されます。
