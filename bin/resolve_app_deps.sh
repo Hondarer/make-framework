@@ -279,6 +279,8 @@ emit_paths_all() {
             [[ -d "$path" ]] && printf 'TESTLIB:%s\n' "$path"
         done
     fi
+
+    return 0
 }
 
 emit_signature() {
