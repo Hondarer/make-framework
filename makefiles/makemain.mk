@@ -1,6 +1,17 @@
 # サブディレクトリの検出 (GNUmakefile/makefile/Makefile を含むディレクトリのみ)
 # Detect subdirectories containing GNUmakefile/makefile
-SUBDIRS ?= $(sort $(dir $(wildcard */GNUmakefile */makefile */Makefile)))
+#
+# SUBDIRS が makelocal.mk / makepart.mk で明示指定済みなら宣言順を尊重する
+# (順序依存があるため、並列ビルド下でも宣言順に直列化する: 後段の連鎖を参照)。
+# 未指定ならワイルドカードで自動検出する (兄弟は独立とみなし並列を許容)。
+# SUBDIRS explicitly set by makelocal.mk/makepart.mk -> honor declared order.
+# Otherwise auto-detect via wildcard (siblings assumed independent -> allow parallel).
+ifeq ($(origin SUBDIRS),undefined)
+    SUBDIRS := $(sort $(dir $(wildcard */GNUmakefile */makefile */Makefile)))
+    _MAKEFW_SUBDIRS_ORDERED :=
+else
+    _MAKEFW_SUBDIRS_ORDERED := 1
+endif
 
 # サブディレクトリの OS フィルタリング
 # OS-based subdirectory filtering
@@ -105,6 +116,21 @@ ifneq ($(SUBDIRS),)
 			$(MAKE) $$parallel_make_args -C $@; \
 		fi; \
 	fi
+
+    # 明示指定された SUBDIRS は宣言順を並列ビルド (-j) 下でも維持する。
+    # 各サブディレクトリを直前のサブディレクトリへ order-only 依存させ、
+    # makelocal.mk / makepart.mk が決めた順序を直列化する。
+    # 各ターゲットは依然 $(MAKE) -C $@ を -j 付きで実行するため、
+    # サブディレクトリ内部のコンパイル並列は保たれる。
+    # Honor declared SUBDIRS order even under parallel make (-j): serialize
+    # siblings via order-only prerequisites so a dependent dir builds after its
+    # dependency. Auto-detected (independent) siblings stay parallel.
+    ifneq ($(_MAKEFW_SUBDIRS_ORDERED),)
+        _MAKEFW_PREV_SUBDIR :=
+        $(foreach d,$(SUBDIRS),\
+            $(if $(_MAKEFW_PREV_SUBDIR),$(eval $(d): | $(_MAKEFW_PREV_SUBDIR)))\
+            $(eval _MAKEFW_PREV_SUBDIR := $(d)))
+    endif
 
     # 主要なターゲットにサブディレクトリ依存を追加 (サブディレクトリを先に処理)
     # Add subdirectory dependencies to main targets (process subdirectories first)
