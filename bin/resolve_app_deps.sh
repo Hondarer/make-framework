@@ -22,6 +22,7 @@ usage() {
     cat <<'EOF' >&2
 Usage:
   resolve_app_deps.sh --paths <app-dir> <include|include_internal|lib|test_include|test_lib>
+  resolve_app_deps.sh --paths-all <app-dir> [test]
   resolve_app_deps.sh --signature <app-dir> [build|test]
   resolve_app_deps.sh --app-order
 EOF
@@ -231,6 +232,55 @@ emit_paths() {
     printf '%s\n' "${items[*]}"
 }
 
+# 依存閉包を 1 度だけ計算し、INCDIR / LIBSDIR 系のパスを全種別まとめて出力する。
+# prepare.mk が --paths を種別ごとに呼ぶと bash 起動と collect_app_closure が
+# 重複するため、それを 1 回の呼び出しに集約する。
+# 出力は 1 行 1 トークン "KIND:path" 形式。KIND は呼び出し側 (Make) が
+# $(filter)/$(patsubst) で種別ごとに展開する。
+#   INCLUDE   : prod/include      (閉包全体)
+#   INTERNAL  : prod/include_internal (root app のみ。emit_paths と同じ扱い)
+#   LIB       : prod/lib          (閉包全体)
+#   TESTINC   : test/include      (want_test=test のときのみ、閉包全体)
+#   TESTLIB   : test/lib          (want_test=test のときのみ、閉包全体)
+emit_paths_all() {
+    local app_dir="$1"
+    local want_test="${2:-}"
+    local root_app
+    local app
+    local path
+    local -a closure=()
+
+    root_app=$(resolve_root_app "$app_dir")
+
+    while IFS= read -r app; do
+        [[ -n "$app" ]] && closure+=("$app")
+    done < <(collect_app_closure "$root_app")
+
+    for app in "${closure[@]}"; do
+        path="$APP_ROOT_DIR/$app/prod/include"
+        [[ -d "$path" ]] && printf 'INCLUDE:%s\n' "$path"
+    done
+
+    path="$APP_ROOT_DIR/$root_app/prod/include_internal"
+    [[ -d "$path" ]] && printf 'INTERNAL:%s\n' "$path"
+
+    for app in "${closure[@]}"; do
+        path="$APP_ROOT_DIR/$app/prod/lib"
+        [[ -d "$path" ]] && printf 'LIB:%s\n' "$path"
+    done
+
+    if [[ "$want_test" == "test" ]]; then
+        for app in "${closure[@]}"; do
+            path="$APP_ROOT_DIR/$app/test/include"
+            [[ -d "$path" ]] && printf 'TESTINC:%s\n' "$path"
+        done
+        for app in "${closure[@]}"; do
+            path="$APP_ROOT_DIR/$app/test/lib"
+            [[ -d "$path" ]] && printf 'TESTLIB:%s\n' "$path"
+        done
+    fi
+}
+
 emit_signature() {
     local app_dir="$1"
     local mode="${2:-build}"
@@ -398,13 +448,55 @@ collect_tree_signature_files() {
         return 0
     fi
 
-    while IFS= read -r -d '' path; do
-        add_signature_file "$path"
-    done < <(
-        find "$dir" \
-            \( -path '*/bin' -o -path '*/lib' -o -path '*/obj' -o -path '*/gcov' -o -path '*/lcov' -o -path '*/coverage' -o -path '*/results' \) -prune \
-            -o -type f -print0
-    )
+    # find が返す各ファイルを 1 個の awk で一括フィルターし、合格パスを
+    # NUL 区切りで $tmp_paths へ追記する。ファイル単位の bash ループ
+    # (add_signature_file の繰り返し呼び出し) を廃し、プロセス内反復コストを削減する。
+    # フィルター条件は is_excluded_signature_path() / is_signature_file() と
+    # 1 対 1 で対応させること (下記コメント参照)。find が -type f を保証するため
+    # add_signature_file() の [[ -f ]] 検査は省く。
+    find "$dir" \
+        \( -path '*/bin' -o -path '*/lib' -o -path '*/obj' -o -path '*/gcov' -o -path '*/lcov' -o -path '*/coverage' -o -path '*/results' \) -prune \
+        -o -type f -print0 \
+    | awk -v ws="$WORKSPACE_DIR/" '
+        BEGIN { RS = "\0"; ORS = "\0" }
+        {
+            path = $0
+            if (path == "") next
+
+            # ワークスペース外は対象外 (add_signature_file の rel==path 判定に相当)
+            wl = length(ws)
+            if (substr(path, 1, wl) != ws) next
+            rel = substr(path, wl + 1)
+
+            # is_excluded_signature_path() 相当
+            #   */bin/* | bin/* | ... | */xml_org/* | xml_org/*
+            if (rel ~ /(^|\/)(bin|lib|obj|gcov|lcov|coverage|results|xml|xml_org)\//) next
+            #   */docs/doxybook2* | docs/doxybook2*
+            if (rel ~ /(^|\/)docs\/doxybook2/) next
+            #   *.warn
+            if (rel ~ /\.warn$/) next
+            #   make_build.stamp | make_test.stamp | make_doxy.stamp | coverage.xml (rel 完全一致)
+            if (rel == "make_build.stamp" || rel == "make_test.stamp" || rel == "make_doxy.stamp" || rel == "coverage.xml") next
+
+            # is_signature_file() 相当 (base = パス最終要素)
+            n = split(path, parts, "/")
+            base = parts[n]
+            keep = 0
+            #   固定名 (大文字小文字を区別)
+            if (base == "makefile" || base == "makepart.mk" || base == "makechild.mk" || base == "makelocal.mk" || base == "appdeps.mk" || base == "Directory.Build.props" || base == "Directory.Build.targets") {
+                keep = 1
+            #   *.csproj | *.sln | *.props | *.targets | *.filter.sh | *.inject.*
+            } else if (base ~ /\.(csproj|sln|props|targets)$/ || base ~ /\.filter\.sh$/ || base ~ /\.inject\./) {
+                keep = 1
+            } else {
+                #   ソース拡張子は小文字化して判定: *.c|*.cc|*.cpp|*.cxx|*.h|*.hh|*.hpp|*.hxx|*.cs|*.mc|*.rc
+                lb = tolower(base)
+                if (lb ~ /\.(c|cc|cpp|cxx|h|hh|hpp|hxx|cs|mc|rc)$/) keep = 1
+            }
+
+            if (keep) print path
+        }
+    ' >> "$tmp_paths"
 }
 
 collect_signature_files() {
@@ -531,6 +623,13 @@ main() {
                 return 2
             fi
             emit_paths "$app_dir" "$kind"
+            ;;
+        --paths-all)
+            if [[ -z "$app_dir" ]]; then
+                usage
+                return 2
+            fi
+            emit_paths_all "$app_dir" "$kind"
             ;;
         --signature)
             if [[ -z "$app_dir" ]]; then

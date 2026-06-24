@@ -477,35 +477,37 @@ MAKEFW_APPDEP_RESOLVER := $(MAKEFW_HOME)/bin/resolve_app_deps.sh
 
 ifeq ($(_MYAPP_IS_VALID),1)
 
-MAKEFW_AUTO_INCDIR := $(shell bash "$(MAKEFW_APPDEP_RESOLVER)" --paths "$(MYAPP_DIR)" include)
-ifneq ($(strip $(.SHELLSTATUS)),0)
-    $(error Failed to resolve app include dependencies for $(MYAPP_DIR))
+# 依存閉包を 1 度だけ解決し、INCDIR / LIBSDIR 系のパスを全種別まとめて取得する。
+# --paths を種別ごとに呼ぶと bash 起動と collect_app_closure が重複するため、
+# 1 回の --paths-all 呼び出しに集約する。出力は "KIND:path" トークンで、
+# 種別ごとに $(filter)/$(patsubst) で展開する。
+# (INCDIR / LIBSDIR は後段 (sort) で重複除去・整列されるため、追加順序は結果に影響しない)
+ifneq (,$(findstring /test/,$(CURDIR)))
+    _MAKEFW_PATHS_ALL := $(shell bash "$(MAKEFW_APPDEP_RESOLVER)" --paths-all "$(MYAPP_DIR)" test)
+else
+    _MAKEFW_PATHS_ALL := $(shell bash "$(MAKEFW_APPDEP_RESOLVER)" --paths-all "$(MYAPP_DIR)")
 endif
+ifneq ($(strip $(.SHELLSTATUS)),0)
+    $(error Failed to resolve app dependencies for $(MYAPP_DIR))
+endif
+
+MAKEFW_AUTO_INCDIR := $(patsubst INCLUDE:%,%,$(filter INCLUDE:%,$(_MAKEFW_PATHS_ALL)))
 ifneq ($(MAKEFW_AUTO_INCDIR),)
     INCDIR += $(MAKEFW_AUTO_INCDIR)
 endif
 
-MAKEFW_AUTO_INCLUDE_INTERNAL := $(shell bash "$(MAKEFW_APPDEP_RESOLVER)" --paths "$(MYAPP_DIR)" include_internal)
-ifneq ($(strip $(.SHELLSTATUS)),0)
-    $(error Failed to resolve app internal include dependencies for $(MYAPP_DIR))
-endif
+MAKEFW_AUTO_INCLUDE_INTERNAL := $(patsubst INTERNAL:%,%,$(filter INTERNAL:%,$(_MAKEFW_PATHS_ALL)))
 ifneq ($(MAKEFW_AUTO_INCLUDE_INTERNAL),)
     INCDIR += $(MAKEFW_AUTO_INCLUDE_INTERNAL)
 endif
 
-MAKEFW_AUTO_LIBSDIR := $(shell bash "$(MAKEFW_APPDEP_RESOLVER)" --paths "$(MYAPP_DIR)" lib)
-ifneq ($(strip $(.SHELLSTATUS)),0)
-    $(error Failed to resolve app library dependencies for $(MYAPP_DIR))
-endif
+MAKEFW_AUTO_LIBSDIR := $(patsubst LIB:%,%,$(filter LIB:%,$(_MAKEFW_PATHS_ALL)))
 ifneq ($(MAKEFW_AUTO_LIBSDIR),)
     LIBSDIR += $(MAKEFW_AUTO_LIBSDIR)
 endif
 
 ifneq (,$(findstring /test/,$(CURDIR)))
-    MAKEFW_AUTO_TEST_INCDIR := $(shell bash "$(MAKEFW_APPDEP_RESOLVER)" --paths "$(MYAPP_DIR)" test_include)
-    ifneq ($(strip $(.SHELLSTATUS)),0)
-        $(error Failed to resolve app test include dependencies for $(MYAPP_DIR))
-    endif
+    MAKEFW_AUTO_TEST_INCDIR := $(patsubst TESTINC:%,%,$(filter TESTINC:%,$(_MAKEFW_PATHS_ALL)))
     ifneq ($(MAKEFW_AUTO_TEST_INCDIR),)
         INCDIR += $(MAKEFW_AUTO_TEST_INCDIR)
     endif
@@ -513,10 +515,7 @@ ifneq (,$(findstring /test/,$(CURDIR)))
     MAKEFW_AUTO_TESTFW_INCDIR := $(TESTFW_HOME)/gtest/include $(TESTFW_HOME)/include
     INCDIR += $(MAKEFW_AUTO_TESTFW_INCDIR)
 
-    MAKEFW_AUTO_TEST_LIBSDIR := $(shell bash "$(MAKEFW_APPDEP_RESOLVER)" --paths "$(MYAPP_DIR)" test_lib)
-    ifneq ($(strip $(.SHELLSTATUS)),0)
-        $(error Failed to resolve app test library dependencies for $(MYAPP_DIR))
-    endif
+    MAKEFW_AUTO_TEST_LIBSDIR := $(patsubst TESTLIB:%,%,$(filter TESTLIB:%,$(_MAKEFW_PATHS_ALL)))
     ifneq ($(MAKEFW_AUTO_TEST_LIBSDIR),)
         LIBSDIR += $(MAKEFW_AUTO_TEST_LIBSDIR)
     endif
