@@ -9,49 +9,23 @@ CXX_EXTENSIONS    ?= OFF            # ON or OFF (GNU 拡張)
 STRICT            ?= ON             # 規格準拠を強める補助フラグ
 CONFIG            ?= RelWithDebInfo # ビルド構成
 
-# 並列ジョブ数の既定値
-# 明示的な -j / jobserver の解決は recipe 実行時に行い、
-# 再帰 make では JOBS_EFFECTIVE をコマンド ライン変数として明示的に伝播する。
-JOBS           ?= 6
-JOBS_EFFECTIVE ?= $(JOBS)
+# 並列度の既定値と明示指定の判定は _parallel.mk で共有する。
 MAKEFW_IS_LEAF := $(if $(strip $(SUBDIRS)),1,)
-MAKEFW_AUTO_DEFAULT_PARALLEL := $(if $(strip $(MAKECMDGOALS)),$(if $(filter 1,$(words $(MAKECMDGOALS))),$(if $(filter default clean,$(MAKECMDGOALS)),1,),),1)
-_MAKEFW_USER_SET_ORIGIN = $(filter command line environment environment override,$(1))
-MAKEFW_HAS_USER_JOBS := $(if $(call _MAKEFW_USER_SET_ORIGIN,$(origin JOBS)),1,)
-MAKEFW_HAS_USER_JOBS_EFFECTIVE := $(if $(call _MAKEFW_USER_SET_ORIGIN,$(origin JOBS_EFFECTIVE)),1,)
-MAKEFW_ALLOW_JOB_FALLBACK := $(or $(MAKEFW_AUTO_DEFAULT_PARALLEL),$(MAKEFW_HAS_USER_JOBS),$(MAKEFW_HAS_USER_JOBS_EFFECTIVE))
 _MAKEFW_MAKEFLAGS_ALL := $(strip $(MAKEFLAGS) $(MFLAGS))
 _MAKEFW_MAKEFLAGS_JOBS_SHORT := $(patsubst -j%,%,$(filter -j%,$(_MAKEFW_MAKEFLAGS_ALL)))
 _MAKEFW_MAKEFLAGS_JOBS_LONG := $(patsubst --jobs=%,%,$(filter --jobs=%,$(_MAKEFW_MAKEFLAGS_ALL)))
 _MAKEFW_MAKEFLAGS_JOBS := $(firstword $(filter-out j,$(_MAKEFW_MAKEFLAGS_JOBS_SHORT)) $(_MAKEFW_MAKEFLAGS_JOBS_LONG))
-MAKEFW_CL_MP_JOBS ?= $(or $(_MAKEFW_MAKEFLAGS_JOBS),$(JOBS_EFFECTIVE),$(JOBS))
+_MAKEFW_CPU_COUNT_UP_TO_16 := $(filter $(NUMBER_OF_PROCESSORS),1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)
+_MAKEFW_DIRECT_CL_JOBS := $(if $(filter Windows_NT,$(OS)),$(or $(_MAKEFW_CPU_COUNT_UP_TO_16),16),$(JOBS))
+MAKEFW_CL_MP_JOBS ?= $(or $(_MAKEFW_MAKEFLAGS_JOBS),$(if $(MAKEFW_HAS_USER_JOBS_EFFECTIVE),$(JOBS_EFFECTIVE)),$(if $(MAKEFW_HAS_USER_JOBS),$(JOBS)),$(_MAKEFW_DIRECT_CL_JOBS))
 MAKEFW_CL_MPFLAG := /MP$(MAKEFW_CL_MP_JOBS)
 
 define _MAKEFW_LEAF_PARALLEL_RECIPE
-	@makeflags="$${MAKEFLAGS:-} $${MFLAGS:-}"; \
-	jobs=""; \
-	has_parallel=""; \
-	allow_job_fallback="$(MAKEFW_ALLOW_JOB_FALLBACK)"; \
-	for arg in $$makeflags; do \
-		case "$$arg" in \
-			-j|--jobs) \
-				has_parallel=1 ;; \
-			-j[0-9]*) \
-				has_parallel=1; \
-				jobs="$${arg#-j}" ;; \
-			--jobs=[0-9]*) \
-				has_parallel=1; \
-				jobs="$${arg#--jobs=}" ;; \
-			--jobserver-auth=*|--jobserver-fds=*) \
-				has_parallel=1 ;; \
-		esac; \
-	done; \
-	if [ -z "$$jobs" ] && [ -n "$$allow_job_fallback" ] && [ -n "$(JOBS_EFFECTIVE)" ]; then jobs="$(JOBS_EFFECTIVE)"; fi; \
-	if [ -z "$$jobs" ] && [ -n "$$allow_job_fallback" ] && [ -n "$(JOBS)" ]; then jobs="$(JOBS)"; fi; \
+	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
 	if [ -z "$(MAKEFW_PARALLEL_BOOTSTRAP)" ] && [ -z "$$has_parallel" ] && [ -n "$$jobs" ] && [ -n "$$allow_job_fallback" ]; then \
-		$(MAKE) -j$$jobs MAKEFW_PARALLEL_BOOTSTRAP=1 JOBS_EFFECTIVE=$$jobs $(2) && exit 0 || exit $$?; \
+		$(MAKE) -j$$jobs MAKEFW_PARALLEL_BOOTSTRAP=1 JOBS_EFFECTIVE=$$jobs MAKEFW_CL_MP_JOBS=$$cl_jobs $(2) && exit 0 || exit $$?; \
 	fi; \
-	$(MAKE) MAKEFW_PARALLEL_BOOTSTRAP=1 JOBS_EFFECTIVE=$$jobs $(2)
+	$(MAKE) MAKEFW_PARALLEL_BOOTSTRAP=1 JOBS_EFFECTIVE=$$jobs MAKEFW_CL_MP_JOBS=$$cl_jobs $(2)
 endef
 
 # 標準フラグ生成 (C)

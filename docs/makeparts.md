@@ -52,31 +52,17 @@ prod/
 
 ### 検索と読み込みの仕組み
 
-`prepare.mk` 内で、カレント ディレクトリからワークスペース ルート (`.workspaceRoot` ファイルが存在するディレクトリ) まで遡って `makepart.mk` / `makechild.mk` を検索し、逆順 (親階層から) にインクルードします。
+`prepare.mk` は、カレント ディレクトリからワークスペース ルート (`.workspaceRoot` ファイルが存在するディレクトリ) まで遡って `makepart.mk` / `makechild.mk` を検索し、親階層から順にインクルードします。
+
+再帰 make では、親 make が検索結果を環境変数として子 make へ渡します。
+子 make は、親の検索結果に親の `makechild.mk` と自身の `makepart.mk` を追加するため、階層全体を検索し直しません。
+末端ディレクトリで make を直接実行した場合や、継承した情報とカレント ディレクトリが一致しない場合は、従来どおりワークスペース ルートまで検索します。
 
 ```makefile
-# prepare.mk 内の処理 (概要)
-MAKE_INCLUDE_MK := $(shell \
-    cur=`pwd`; \
-    dir=$$cur; \
-    while [ "$$dir" != "/" ]; do \
-        if [ "$$dir" != "$$cur" ] && [ -f "$$dir/makechild.mk" ]; then \
-            echo "$$dir/makechild.mk"; \
-        fi; \
-        if [ -f "$$dir/makepart.mk" ]; then \
-            echo "$$dir/makepart.mk"; \
-        fi; \
-        if [ -f "$$dir/.workspaceRoot" ]; then \
-            break; \
-        fi; \
-        dir=$${dir%/*}; \
-        if [ -z "$$dir" ]; then dir=/; fi; \
-    done \
-)
-
-# 逆順にして親階層から順次 include
-_reverse = $(if $(1),$(call _reverse,$(wordlist 2,$(words $(1)),$(1))) $(firstword $(1)))
-MAKE_INCLUDE_MK := $(strip $(call _reverse,$(MAKE_INCLUDE_MK)))
+# 子 make での処理 (概要)
+MAKE_INCLUDE_MK := $(MAKEFW_CONFIG_CACHE_FILES)
+MAKE_INCLUDE_MK += $(wildcard $(親ディレクトリ)/makechild.mk)
+MAKE_INCLUDE_MK += $(wildcard $(CURDIR)/makepart.mk)
 ```
 
 ### 主な設定項目

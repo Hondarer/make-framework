@@ -45,7 +45,10 @@ ifdef PLATFORM_LINUX
     SUBDIR_OBJS := $(shell find . -path "./obj" -prune -o -path "*/obj/*.o" -type f -print 2>/dev/null)
 else ifdef PLATFORM_WINDOWS
     # Windows: MSVC_CRT_SUBDIR サブディレクトリの .obj ファイルのみ検索
-    SUBDIR_OBJS := $(shell find . -path "./obj" -prune -o -path "*/obj/$(MSVC_CRT_SUBDIR)/*.obj" -type f -print 2>/dev/null)
+    # グループ コンパイル時はリンク recipe が実行時に列挙するため、解析時の find は不要。
+    ifneq ($(GROUP_COMPILE),1)
+        SUBDIR_OBJS := $(shell find . -path "./obj" -prune -o -path "*/obj/$(MSVC_CRT_SUBDIR)/*.obj" -type f -print 2>/dev/null)
+    endif
 endif
 OBJS += $(SUBDIR_OBJS)
 
@@ -603,6 +606,7 @@ _relpath = $(patsubst $(CURDIR)/%,%,$(1))
 
 # clean 時に .gitignore へ反映する対象:
 # TEST_SRCS/ADD_SRCS のうち、カレント ディレクトリ外のソース
+ifneq (,$(filter clean _clean_main rebuild,$(MAKECMDGOALS)))
 MAKEFW_CLEAN_GITIGNORE_SRCS := $(strip $(sort $(shell \
 	cur=$$(cd "$(CURDIR)" 2>/dev/null && pwd); \
 	for src in $(TEST_SRCS) $(ADD_SRCS); do \
@@ -612,6 +616,9 @@ MAKEFW_CLEAN_GITIGNORE_SRCS := $(strip $(sort $(shell \
 			basename "$$src"; \
 		fi; \
 	done)))
+else
+MAKEFW_CLEAN_GITIGNORE_SRCS :=
+endif
 
 MAKEFW_CLEAN_IMPORTED_SRCS := $(strip $(sort $(notdir $(CP_SRCS) $(LINK_SRCS)) $(MAKEFW_CLEAN_GITIGNORE_SRCS)))
 

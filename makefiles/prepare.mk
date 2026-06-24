@@ -32,6 +32,8 @@ else
 endif
 export MAKEFW_HOME
 
+include $(MAKEFW_HOME)/makefiles/_parallel.mk
+
 # プラットフォーム判定
 # すでに定義されているか確認
 ifeq ($(origin PLATFORM), undefined)
@@ -390,6 +392,21 @@ endif
 # makepart.mk / makechild.mk の検索
 # dirname コマンドの代わりにシェルのパラメーター展開を使用してプロセス生成を削減
 # Use shell parameter expansion instead of dirname command to reduce process creation
+_MAKEFW_CONFIG_PARENT_DIR := $(patsubst %/,%,$(dir $(CURDIR)))
+
+ifeq ($(MAKEFW_CONFIG_CACHE_DIR),$(CURDIR))
+    # 同じディレクトリを並列化のために再実行した場合は、そのまま再利用する。
+    MAKE_INCLUDE_MK := $(MAKEFW_CONFIG_CACHE_FILES)
+else ifeq ($(MAKEFW_CONFIG_CACHE_DIR),$(_MAKEFW_CONFIG_PARENT_DIR))
+    # 直下の子 make では親までの探索結果に親 makechild と自身の makepart を追加する。
+    MAKE_INCLUDE_MK := $(MAKEFW_CONFIG_CACHE_FILES)
+    ifneq ($(wildcard $(_MAKEFW_CONFIG_PARENT_DIR)/makechild.mk),)
+        MAKE_INCLUDE_MK += $(_MAKEFW_CONFIG_PARENT_DIR)/makechild.mk
+    endif
+    ifneq ($(wildcard $(CURDIR)/makepart.mk),)
+        MAKE_INCLUDE_MK += $(CURDIR)/makepart.mk
+    endif
+else
 MAKE_INCLUDE_MK := $(shell \
 	cur=`pwd`; \
 	dir=$$cur; \
@@ -420,6 +437,12 @@ MAKE_INCLUDE_MK := $(shell \
 # Reverse order using Make functions instead of seq command to reduce process creation
 _reverse = $(if $(1),$(call _reverse,$(wordlist 2,$(words $(1)),$(1))) $(firstword $(1)))
 MAKE_INCLUDE_MK := $(strip $(call _reverse,$(MAKE_INCLUDE_MK)))
+endif
+
+MAKEFW_CONFIG_CACHE_DIR := $(CURDIR)
+MAKEFW_CONFIG_CACHE_FILES := $(MAKE_INCLUDE_MK)
+export MAKEFW_CONFIG_CACHE_DIR
+export MAKEFW_CONFIG_CACHE_FILES
 
 # Windows の場合、MSVC C ランタイム ライブラリの設定
 # Set MSVC C runtime library configuration for Windows
@@ -482,13 +505,17 @@ ifeq ($(_MYAPP_IS_VALID),1)
 # 1 回の --paths-all 呼び出しに集約する。出力は "KIND:path" トークンで、
 # 種別ごとに $(filter)/$(patsubst) で展開する。
 # (INCDIR / LIBSDIR は後段 (sort) で重複除去・整列されるため、追加順序は結果に影響しない)
-ifneq (,$(findstring /test/,$(CURDIR)))
-    _MAKEFW_PATHS_ALL := $(shell bash "$(MAKEFW_APPDEP_RESOLVER)" --paths-all "$(MYAPP_DIR)" test)
+ifeq ($(MAKEFW_APP_PATHS_CACHE_APP),$(MYAPP_DIR))
+    _MAKEFW_PATHS_ALL := $(MAKEFW_APP_PATHS_CACHE)
 else
-    _MAKEFW_PATHS_ALL := $(shell bash "$(MAKEFW_APPDEP_RESOLVER)" --paths-all "$(MYAPP_DIR)")
-endif
-ifneq ($(strip $(.SHELLSTATUS)),0)
-    $(error Failed to resolve app dependencies for $(MYAPP_DIR))
+    ifneq (,$(findstring /test/,$(CURDIR)))
+        _MAKEFW_PATHS_ALL := $(shell bash "$(MAKEFW_APPDEP_RESOLVER)" --paths-all "$(MYAPP_DIR)" test)
+    else
+        _MAKEFW_PATHS_ALL := $(shell bash "$(MAKEFW_APPDEP_RESOLVER)" --paths-all "$(MYAPP_DIR)")
+    endif
+    ifneq ($(strip $(.SHELLSTATUS)),0)
+        $(error Failed to resolve app dependencies for $(MYAPP_DIR))
+    endif
 endif
 
 MAKEFW_AUTO_INCDIR := $(patsubst INCLUDE:%,%,$(filter INCLUDE:%,$(_MAKEFW_PATHS_ALL)))
@@ -528,27 +555,49 @@ endif # _MYAPP_IS_VALID
 # - INCDIR: sort で重複除去 (既存動作維持)
 # - LIBSDIR, OUTPUT_DIR: sort で重複除去
 # - TEST_SRCS, ADD_SRCS: 順序保持 (strip のみ)
-# パス正規化ヘルパースクリプト (子プロセス生成を削減)
-MAKEFW_NORMALIZE_PATHS := $(MAKEFW_HOME)/bin/normalize_paths.sh
-
-# 各パス変数を一括正規化
+# GNU Make の abspath を使い、通常の変数値では Bash 起動を避ける。
+# MSYS 形式の絶対パスが明示された場合だけ、従来の正規化へフォールバックする。
 # - INCDIR, LIBSDIR: sort で重複除去
 # - OUTPUT_DIR: 単一パス
 # - TEST_SRCS, ADD_SRCS: 順序保持
+MAKEFW_NORMALIZE_PATHS := $(MAKEFW_HOME)/bin/normalize_paths.sh
+_makefw_normalize_path = $(if $(findstring :/,$(1)),$(1),$(abspath $(1)))
+_makefw_normalize_paths = $(foreach path,$(1),$(call _makefw_normalize_path,$(path)))
+
 ifneq ($(INCDIR),)
-    INCDIR := $(sort $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(INCDIR)))
+    ifneq ($(filter /%,$(INCDIR)),)
+        INCDIR := $(sort $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(INCDIR)))
+    else
+        INCDIR := $(sort $(call _makefw_normalize_paths,$(INCDIR)))
+    endif
 endif
 ifneq ($(LIBSDIR),)
-    LIBSDIR := $(sort $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(LIBSDIR)))
+    ifneq ($(filter /%,$(LIBSDIR)),)
+        LIBSDIR := $(sort $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(LIBSDIR)))
+    else
+        LIBSDIR := $(sort $(call _makefw_normalize_paths,$(LIBSDIR)))
+    endif
 endif
 ifneq ($(OUTPUT_DIR),)
-    OUTPUT_DIR := $(strip $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(OUTPUT_DIR)))
+    ifneq ($(filter /%,$(OUTPUT_DIR)),)
+        OUTPUT_DIR := $(strip $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(OUTPUT_DIR)))
+    else
+        OUTPUT_DIR := $(call _makefw_normalize_path,$(OUTPUT_DIR))
+    endif
 endif
 ifneq ($(TEST_SRCS),)
-    TEST_SRCS := $(strip $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(TEST_SRCS)))
+    ifneq ($(filter /%,$(TEST_SRCS)),)
+        TEST_SRCS := $(strip $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(TEST_SRCS)))
+    else
+        TEST_SRCS := $(call _makefw_normalize_paths,$(TEST_SRCS))
+    endif
 endif
 ifneq ($(ADD_SRCS),)
-    ADD_SRCS := $(strip $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(ADD_SRCS)))
+    ifneq ($(filter /%,$(ADD_SRCS)),)
+        ADD_SRCS := $(strip $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(ADD_SRCS)))
+    else
+        ADD_SRCS := $(call _makefw_normalize_paths,$(ADD_SRCS))
+    endif
 endif
 
 # TARGET_ARCH をコンパイル時定数として C/C++ コードに渡す

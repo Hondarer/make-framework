@@ -69,6 +69,30 @@ make CONFIG=RelWithDebInfo MSVC_CRT=static
 
 ランタイム リンク モデルの詳細は `msvc-runtime-linkage.md` を参照してください。
 
+## Windows の並列ビルド
+
+Windows で並列度を指定せずに app 直下から make を実行すると、makefw は論理 CPU 数から make と MSVC の並列度を算出します。
+make の並列度には論理 CPU 数の平方根を切り上げた値を使い、上限を 8 とします。
+MSVC の `/MP` には論理 CPU 数を make の並列度で割った値を使い、上限を 16 とします。
+
+たとえば、論理 CPU が 72 個ある環境では、make に `-j8`、MSVC に `/MP9` を指定します。
+make の再帰処理と `cl.exe` の並列処理を合わせた上限が論理 CPU 数を超えないため、二重の並列化による過剰なプロセス生成を避けられます。
+
+コマンド ラインで指定した値は自動算出より優先されます。
+
+```bash
+# make の並列度を指定する
+make JOBS=4
+
+# make と MSVC の並列度を個別に指定する
+make JOBS=4 MAKEFW_CL_MP_JOBS=8
+
+# GNU Make の -j も利用できる
+make -j4
+```
+
+Linux の既定並列度は従来どおり 6 です。
+
 ## 運用上の注意
 
 - 構成を切り替える場合、既存の `obj` や成果物が残っていると古い構成のオブジェクトと混在する場合があります。

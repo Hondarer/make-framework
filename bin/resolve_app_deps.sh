@@ -217,7 +217,7 @@ emit_paths() {
     if [[ "$kind" == "include_internal" ]]; then
         path="$APP_ROOT_DIR/$root_app/$suffix"
         if [[ -d "$path" ]]; then
-            printf '%s\n' "$path"
+            to_make_include_path "$path"
         fi
         return 0
     fi
@@ -225,7 +225,7 @@ emit_paths() {
     while IFS= read -r app; do
         path="$APP_ROOT_DIR/$app/$suffix"
         if [[ -d "$path" ]]; then
-            items+=("$path")
+            items+=("$(to_make_include_path "$path")")
         fi
     done < <(collect_app_closure "$root_app")
 
@@ -258,25 +258,25 @@ emit_paths_all() {
 
     for app in "${closure[@]}"; do
         path="$APP_ROOT_DIR/$app/prod/include"
-        [[ -d "$path" ]] && printf 'INCLUDE:%s\n' "$path"
+        printf 'INCLUDE:%s\n' "$(to_make_include_path "$path")"
     done
 
     path="$APP_ROOT_DIR/$root_app/prod/include_internal"
-    [[ -d "$path" ]] && printf 'INTERNAL:%s\n' "$path"
+    printf 'INTERNAL:%s\n' "$(to_make_include_path "$path")"
 
     for app in "${closure[@]}"; do
         path="$APP_ROOT_DIR/$app/prod/lib"
-        [[ -d "$path" ]] && printf 'LIB:%s\n' "$path"
+        printf 'LIB:%s\n' "$(to_make_include_path "$path")"
     done
 
     if [[ "$want_test" == "test" ]]; then
         for app in "${closure[@]}"; do
             path="$APP_ROOT_DIR/$app/test/include"
-            [[ -d "$path" ]] && printf 'TESTINC:%s\n' "$path"
+            printf 'TESTINC:%s\n' "$(to_make_include_path "$path")"
         done
         for app in "${closure[@]}"; do
             path="$APP_ROOT_DIR/$app/test/lib"
-            [[ -d "$path" ]] && printf 'TESTLIB:%s\n' "$path"
+            printf 'TESTLIB:%s\n' "$(to_make_include_path "$path")"
         done
     fi
 
