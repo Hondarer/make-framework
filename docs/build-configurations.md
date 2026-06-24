@@ -69,18 +69,30 @@ make CONFIG=RelWithDebInfo MSVC_CRT=static
 
 ランタイム リンク モデルの詳細は `msvc-runtime-linkage.md` を参照してください。
 
-## Windows の並列ビルド
+## 並列ビルド
 
 Windows ビルドには Visual Studio 2022 以降が必要です。  
 MSVC のコンパイルでは複数のソース ファイルを `cl.exe` に渡し、`/MP` で並列処理します。  
 ヘッダー依存関係は `/sourceDependencies` で取得します。
 
-Windows で並列度を指定せずに app 直下から make を実行すると、makefw は論理 CPU 数から make と MSVC の並列度を算出します。  
-make の並列度には論理 CPU 数の平方根を切り上げた値を使い、上限を 8 とします。  
-MSVC の `/MP` には論理 CPU 数を make の並列度で割った値を使い、上限を 16 とします。
+makefw は Linux と Windows のどちらでも、利用可能な論理 CPU 数を CPU 予算として並列度を算出します。
+Linux では `nproc`、Windows では `NUMBER_OF_PROCESSORS` から CPU 予算を取得し、取得できない場合は 6 を使います。
+`MAKEFW_CPU_BUDGET` に正の整数を指定すると、自動検出した CPU 予算を上書きできます。
 
-たとえば、論理 CPU が 72 個ある環境では、make に `-j8`、MSVC に `/MP9` を指定します。  
-make の再帰処理と `cl.exe` の並列処理を合わせた上限が論理 CPU 数を超えないため、二重の並列化による過剰なプロセス生成を避けられます。
+Linux の make には CPU 予算と 16 の小さい方を割り当てます。
+Windows の make には CPU 予算の平方根を切り上げた値を割り当て、上限を 8 とします。
+MSVC の `/MP` と MSBuild の `-m` には、CPU 予算を make の並列度で割った値を割り当て、1 から 16 の範囲に制限します。
+この配分により、GNU Make とコンパイラによる二重の並列化が CPU 予算を超えないようにします。
+
+論理 CPU が 72 個ある場合の自動設定は次のとおりです。
+
+| OS | make | GCC | MSVC | MSBuild |
+|---|---:|---:|---:|---:|
+| Linux | `-j16` | make の並列度を使用 | - | `-m:4` |
+| Windows | `-j8` | - | `/MP9` | `-m:9` |
+
+引数なし、`default`、`build`、`clean`、`rebuild` では自動設定を使用します。
+`make test` は事前コンパイルに自動設定を使用しますが、テストの実行順を維持するため、テスト用の再帰 Make は `-j1` で実行します。
 
 コマンド ラインで指定した値は自動算出より優先されます。
 
@@ -91,11 +103,18 @@ make JOBS=4
 # make と MSVC の並列度を個別に指定する
 make JOBS=4 MAKEFW_CL_MP_JOBS=8
 
+# CPU 予算を指定する
+make MAKEFW_CPU_BUDGET=12
+
+# make と MSBuild の並列度を個別に指定する
+make JOBS=4 MAKEFW_MSBUILD_JOBS=3
+
 # GNU Make の -j も利用できる
 make -j4
 ```
 
-Linux の既定並列度は従来どおり 6 です。
+GNU Make の `-j` をジョブ数なしで指定した場合、make の並列度に上限がないため、MSVC と MSBuild の並列度は 1 とします。
+`MAKEFW_CL_MP_JOBS` または `MAKEFW_MSBUILD_JOBS` を明示した場合は、その値を優先します。
 
 ## 運用上の注意
 
