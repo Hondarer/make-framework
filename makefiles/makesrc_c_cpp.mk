@@ -569,56 +569,62 @@ _clean_main:
     # Remove directories. Remove obj entirely including all CRT subdirs
 	@rmdir "$(call _relpath,$(OUTPUT_DIR))" 2>/dev/null; rm -rf obj 2>/dev/null; true
 
-.PHONY: test _test_impl _test_main
-test: _test_impl
+# test は makemain.mk の 2 フェーズ エントリが所有する。
+# ここでは末端のフェーズ ターゲットだけを定義する。
+#   _test_build: テストバイナリのコンパイル/リンクのみ (実行しない)
+#   _test_run:   ビルド済みバイナリのテスト実行のみ (ビルド依存は引かない)
+# 'test' is owned by the 2-phase entry in makemain.mk; define only the leaf phases.
+.PHONY: _test_build _test_run _test_main
 
-ifeq ($(call should_skip,$(SKIP_TEST)),true)
-    # テストのスキップ
-    # Skip tests
-    # test スキップ時は、ビルド スキップもチェックする
-    ifeq ($(call should_skip,$(SKIP_BUILD)),true)
-        # test もビルドもスキップ
-_test_impl:
-				@echo "Build & Test skipped (SKIP_BUILD=$(SKIP_BUILD), SKIP_TEST=$(SKIP_TEST))"
-_test_main:
-				@:
-    else
-        # test はスキップするがビルドはする
-_test_impl: _pre_test_hook _test_main _post_test_hook
-        ifndef NO_LINK
-_test_main: $(OUTPUT_DIR)/$(TARGET)
-					@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
-        else
-            # コンパイルのみ
-_test_main: $(OBJS)
-					@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
-        endif
-    endif
+# ビルド フェーズ: テストバイナリのコンパイル/リンクのみ
+# Build phase: compile/link the test binary only
+ifeq ($(call should_skip,$(SKIP_BUILD)),true)
+_test_build:
+				@echo "Build skipped (SKIP_BUILD=$(SKIP_BUILD))"
 else
-    ifeq ($(call should_skip,$(SKIP_BUILD)),true)
-        # そもそもビルドがスキップ
-_test_impl:
+    ifndef NO_LINK
+_test_build: $(OUTPUT_DIR)/$(TARGET)
+    else
+        # コンパイルのみ
+        # Compile only
+_test_build: $(OBJS)
+    endif
+endif
+
+# 実行フェーズ: ビルド済みバイナリのテスト実行のみ
+# Run phase: run the already-built test binary only
+ifeq ($(call should_skip,$(SKIP_BUILD)),true)
+    # そもそもビルドがスキップされているためテスト対象がない
+    # Build was skipped, so there is nothing to test
+_test_run:
 				@echo "Test skipped because it is not included in the build (SKIP_BUILD=$(SKIP_BUILD))"
 _test_main:
 				@:
+else ifeq ($(call should_skip,$(SKIP_TEST)),true)
+    # テストのスキップ (ビルドは Phase 1 で実施済み)
+    # Skip tests (the build is already done in Phase 1)
+_test_run:
+				@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
+_test_main:
+				@:
+else
+_test_run: _pre_test_hook _test_main _post_test_hook
+    ifndef NO_LINK
+        # テストの実行
+        # Run tests
+_test_main: $(TESTSH)
+				@if [ -z "$(TESTSH)" ]; then \
+					echo "$(TESTFW_HOME_ERROR)"; \
+					exit 1; \
+				fi; \
+				status=0; \
+				export TEST_SRCS="$(TEST_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(ICONV)) 2> >($(ICONV) >&2) || status=$$?; \
+				exit $$status
     else
-        # スキップしない
-_test_impl: _pre_test_hook _test_main _post_test_hook
-        ifndef NO_LINK
-            # テストの実行
-            # Run tests
-_test_main: $(TESTSH) $(OUTPUT_DIR)/$(TARGET)
-					@if [ -z "$(TESTSH)" ]; then \
-						echo "$(TESTFW_HOME_ERROR)"; \
-						exit 1; \
-					fi; \
-					status=0; \
-					export TEST_SRCS="$(TEST_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(ICONV)) 2> >($(ICONV) >&2) || status=$$?; \
-					exit $$status
-        else
-            # コンパイルのみ
-_test_main: $(OBJS)
-        endif
+        # コンパイルのみ (実行するテストはない)
+        # Compile only (nothing to run)
+_test_main:
+				@:
     endif
 endif
 

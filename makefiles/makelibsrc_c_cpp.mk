@@ -619,46 +619,48 @@ _clean_main:
 	@rm -rf obj 2>/dev/null; true
     endif
 
-.PHONY: test _test_main
-ifeq ($(call should_skip,$(SKIP_TEST)),true)
-    # テストのスキップ
-    # Skip tests
-    # test スキップ時は、ビルド スキップもチェックする
-    ifeq ($(call should_skip,$(SKIP_BUILD)),true)
-        # test もビルドもスキップ
-test:
-				@echo "Build & Test skipped (SKIP_BUILD=$(SKIP_BUILD), SKIP_TEST=$(SKIP_TEST))"
-_test_main:
-				@:
-    else
-        # test はスキップするがビルドはする
-test: _pre_test_hook _test_main _post_test_hook
-        ifndef NO_LINK
-_test_main: $(OUTPUT_DIR)/$(TARGET)
-					@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
-        else
-            # コンパイルのみ
-_test_main: $(OBJS)
-					@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
-        endif
-    endif
+# test は makemain.mk の 2 フェーズ エントリが所有する。
+# ライブラリには実行するテストがないため、ビルド フェーズでライブラリを生成し、
+# 実行フェーズは何もしない (フック互換のため _test_main は空で残す)。
+# 'test' is owned by the 2-phase entry in makemain.mk; a library has nothing to run,
+# so build it in the build phase and do nothing in the run phase.
+.PHONY: _test_build _test_run _test_main
+
+# ビルド フェーズ: ライブラリのビルドのみ
+# Build phase: build the library only
+ifeq ($(call should_skip,$(SKIP_BUILD)),true)
+_test_build:
+				@echo "Build skipped (SKIP_BUILD=$(SKIP_BUILD))"
 else
-    ifeq ($(call should_skip,$(SKIP_BUILD)),true)
-        # そもそもビルドがスキップ
-test:
+    ifndef NO_LINK
+_test_build: $(OUTPUT_DIR)/$(TARGET)
+    else
+        # コンパイルのみ
+        # Compile only
+_test_build: $(OBJS)
+    endif
+endif
+
+# 実行フェーズ: ライブラリには実行するテストがない
+# Run phase: a library has no tests to run
+ifeq ($(call should_skip,$(SKIP_BUILD)),true)
+    # そもそもビルドがスキップされている
+    # Build was skipped
+_test_run:
 				@echo "Test skipped because it is not included in the build (SKIP_BUILD=$(SKIP_BUILD))"
 _test_main:
 				@:
-    else
-        # スキップしない
-test: _pre_test_hook _test_main _post_test_hook
-        ifndef NO_LINK
-_test_main: $(OUTPUT_DIR)/$(TARGET)
-        else
-            # コンパイルのみ
-_test_main: $(OBJS)
-        endif
-    endif
+else ifeq ($(call should_skip,$(SKIP_TEST)),true)
+    # テストのスキップ (ビルドは Phase 1 で実施済み)
+    # Skip tests (the build is already done in Phase 1)
+_test_run:
+				@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
+_test_main:
+				@:
+else
+_test_run: _pre_test_hook _test_main _post_test_hook
+_test_main:
+				@:
 endif
 
 ifneq (,$(filter 1,$(IDENT_ENABLED) $(MAKEFW_DLL_IDENT_ENABLED)))

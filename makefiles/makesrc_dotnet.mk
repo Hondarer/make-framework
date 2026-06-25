@@ -56,12 +56,22 @@ _build_main: $(OUTPUT_ASSEMBLY)
 show-exepath:
 	@echo $(OUTPUT_DIR)/$(TARGET)
 
-.PHONY: test _test_main
-test: _pre_test_hook _test_main _post_test_hook
+# test は makemain.mk の 2 フェーズ エントリが所有する。
+# Phase 1 で .NET ビルド、Phase 2 で dotnet test を実行する。
+# 'test' is owned by the 2-phase entry in makemain.mk: build in Phase 1, run in Phase 2.
+.PHONY: _test_build _test_run _test_main
+
+# ビルド フェーズ: .NET ビルドのみ
+# Build phase: .NET build only
+_test_build: build
+
+# 実行フェーズ: テスト実行のみ (ビルドは Phase 1 で実施済み)
+# Run phase: run tests only (the build is already done in Phase 1)
+_test_run: _pre_test_hook _test_main _post_test_hook
 
 # 実際のテスト処理
 # Actual test process
-_test_main: $(TESTSH) build
+_test_main: $(TESTSH)
 	@if [ -z "$(TESTSH)" ]; then \
 		echo "$(TESTFW_HOME_ERROR)"; \
 		exit 1; \

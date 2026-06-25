@@ -14,7 +14,7 @@ MAKEFW_HAS_USER_CPU_BUDGET := $(if $(call _MAKEFW_USER_SET_ORIGIN,$(origin MAKEF
 JOBS ?= 6
 JOBS_EFFECTIVE ?= $(JOBS)
 
-MAKEFW_AUTO_DEFAULT_PARALLEL := $(if $(strip $(MAKECMDGOALS)),$(if $(filter 1,$(words $(MAKECMDGOALS))),$(if $(filter default build clean rebuild,$(MAKECMDGOALS)),1,),),1)
+MAKEFW_AUTO_DEFAULT_PARALLEL := $(if $(strip $(MAKECMDGOALS)),$(if $(filter 1,$(words $(MAKECMDGOALS))),$(if $(filter default build clean rebuild test _test_build,$(MAKECMDGOALS)),1,),),1)
 MAKEFW_ALLOW_JOB_FALLBACK := $(or $(MAKEFW_AUTO_DEFAULT_PARALLEL),$(MAKEFW_HAS_USER_JOBS),$(MAKEFW_HAS_USER_JOBS_EFFECTIVE))
 
 # makeflags、明示設定、自動設定の順で外側と内側の並列度を解決する。

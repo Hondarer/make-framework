@@ -134,5 +134,35 @@ ifneq ($(SUBDIRS),)
 
     # 主要なターゲットにサブディレクトリ依存を追加 (サブディレクトリを先に処理)
     # Add subdirectory dependencies to main targets (process subdirectories first)
-    default build clean test run restore rebuild: $(SUBDIRS)
+    # test は 2 フェーズ エントリ (後述) が _test_build / _test_run を介して
+    # 再帰するため、ここでは _test_build / _test_run を SUBDIRS へ伝播させる。
+    # _test_build はビルド並列、_test_run は -j1 直列 (order-only で宣言順維持) で回る。
+    # Add subdirectory dependencies to main targets (process subdirectories first).
+    # 'test' itself is a 2-phase entry (below); the phase targets recurse instead.
+    default build clean run restore rebuild _test_build _test_run: $(SUBDIRS)
 endif
+
+# test エントリ: 配下を 2 フェーズで巡回する。
+#   Phase 1 (_test_build): テストバイナリのコンパイル/リンクのみ。ビルド並列。
+#   Phase 2 (_test_run):   ビルド済みバイナリのテスト実行のみ。-j1 直列で出力順序維持。
+# どの階層 (ルート / app モジュール / test 配下サブディレクトリ) で `make test` を
+# 起動しても、その起動点がエントリとなり 2 フェーズが成立する。
+# _test_build / _test_run 自体は単相で再帰するため、入れ子でも二重巡回は起きない。
+#
+# test entry: traverse the subtree in two phases (build in parallel, then run -j1).
+# Any directory can be the entry point; the phase targets recurse single-phase.
+.PHONY: test _test_build _test_run
+test:
+	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
+	echo "$(MAKE) $$parallel_make_args _test_build"; \
+	$(MAKE) $$parallel_make_args _test_build
+	@echo "$(MAKE) -j1 _test_run"
+	@$(MAKE) -j1 _test_run
+
+# 各フェーズの基底ターゲット。
+# 中間集約ノードは上記の SUBDIRS 依存を、末端 (make*src*_*.mk) は実ビルド/実行を追加する。
+# どちらも持たないディレクトリでも `make test` がエラーにならないよう空定義を置く。
+# Phase base targets: intermediate nodes add SUBDIRS deps; leaf templates add the
+# real build/run. Empty here so `make test` never errors in a bare directory.
+_test_build:
+_test_run:
