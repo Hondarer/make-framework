@@ -14,6 +14,10 @@ ifneq ($(strip $(TESTFW_HOME)),)
     TESTSH := $(TESTFW_HOME)/bin/exec_test_dotnet.sh
 endif
 
+ifneq (,$(findstring /test/,$(CURDIR)))
+    MAKEFW_TEST_LEAF := 1
+endif
+
 # プロジェクト名 (カレント ディレクトリ名から取得)
 PROJECT_NAME := $(notdir $(patsubst %/,%,$(CURDIR)))
 

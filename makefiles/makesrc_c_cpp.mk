@@ -13,6 +13,12 @@ ifneq ($(strip $(TESTFW_HOME)),)
     TESTSH := $(TESTFW_HOME)/bin/exec_test_c_cpp.sh
 endif
 
+ifneq (,$(findstring /test/,$(CURDIR)))
+    ifndef NO_LINK
+        MAKEFW_TEST_LEAF := 1
+    endif
+endif
+
 # $(MYAPP_DIR)/test/include_override が存在する場合だけ、テスト対象用優先 include override パスとして使用する
 ifneq ($(filter $(WORKSPACE_DIR)/app/%,$(CURDIR)),)
     ifneq ($(wildcard $(MYAPP_DIR)/test/include_override),)

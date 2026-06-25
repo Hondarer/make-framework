@@ -135,11 +135,21 @@ ifneq ($(SUBDIRS),)
     # 主要なターゲットにサブディレクトリ依存を追加 (サブディレクトリを先に処理)
     # Add subdirectory dependencies to main targets (process subdirectories first)
     # test は 2 フェーズ エントリ (後述) が _test_build / _test_run を介して
-    # 再帰するため、ここでは _test_build / _test_run を SUBDIRS へ伝播させる。
-    # _test_build はビルド並列、_test_run は -j1 直列 (order-only で宣言順維持) で回る。
+    # 再帰する。_test_build は通常の SUBDIRS 依存で伝播し、_test_run は下の
+    # direct test first ランナーで直下の末端テストを先に並列実行する。
     # Add subdirectory dependencies to main targets (process subdirectories first).
     # 'test' itself is a 2-phase entry (below); the phase targets recurse instead.
-    default build clean run restore rebuild _test_build _test_run: $(SUBDIRS)
+    default build clean run restore rebuild _test_build: $(SUBDIRS)
+
+    ifneq ($(MAKEFW_BUILD),1)
+_test_run:
+	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
+	test_run_jobs="$(MAKEFW_TEST_RUN_JOBS)"; \
+	if [ -z "$$test_run_jobs" ]; then test_run_jobs="$$jobs"; fi; \
+	if [ -z "$$test_run_jobs" ]; then test_run_jobs=1; fi; \
+	case "$$test_run_jobs" in *[!0-9]*|0) echo "ERROR: MAKEFW_TEST_RUN_JOBS must be a positive integer: $$test_run_jobs" >&2; exit 2 ;; esac; \
+	MAKEFW_SUBDIR_MAKE="$(MAKE)" "$(SHELL)" "$(MAKEFW_HOME)/bin/run_ordered_subdir_target.sh" "$$test_run_jobs" _test_run $(SUBDIRS)
+    endif
 endif
 
 # test エントリ: 配下を 2 フェーズで巡回する。
@@ -156,8 +166,13 @@ test:
 	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
 	echo "$(MAKE) $$parallel_make_args _test_build"; \
 	$(MAKE) $$parallel_make_args _test_build
-	@echo "$(MAKE) -j1 _test_run"
-	@$(MAKE) -j1 _test_run
+	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
+	test_run_jobs="$(MAKEFW_TEST_RUN_JOBS)"; \
+	if [ -z "$$test_run_jobs" ]; then test_run_jobs="$$jobs"; fi; \
+	test_run_args="MAKEFW_CPU_BUDGET=$$cpu MAKEFW_CL_MP_JOBS=$$cl_jobs MAKEFW_MSBUILD_JOBS=$$msbuild_jobs"; \
+	if [ -n "$$test_run_jobs" ]; then test_run_args="MAKEFW_TEST_RUN_JOBS=$$test_run_jobs $$test_run_args"; fi; \
+	echo "$(MAKE) -j1 _test_run"; \
+	$(MAKE) -j1 $$test_run_args _test_run
 
 # 各フェーズの基底ターゲット。
 # 中間集約ノードは上記の SUBDIRS 依存を、末端 (make*src*_*.mk) は実ビルド/実行を追加する。
@@ -166,3 +181,7 @@ test:
 # real build/run. Empty here so `make test` never errors in a bare directory.
 _test_build:
 _test_run:
+
+.PHONY: _makefw_is_test_leaf
+_makefw_is_test_leaf:
+	@if [ "$(MAKEFW_TEST_LEAF)" = "1" ]; then echo 1; else echo 0; fi
