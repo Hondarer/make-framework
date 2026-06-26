@@ -514,7 +514,10 @@ collect_signature_files() {
     add_signature_file "$app_path/appdeps.mk"
     collect_tree_signature_files "$app_path/prod"
 
-    if [[ "$mode" == "test" ]]; then
+    # `make` (default) は app 配下の test/ も SUBDIRS として再帰しビルドするため、
+    # build 署名にも test/ を含める。これにより test/ の変更が `make` の BUILD_STAMP
+    # 短絡をすり抜けることがなくなる。
+    if [[ -d "$app_path/test" ]]; then
         collect_tree_signature_files "$app_path/test"
     fi
 
