@@ -2,8 +2,44 @@
 
 set -u
 
+usage() {
+    echo "Usage: $0 [--app-deps] [--silent-missing] [--echo-command] <jobs> <target> [subdir ...]" >&2
+}
+
+app_deps=0
+silent_missing=0
+echo_command=0
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --app-deps)
+            app_deps=1
+            shift
+            ;;
+        --silent-missing)
+            silent_missing=1
+            shift
+            ;;
+        --echo-command)
+            echo_command=1
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -*)
+            usage
+            exit 2
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
 if [ "$#" -lt 2 ]; then
-    echo "Usage: $0 <jobs> <target> [subdir ...]" >&2
+    usage
     exit 2
 fi
 
@@ -18,81 +54,302 @@ case "$jobs" in
         ;;
 esac
 
+test_run_jobs="${MAKEFW_TEST_RUN_JOBS:-$jobs}"
+case "$test_run_jobs" in
+    *[!0-9]*|0)
+        echo "ERROR: MAKEFW_TEST_RUN_JOBS must be a positive integer: $test_run_jobs" >&2
+        exit 2
+        ;;
+esac
+
 make_cmd="${MAKEFW_SUBDIR_MAKE:-make}"
 tmp_root=$(mktemp -d "${TMPDIR:-/tmp}/makefw-test-run.XXXXXX") || exit 1
+created_slot_root=0
+slot_root="${MAKEFW_TEST_SLOT_DIR:-}"
+if [ -z "$slot_root" ]; then
+    slot_root="$tmp_root/slots"
+    mkdir -p "$slot_root" || exit 1
+    created_slot_root=1
+    slot_i=1
+    while [ "$slot_i" -le "$test_run_jobs" ]; do
+        mkdir "$slot_root/slot-$slot_i" || exit 1
+        slot_i=$((slot_i + 1))
+    done
+fi
+
 cleanup() {
+    if [ "$created_slot_root" -eq 1 ]; then
+        rm -rf "$slot_root"
+    fi
     rm -rf "$tmp_root"
 }
 trap cleanup EXIT HUP INT TERM
 
-test_dirs=()
+has_makefile() {
+    [ -f "$1/makefile" ] || [ -f "$1/GNUmakefile" ] || [ -f "$1/Makefile" ]
+}
+
+acquire_slot() {
+    local lock_dir
+    local slot_dir
+
+    while :; do
+        for slot_dir in "$slot_root"/slot-*; do
+            [ -d "$slot_dir" ] || continue
+            lock_dir="$slot_dir/lock"
+            if mkdir "$lock_dir" 2>/dev/null; then
+                printf '%s\n' "$lock_dir"
+                return 0
+            fi
+        done
+        sleep 0.05
+    done
+}
+
+read_app_deps() {
+    local dir="$1"
+    local deps=""
+
+    if [ -f "$dir/appdeps.mk" ]; then
+        deps=$(
+            sed -n 's/^[[:space:]]*APP_DEPS[[:space:]]*[:+?]\{0,1\}=[[:space:]]*//p' "$dir/appdeps.mk" |
+                sed 's/#.*//' |
+                tr '\n' ' '
+        )
+    fi
+    printf '%s\n' "$deps"
+}
+
+run_make_node() {
+    local dir="$1"
+    local out_file="$2"
+    local leaf="$3"
+    local lock_dir=""
+    local rc
+
+    {
+        if [ "$echo_command" -eq 1 ]; then
+            echo "$make_cmd -C $dir $target"
+        fi
+        if [ "$leaf" -eq 1 ]; then
+            lock_dir=$(acquire_slot)
+        fi
+        if [ "$leaf" -eq 1 ]; then
+            MAKEFLAGS= MFLAGS= MAKEFW_TEST_RUN_JOBS="$test_run_jobs" MAKEFW_TEST_SLOT_DIR="$slot_root" \
+                "$make_cmd" -j1 -C "$dir" "$target"
+        else
+            MAKEFLAGS= MFLAGS= MAKEFW_TEST_RUN_JOBS="$test_run_jobs" MAKEFW_TEST_SLOT_DIR="$slot_root" \
+                "$make_cmd" -C "$dir" "$target"
+        fi
+        rc="$?"
+        if [ -n "$lock_dir" ]; then
+            rmdir "$lock_dir"
+        fi
+        return "$rc"
+    } > "$out_file" 2>&1
+}
+
+dirs=()
+leaves=()
 nested_dirs=()
 
 for dir in "$@"; do
-    if [ ! -f "$dir/makefile" ] && [ ! -f "$dir/GNUmakefile" ] && [ ! -f "$dir/Makefile" ]; then
-        nested_dirs+=("$dir")
+    if ! has_makefile "$dir"; then
+        if [ "$silent_missing" -eq 0 ]; then
+            nested_dirs+=("$dir")
+        fi
         continue
     fi
 
-    leaf=$(MAKEFLAGS= MFLAGS= "$make_cmd" -s -j1 -C "$dir" _makefw_is_test_leaf 2>/dev/null | tail -n 1)
+    if [ "$app_deps" -eq 1 ]; then
+        dirs+=("$dir")
+        leaves+=(0)
+        continue
+    fi
+
+    if [ "${MAKEFW_FORCE_LEAF:-0}" = "1" ]; then
+        leaf=1
+    else
+        leaf=$(MAKEFLAGS= MFLAGS= "$make_cmd" -s -j1 -C "$dir" _makefw_is_test_leaf 2>/dev/null | tail -n 1)
+    fi
     if [ "$leaf" = "1" ]; then
-        test_dirs+=("$dir")
+        dirs+=("$dir")
+        leaves+=(1)
     else
         nested_dirs+=("$dir")
     fi
 done
 
-run_ordered_tests() {
-    local count="${#test_dirs[@]}"
-    local next_start=0
+state=()
+status_values=()
+deps_by_index=()
+count="${#dirs[@]}"
+i=0
+while [ "$i" -lt "$count" ]; do
+    state[$i]=pending
+    status_values[$i]=
+    deps_by_index[$i]=""
+    i=$((i + 1))
+done
+
+if [ "$app_deps" -eq 1 ]; then
+    i=0
+    while [ "$i" -lt "$count" ]; do
+        dir="${dirs[$i]}"
+        dep_indices=""
+        for dep in $(read_app_deps "$dir"); do
+            dep_i=0
+            while [ "$dep_i" -lt "$count" ]; do
+                if [ "$(basename "${dirs[$dep_i]}")" = "$dep" ]; then
+                    dep_indices="$dep_indices $dep_i"
+                    break
+                fi
+                dep_i=$((dep_i + 1))
+            done
+        done
+        deps_by_index[$i]="$dep_indices"
+        i=$((i + 1))
+    done
+fi
+
+deps_done() {
+    local idx="$1"
+    local dep_i
+
+    for dep_i in ${deps_by_index[$idx]}; do
+        if [ "${state[$dep_i]}" != "done" ]; then
+            return 1
+        fi
+    done
+    return 0
+}
+
+dep_failed() {
+    local idx="$1"
+    local dep_i
+
+    for dep_i in ${deps_by_index[$idx]}; do
+        if [ "${state[$dep_i]}" = "failed" ] || [ "${state[$dep_i]}" = "blocked" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+run_ordered_nodes() {
     local next_print=0
     local running=0
+    local completed=0
     local failed=0
-    local i
-    local dir
-    local out_file
+    local progress
     local status_file
+    local out_file
     local status
-    local printed_any
+    local dir
+    local leaf
 
     if [ "$count" -eq 0 ]; then
         return 0
     fi
 
-    while [ "$next_print" -lt "$count" ]; do
-        while [ "$next_start" -lt "$count" ] && [ "$running" -lt "$jobs" ]; do
-            i="$next_start"
-            dir="${test_dirs[$i]}"
-            out_file="$tmp_root/test-$i.out"
-            status_file="$tmp_root/test-$i.status"
-            (
-                MAKEFLAGS= MFLAGS= MAKEFW_TEST_RUN_JOBS="$jobs" \
-                    "$make_cmd" -j1 -C "$dir" "$target" > "$out_file" 2>&1
-                printf '%s\n' "$?" > "$status_file"
-            ) &
-            next_start=$((next_start + 1))
-            running=$((running + 1))
+    while [ "$completed" -lt "$count" ]; do
+        progress=0
+
+        i=0
+        while [ "$i" -lt "$count" ]; do
+            if [ "${state[$i]}" = "running" ] && [ -f "$tmp_root/node-$i.status" ]; then
+                status=$(cat "$tmp_root/node-$i.status")
+                status_values[$i]="$status"
+                if [ "$status" -eq 0 ]; then
+                    state[$i]=done
+                else
+                    state[$i]=failed
+                    if [ "$failed" -eq 0 ]; then
+                        failed="$status"
+                    fi
+                fi
+                running=$((running - 1))
+                completed=$((completed + 1))
+                progress=1
+            fi
+            i=$((i + 1))
         done
 
-        printed_any=0
-        while [ "$next_print" -lt "$count" ] && [ -f "$tmp_root/test-$next_print.status" ]; do
-            out_file="$tmp_root/test-$next_print.out"
-            status_file="$tmp_root/test-$next_print.status"
+        i=0
+        while [ "$i" -lt "$count" ]; do
+            if [ "${state[$i]}" = "pending" ] && dep_failed "$i"; then
+                out_file="$tmp_root/node-$i.out"
+                status_file="$tmp_root/node-$i.status"
+                printf 'ERROR: Skipping %s because a dependency failed.\n' "${dirs[$i]}" > "$out_file"
+                printf '%s\n' 1 > "$status_file"
+                status_values[$i]=1
+                state[$i]=blocked
+                if [ "$failed" -eq 0 ]; then
+                    failed=1
+                fi
+                completed=$((completed + 1))
+                progress=1
+            fi
+            i=$((i + 1))
+        done
+
+        i=0
+        while [ "$i" -lt "$count" ] && [ "$running" -lt "$jobs" ]; do
+            if [ "${state[$i]}" = "pending" ] && deps_done "$i"; then
+                dir="${dirs[$i]}"
+                leaf="${leaves[$i]}"
+                out_file="$tmp_root/node-$i.out"
+                status_file="$tmp_root/node-$i.status"
+                (
+                    run_make_node "$dir" "$out_file" "$leaf"
+                    printf '%s\n' "$?" > "$status_file"
+                ) &
+                state[$i]=running
+                running=$((running + 1))
+                progress=1
+            fi
+            i=$((i + 1))
+        done
+
+        while [ "$next_print" -lt "$count" ] && [ -n "${status_values[$next_print]}" ]; do
+            out_file="$tmp_root/node-$next_print.out"
             if [ -f "$out_file" ]; then
                 cat "$out_file"
             fi
-            status=$(cat "$status_file")
-            if [ "$status" -ne 0 ]; then
-                failed="$status"
-            fi
             next_print=$((next_print + 1))
-            running=$((running - 1))
-            printed_any=1
+            progress=1
         done
 
-        if [ "$next_print" -lt "$count" ] && [ "$printed_any" -eq 0 ]; then
+        if [ "$completed" -lt "$count" ] && [ "$running" -eq 0 ] && [ "$progress" -eq 0 ]; then
+            i=0
+            while [ "$i" -lt "$count" ]; do
+                if [ "${state[$i]}" = "pending" ]; then
+                    out_file="$tmp_root/node-$i.out"
+                    status_file="$tmp_root/node-$i.status"
+                    printf 'ERROR: Dependency cycle or unresolved dependency around %s.\n' "${dirs[$i]}" > "$out_file"
+                    printf '%s\n' 1 > "$status_file"
+                    status_values[$i]=1
+                    state[$i]=blocked
+                    failed=1
+                    completed=$((completed + 1))
+                    progress=1
+                    break
+                fi
+                i=$((i + 1))
+            done
+        fi
+
+        if [ "$completed" -lt "$count" ] && [ "$progress" -eq 0 ]; then
             sleep 0.05
         fi
+    done
+
+    while [ "$next_print" -lt "$count" ]; do
+        out_file="$tmp_root/node-$next_print.out"
+        if [ -f "$out_file" ]; then
+            cat "$out_file"
+        fi
+        next_print=$((next_print + 1))
     done
 
     return "$failed"
@@ -102,13 +359,14 @@ run_nested_dirs() {
     local dir
 
     for dir in "${nested_dirs[@]}"; do
-        if [ ! -f "$dir/makefile" ] && [ ! -f "$dir/GNUmakefile" ] && [ ! -f "$dir/Makefile" ]; then
+        if ! has_makefile "$dir"; then
             echo "Skipping $dir (no makefile found)"
         else
-            MAKEFLAGS= MFLAGS= MAKEFW_TEST_RUN_JOBS="$jobs" "$make_cmd" -j1 -C "$dir" "$target" || return "$?"
+            MAKEFLAGS= MFLAGS= MAKEFW_TEST_RUN_JOBS="$test_run_jobs" MAKEFW_TEST_SLOT_DIR="$slot_root" \
+                "$make_cmd" -C "$dir" "$target" || return "$?"
         fi
     done
 }
 
-run_ordered_tests || exit "$?"
+run_ordered_nodes || exit "$?"
 run_nested_dirs

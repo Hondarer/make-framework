@@ -5,9 +5,17 @@ MAKEFW_HOME := $(strip $(MAKEFW_HOME))
 ifeq ($(MAKEFW_HOME),)
     $(error MAKEFW_HOME is required. Export MAKEFW_HOME before running make)
 endif
+include $(MAKEFW_HOME)/makefiles/_parallel.mk
 
 APP_ORDER_RESOLVER = $(MAKEFW_HOME)/bin/resolve_app_deps.sh
 SUBDIRS := $(shell bash "$(APP_ORDER_RESOLVER)" --app-order)
+
+# 並列実行 (-j) 時に複数 app の出力が交錯しないよう、ターゲット単位で出力同期する。
+# 呼び出し側が --output-sync を明示している場合はそれを尊重する。
+# GNU Make 4.0+ が前提 (本リポジトリの最低要件と一致)。
+ifeq ($(filter --output-sync%,$(MAKEFLAGS)),)
+    MAKEFLAGS += --output-sync=recurse
+endif
 
 TESTFW_BANNER = $(TESTFW_HOME)/bin/banner.sh
 CPP_PROPERTIES_SYNC = $(MAKEFW_HOME)/bin/sync_c_cpp_properties.sh
@@ -79,13 +87,15 @@ clean : submodule $(SUBDIRS)
 
 .PHONY: test
 test : submodule
-    # テスト実行 (各 app の test ターゲットが内部で prod 最新化を担保する)
-	@for dir in $(SUBDIRS); do \
-		if [ -d $$dir ] && [ -f $$dir/makefile ]; then \
-			echo $(MAKE) -C $$dir test; \
-			$(MAKE) -C $$dir test || exit 1; \
-		fi; \
-	done
+    # 各 app の test を依存関係に従って並列ディスパッチしつつ、コンソール出力は
+    # SUBDIRS の宣言順に揃える。leaf テスト実行は共有スロットで全体上限を守る。
+	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
+	app_test_jobs=$${MAKEFW_APP_TEST_JOBS:-$$jobs}; \
+	test_run_jobs=$${MAKEFW_TEST_RUN_JOBS:-$$jobs}; \
+	MAKEFW_SUBDIR_MAKE="$(MAKE)" MAKEFW_TEST_RUN_JOBS="$$test_run_jobs" "$(SHELL)" \
+		"$(MAKEFW_HOME)/bin/run_ordered_subdir_target.sh" \
+		--app-deps --silent-missing --echo-command \
+		"$$app_test_jobs" test $(SUBDIRS)
     # このフォルダー以下の coverage.xml をマージする
 	-python "$(TESTFW_HOME)/bin/cobertura_merge.py" . > /dev/null
 
@@ -134,12 +144,20 @@ $(SUBDIRS) :
 		:; # echo "Skipping directory '$@' (no makefile)"; \
 	fi
 
-# app 間の依存順 (--app-order) を並列ビルド (-j) 下でも維持する。
-# 各 app を直前の app へ order-only 依存させ、default/clean の並列プリレキジット
-# でも依存元 app が先行ビルドされるようにする (test/doxy/with-cov は直列 for ループ)。
-# Keep the resolved app-order under parallel make (-j): chain each app after the
-# previous via order-only prerequisites.
-_MAKEFW_PREV_APP :=
+# app 間の依存関係 (appdeps.mk の APP_DEPS) に基づき、並列ビルド (-j) 下でも
+# 依存先 app の先行完了を保証する。1 段鎖ではなく実際の依存グラフを使うため、
+# 依存関係のない app 同士は並列に実行できる (com_util を経由した複数 app の同時実行など)。
+# Honor per-app dependencies (appdeps.mk APP_DEPS) under parallel make (-j):
+# add order-only prerequisites along the actual dep graph so independent apps
+# build/test in parallel.
+define _MAKEFW_LOAD_APP_DEPS
+APP_DEPS :=
+-include $(1)/appdeps.mk
+_MAKEFW_APP_DEPS_$(1) := $$(APP_DEPS)
+endef
+$(foreach d,$(SUBDIRS),$(eval $(call _MAKEFW_LOAD_APP_DEPS,$(d))))
+APP_DEPS :=
+
 $(foreach d,$(SUBDIRS),\
-	$(if $(_MAKEFW_PREV_APP),$(eval $(d): | $(_MAKEFW_PREV_APP)))\
-	$(eval _MAKEFW_PREV_APP := $(d)))
+	$(foreach dep,$(_MAKEFW_APP_DEPS_$(d)),\
+		$(if $(filter $(dep),$(SUBDIRS)),$(eval $(d): | $(dep)))))
