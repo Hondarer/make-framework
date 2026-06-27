@@ -77,13 +77,29 @@ if [ -z "$slot_root" ]; then
     done
 fi
 
+abort=0
+signal_received=""
+
+handle_interrupt() {
+    if [ -n "$signal_received" ]; then
+        return
+    fi
+    signal_received="$1"
+    abort=1
+    printf 'INFO: Interrupt received (%s). Waiting for running tests to finish...\n' "$1" >&2
+    trap '' INT HUP TERM
+}
+
 cleanup() {
     if [ "$created_slot_root" -eq 1 ]; then
         rm -rf "$slot_root"
     fi
     rm -rf "$tmp_root"
 }
-trap cleanup EXIT HUP INT TERM
+trap 'handle_interrupt INT' INT
+trap 'handle_interrupt HUP' HUP
+trap 'handle_interrupt TERM' TERM
+trap cleanup EXIT
 
 has_makefile() {
     [ -f "$1/makefile" ] || [ -f "$1/GNUmakefile" ] || [ -f "$1/Makefile" ]
@@ -94,6 +110,9 @@ acquire_slot() {
     local slot_dir
 
     while :; do
+        if [ "$abort" -eq 1 ]; then
+            return 1
+        fi
         for slot_dir in "$slot_root"/slot-*; do
             [ -d "$slot_dir" ] || continue
             lock_dir="$slot_dir/lock"
@@ -294,7 +313,7 @@ run_ordered_nodes() {
         done
 
         i=0
-        while [ "$i" -lt "$count" ] && [ "$running" -lt "$jobs" ]; do
+        while [ "$i" -lt "$count" ] && [ "$running" -lt "$jobs" ] && [ "$abort" -eq 0 ]; do
             if [ "${state[$i]}" = "pending" ] && deps_done "$i"; then
                 dir="${dirs[$i]}"
                 leaf="${leaves[$i]}"
@@ -310,6 +329,26 @@ run_ordered_nodes() {
             fi
             i=$((i + 1))
         done
+
+        if [ "$abort" -eq 1 ]; then
+            i=0
+            while [ "$i" -lt "$count" ]; do
+                if [ "${state[$i]}" = "pending" ]; then
+                    out_file="$tmp_root/node-$i.out"
+                    status_file="$tmp_root/node-$i.status"
+                    printf 'ERROR: Skipping %s due to interrupt.\n' "${dirs[$i]}" > "$out_file"
+                    printf '%s\n' 130 > "$status_file"
+                    status_values[$i]=130
+                    state[$i]=interrupted
+                    if [ "$failed" -eq 0 ]; then
+                        failed=130
+                    fi
+                    completed=$((completed + 1))
+                    progress=1
+                fi
+                i=$((i + 1))
+            done
+        fi
 
         while [ "$next_print" -lt "$count" ] && [ -n "${status_values[$next_print]}" ]; do
             out_file="$tmp_root/node-$next_print.out"
@@ -340,7 +379,11 @@ run_ordered_nodes() {
         fi
 
         if [ "$completed" -lt "$count" ] && [ "$progress" -eq 0 ]; then
-            sleep 0.05
+            if [ "$running" -gt 0 ]; then
+                wait -n 2>/dev/null || sleep 0.05
+            else
+                sleep 0.05
+            fi
         fi
     done
 
@@ -368,5 +411,17 @@ run_nested_dirs() {
     done
 }
 
-run_ordered_nodes || exit "$?"
+run_ordered_nodes
+ordered_rc=$?
+if [ -n "$signal_received" ]; then
+    case "$signal_received" in
+        INT) exit 130 ;;
+        TERM) exit 143 ;;
+        HUP) exit 129 ;;
+        *) exit 130 ;;
+    esac
+fi
+if [ "$ordered_rc" -ne 0 ]; then
+    exit "$ordered_rc"
+fi
 run_nested_dirs
