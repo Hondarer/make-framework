@@ -11,10 +11,13 @@ APP_ORDER_RESOLVER = $(MAKEFW_HOME)/bin/resolve_app_deps.sh
 SUBDIRS := $(shell bash "$(APP_ORDER_RESOLVER)" --app-order)
 
 # 並列実行 (-j) 時に複数 app の出力が交錯しないよう、ターゲット単位で出力同期する。
+# doxy は長時間処理の進行を見えるようにするため、出力同期を付与しない。
 # 呼び出し側が --output-sync を明示している場合はそれを尊重する。
 # GNU Make 4.0+ が前提 (本リポジトリの最低要件と一致)。
+ifeq ($(filter doxy,$(MAKECMDGOALS)),)
 ifeq ($(filter --output-sync%,$(MAKEFLAGS)),)
     MAKEFLAGS += --output-sync=recurse
+endif
 endif
 
 TESTFW_BANNER = $(TESTFW_HOME)/bin/banner.sh
