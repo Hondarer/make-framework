@@ -480,7 +480,7 @@ run_ordered_nodes() {
             fi
 
             if [ "$running" -gt 0 ]; then
-                wait -n 2>/dev/null || sleep 0.05
+                sleep 1
             else
                 sleep 0.05
             fi
