@@ -113,8 +113,8 @@ setup_progress_stream() {
         return 0
     fi
 
-    if [ -e /dev/tty ] && : >/dev/tty 2>/dev/null; then
-        exec 3>/dev/tty
+    if [ -t 2 ] && { exec 3>/dev/tty; } 2>/dev/null; then
+        :
     else
         exec 3>&2
     fi

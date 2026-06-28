@@ -34,6 +34,7 @@ endif
 TESTFW_BANNER = $(TESTFW_HOME)/bin/banner.sh
 CPP_PROPERTIES_SYNC = $(MAKEFW_HOME)/bin/sync_c_cpp_properties.sh
 DOXY_WARN_FILES = $(addsuffix /doxy.warn,$(SUBDIRS)) $(foreach d,$(SUBDIRS),$(wildcard $(d)/doxy_*.warn))
+MAKEFW_SUBDIR_MAKE_CMD := $(MAKE)
 export MAKEFW_HOME
 
 define APP_POST_BUILD_CHECKS
@@ -79,7 +80,7 @@ default : submodule
 	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
 	app_build_jobs="$$jobs"; \
 	if [ -z "$$app_build_jobs" ]; then app_build_jobs=1; fi; \
-	MAKEFW_SUBDIR_MAKE="$(MAKE)" "$(SHELL)" \
+	MAKEFW_SUBDIR_MAKE="$(MAKEFW_SUBDIR_MAKE_CMD)" "$(SHELL)" \
 		"$(MAKEFW_HOME)/bin/run_ordered_subdir_target.sh" \
 		--app-deps --silent-missing --echo-command --progress \
 		"$$app_build_jobs" default $(SUBDIRS)
@@ -105,7 +106,7 @@ clean : submodule
 	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
 	app_clean_jobs="$$jobs"; \
 	if [ -z "$$app_clean_jobs" ]; then app_clean_jobs=1; fi; \
-	MAKEFW_SUBDIR_MAKE="$(MAKE)" "$(SHELL)" \
+	MAKEFW_SUBDIR_MAKE="$(MAKEFW_SUBDIR_MAKE_CMD)" "$(SHELL)" \
 		"$(MAKEFW_HOME)/bin/run_ordered_subdir_target.sh" \
 		--app-deps --silent-missing --echo-command --progress \
 		"$$app_clean_jobs" clean $(SUBDIRS)
@@ -132,13 +133,14 @@ doxy : submodule
 	@for warn_file in $(DOXY_WARN_FILES); do \
 		rm -f "$$warn_file"; \
 	done
-	@doxy_status=0; \
-	for dir in $(SUBDIRS); do \
-		if [ -d $$dir ] && [ -f $$dir/makefile ]; then \
-			echo $(MAKE) -C $$dir doxy; \
-			SUPPRESS_DOXY_WARN_PRINT=1 $(MAKE) -C $$dir doxy || { doxy_status=$$?; break; }; \
-		fi; \
-	done; \
+	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
+	app_doxy_jobs=$${MAKEFW_APP_DOXY_JOBS:-$$jobs}; \
+	if [ -z "$$app_doxy_jobs" ]; then app_doxy_jobs=1; fi; \
+	MAKEFW_SUBDIR_MAKE="$(MAKEFW_SUBDIR_MAKE_CMD)" "$(SHELL)" \
+		"$(MAKEFW_HOME)/bin/run_ordered_subdir_target.sh" \
+		--app-deps --silent-missing --echo-command --progress \
+		"$$app_doxy_jobs" doxy $(SUBDIRS); \
+	doxy_status=$$?; \
 	warn_files=$$(find . -mindepth 2 -maxdepth 2 -type f \( -name 'doxy.warn' -o -name 'doxy_*.warn' \) -size +0 | sort); \
 	if [ -n "$$warn_files" ]; then \
 		printf '\n'; \
