@@ -12,7 +12,8 @@ echo_command=0
 progress=0
 progress_interval=60
 progress_fd_open=0
-
+script_dir=$(cd "$(dirname "$0")" && pwd)
+emit_utf8_console_py="$script_dir/emit_utf8_console.py"
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --app-deps)
@@ -133,6 +134,20 @@ progress_log() {
         return 0
     fi
     printf 'INFO: %s\n' "$1" >&3
+}
+
+
+emit_out_file() {
+    local out_file="$1"
+    if [ ! -f "$emit_utf8_console_py" ]; then
+        cat "$out_file"
+        return $?
+    fi
+
+    python "$emit_utf8_console_py" "$out_file" || {
+        cat "$out_file"
+        return $?
+    }
 }
 
 count_pending_nodes() {
@@ -443,7 +458,7 @@ run_ordered_nodes() {
         while [ "$next_print" -lt "$count" ] && [ -n "${status_values[$next_print]}" ]; do
             out_file="$tmp_root/node-$next_print.out"
             if [ -f "$out_file" ]; then
-                cat "$out_file"
+                emit_out_file "$out_file"
             fi
             next_print=$((next_print + 1))
             progress_made=1
@@ -490,7 +505,7 @@ run_ordered_nodes() {
     while [ "$next_print" -lt "$count" ]; do
         out_file="$tmp_root/node-$next_print.out"
         if [ -f "$out_file" ]; then
-            cat "$out_file"
+            emit_out_file "$out_file"
         fi
         next_print=$((next_print + 1))
     done

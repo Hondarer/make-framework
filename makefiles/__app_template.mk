@@ -9,18 +9,15 @@ include $(MAKEFW_HOME)/makefiles/_parallel.mk
 
 APP_ORDER_RESOLVER = $(MAKEFW_HOME)/bin/resolve_app_deps.sh
 SUBDIRS := $(shell bash "$(APP_ORDER_RESOLVER)" --app-order)
+_MAKEFW_APP_RUNNER_GOALS := default with-cov clean test doxy
 
 # 並列実行 (-j) 時に複数 app の出力が交錯しないよう、通常はターゲット単位で出力同期する。
-# ただし既定ビルドは run_ordered_subdir_target.sh が app ごとの出力を制御し、
-# 進捗行を即時表示したいため、親 make では出力同期を付与しない。
-# doxy は長時間処理の進行を見えるようにするため、出力同期を付与しない。
+# ただしランナー経由ターゲットは run_ordered_subdir_target.sh が出力順序と進捗表示を制御するため、親 make では出力同期を付与しない。
 # 呼び出し側が --output-sync を明示している場合はそれを尊重する。
 # GNU Make 4.0+ が前提 (本リポジトリの最低要件と一致)。
 ifeq ($(strip $(MAKECMDGOALS)),)
     _MAKEFW_APP_NEEDS_OUTPUT_SYNC :=
-else ifneq ($(filter default,$(MAKECMDGOALS)),)
-    _MAKEFW_APP_NEEDS_OUTPUT_SYNC :=
-else ifneq ($(filter doxy clean,$(MAKECMDGOALS)),)
+else ifneq ($(filter $(_MAKEFW_APP_RUNNER_GOALS),$(MAKECMDGOALS)),)
     _MAKEFW_APP_NEEDS_OUTPUT_SYNC :=
 else
     _MAKEFW_APP_NEEDS_OUTPUT_SYNC := 1
@@ -88,17 +85,13 @@ default : submodule
 
 .PHONY: with-cov
 with-cov : submodule
-	@for dir in $(SUBDIRS); do \
-		if [ -d $$dir ] && [ -f $$dir/makefile ]; then \
-			if [ -f "$$dir/prod/coverity.mk" ]; then \
-				echo $(MAKE) -C $$dir with-cov; \
-				$(MAKE) -C $$dir with-cov || exit 1; \
-			else \
-				echo $(MAKE) -C $$dir; \
-				$(MAKE) -C $$dir || exit 1; \
-			fi; \
-		fi; \
-	done
+	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
+	app_with_cov_jobs="$$jobs"; \
+	if [ -z "$$app_with_cov_jobs" ]; then app_with_cov_jobs=1; fi; \
+	MAKEFW_SUBDIR_MAKE="$(MAKEFW_SUBDIR_MAKE_CMD)" "$(SHELL)" \
+		"$(MAKEFW_HOME)/bin/run_ordered_subdir_target.sh" \
+		--app-deps --silent-missing --echo-command --progress \
+		"$$app_with_cov_jobs" _makefw_with_cov_or_default $(SUBDIRS)
 	@$(APP_POST_BUILD_CHECKS)
 
 .PHONY: clean
