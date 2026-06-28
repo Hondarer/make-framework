@@ -123,7 +123,7 @@ test : submodule
 	test_run_jobs=$${MAKEFW_TEST_RUN_JOBS:-$$jobs}; \
 	MAKEFW_SUBDIR_MAKE="$(MAKE)" MAKEFW_TEST_RUN_JOBS="$$test_run_jobs" "$(SHELL)" \
 		"$(MAKEFW_HOME)/bin/run_ordered_subdir_target.sh" \
-		--app-deps --silent-missing --echo-command \
+		--app-deps --silent-missing --echo-command --progress \
 		"$$app_test_jobs" test $(SUBDIRS)
     # このフォルダー以下の coverage.xml をマージする
 	-python "$(TESTFW_HOME)/bin/cobertura_merge.py" . > /dev/null
