@@ -3,12 +3,15 @@
 set -u
 
 usage() {
-    echo "Usage: $0 [--app-deps] [--silent-missing] [--echo-command] <jobs> <target> [subdir ...]" >&2
+    echo "Usage: $0 [--app-deps] [--silent-missing] [--echo-command] [--progress] <jobs> <target> [subdir ...]" >&2
 }
 
 app_deps=0
 silent_missing=0
 echo_command=0
+progress=0
+progress_interval=60
+progress_fd_open=0
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -22,6 +25,10 @@ while [ "$#" -gt 0 ]; do
             ;;
         --echo-command)
             echo_command=1
+            shift
+            ;;
+        --progress)
+            progress=1
             shift
             ;;
         --)
@@ -80,17 +87,80 @@ fi
 abort=0
 signal_received=""
 
+now_seconds() {
+    date +%s 2>/dev/null || echo 0
+}
+
+format_duration() {
+    local total="$1"
+    local hours
+    local minutes
+    local seconds
+
+    hours=$((total / 3600))
+    minutes=$(((total % 3600) / 60))
+    seconds=$((total % 60))
+
+    if [ "$hours" -gt 0 ]; then
+        printf '%02d:%02d:%02d' "$hours" "$minutes" "$seconds"
+    else
+        printf '%02d:%02d' "$minutes" "$seconds"
+    fi
+}
+
+setup_progress_stream() {
+    if [ "$progress" -eq 0 ]; then
+        return 0
+    fi
+
+    if [ -e /dev/tty ] && : >/dev/tty 2>/dev/null; then
+        exec 3>/dev/tty
+    else
+        exec 3>&2
+    fi
+    progress_fd_open=1
+}
+
+close_progress_stream() {
+    if [ "$progress_fd_open" -eq 1 ]; then
+        exec 3>&-
+        progress_fd_open=0
+    fi
+}
+
+progress_log() {
+    if [ "$progress" -eq 0 ] || [ "$progress_fd_open" -eq 0 ]; then
+        return 0
+    fi
+    printf 'INFO: %s\n' "$1" >&3
+}
+
+count_pending_nodes() {
+    local pending_count=0
+    local idx=0
+
+    while [ "$idx" -lt "$count" ]; do
+        if [ "${state[$idx]}" = "pending" ]; then
+            pending_count=$((pending_count + 1))
+        fi
+        idx=$((idx + 1))
+    done
+
+    printf '%s\n' "$pending_count"
+}
+
 handle_interrupt() {
     if [ -n "$signal_received" ]; then
         return
     fi
     signal_received="$1"
     abort=1
-    printf 'INFO: Interrupt received (%s). Waiting for running tests to finish...\n' "$1" >&2
+    printf 'INFO: Interrupt received (%s). Waiting for running jobs to finish...\n' "$1" >&2
     trap '' INT HUP TERM
 }
 
 cleanup() {
+    close_progress_stream
     if [ "$created_slot_root" -eq 1 ]; then
         rm -rf "$slot_root"
     fi
@@ -100,6 +170,8 @@ trap 'handle_interrupt INT' INT
 trap 'handle_interrupt HUP' HUP
 trap 'handle_interrupt TERM' TERM
 trap cleanup EXIT
+
+setup_progress_stream
 
 has_makefile() {
     [ -f "$1/makefile" ] || [ -f "$1/GNUmakefile" ] || [ -f "$1/Makefile" ]
@@ -151,7 +223,7 @@ run_make_node() {
             echo "$make_cmd -C $dir $target"
         fi
         if [ "$leaf" -eq 1 ]; then
-            lock_dir=$(acquire_slot)
+            lock_dir=$(acquire_slot) || return 130
         fi
         if [ "$leaf" -eq 1 ]; then
             MAKEFLAGS= MFLAGS= MAKEFW_TEST_RUN_JOBS="$test_run_jobs" MAKEFW_TEST_SLOT_DIR="$slot_root" \
@@ -260,19 +332,28 @@ run_ordered_nodes() {
     local running=0
     local completed=0
     local failed=0
-    local progress
+    local progress_made
     local status_file
     local out_file
     local status
     local dir
     local leaf
+    local started=0
+    local start_time
+    local current_time
+    local last_wait_report_at
+    local pending_count
+    local elapsed
 
     if [ "$count" -eq 0 ]; then
         return 0
     fi
 
+    start_time=$(now_seconds)
+    last_wait_report_at="$start_time"
+
     while [ "$completed" -lt "$count" ]; do
-        progress=0
+        progress_made=0
 
         i=0
         while [ "$i" -lt "$count" ]; do
@@ -289,7 +370,9 @@ run_ordered_nodes() {
                 fi
                 running=$((running - 1))
                 completed=$((completed + 1))
-                progress=1
+                progress_made=1
+                progress_log "done [$completed/$count] ${dirs[$i]} rc=$status"
+                last_wait_report_at=$(now_seconds)
             fi
             i=$((i + 1))
         done
@@ -307,7 +390,9 @@ run_ordered_nodes() {
                     failed=1
                 fi
                 completed=$((completed + 1))
-                progress=1
+                progress_made=1
+                progress_log "blocked ${dirs[$i]} (dependency failed)"
+                last_wait_report_at=$(now_seconds)
             fi
             i=$((i + 1))
         done
@@ -319,13 +404,16 @@ run_ordered_nodes() {
                 leaf="${leaves[$i]}"
                 out_file="$tmp_root/node-$i.out"
                 status_file="$tmp_root/node-$i.status"
+                started=$((started + 1))
+                progress_log "dispatch [$started/$count] $dir"
                 (
                     run_make_node "$dir" "$out_file" "$leaf"
                     printf '%s\n' "$?" > "$status_file"
                 ) &
                 state[$i]=running
                 running=$((running + 1))
-                progress=1
+                progress_made=1
+                last_wait_report_at=$(now_seconds)
             fi
             i=$((i + 1))
         done
@@ -344,7 +432,9 @@ run_ordered_nodes() {
                         failed=130
                     fi
                     completed=$((completed + 1))
-                    progress=1
+                    progress_made=1
+                    progress_log "blocked ${dirs[$i]} (interrupt received)"
+                    last_wait_report_at=$(now_seconds)
                 fi
                 i=$((i + 1))
             done
@@ -356,10 +446,10 @@ run_ordered_nodes() {
                 cat "$out_file"
             fi
             next_print=$((next_print + 1))
-            progress=1
+            progress_made=1
         done
 
-        if [ "$completed" -lt "$count" ] && [ "$running" -eq 0 ] && [ "$progress" -eq 0 ]; then
+        if [ "$completed" -lt "$count" ] && [ "$running" -eq 0 ] && [ "$progress_made" -eq 0 ]; then
             i=0
             while [ "$i" -lt "$count" ]; do
                 if [ "${state[$i]}" = "pending" ]; then
@@ -371,14 +461,24 @@ run_ordered_nodes() {
                     state[$i]=blocked
                     failed=1
                     completed=$((completed + 1))
-                    progress=1
+                    progress_made=1
+                    progress_log "blocked ${dirs[$i]} (dependency cycle or unresolved dependency)"
+                    last_wait_report_at=$(now_seconds)
                     break
                 fi
                 i=$((i + 1))
             done
         fi
 
-        if [ "$completed" -lt "$count" ] && [ "$progress" -eq 0 ]; then
+        if [ "$completed" -lt "$count" ] && [ "$progress_made" -eq 0 ]; then
+            current_time=$(now_seconds)
+            if [ "$running" -gt 0 ] && [ $((current_time - last_wait_report_at)) -ge "$progress_interval" ]; then
+                pending_count=$(count_pending_nodes)
+                elapsed=$(format_duration $((current_time - start_time)))
+                progress_log "waiting elapsed=$elapsed running=$running pending=$pending_count completed=$completed/$count"
+                last_wait_report_at="$current_time"
+            fi
+
             if [ "$running" -gt 0 ]; then
                 wait -n 2>/dev/null || sleep 0.05
             else

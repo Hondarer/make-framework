@@ -10,11 +10,22 @@ include $(MAKEFW_HOME)/makefiles/_parallel.mk
 APP_ORDER_RESOLVER = $(MAKEFW_HOME)/bin/resolve_app_deps.sh
 SUBDIRS := $(shell bash "$(APP_ORDER_RESOLVER)" --app-order)
 
-# 並列実行 (-j) 時に複数 app の出力が交錯しないよう、ターゲット単位で出力同期する。
+# 並列実行 (-j) 時に複数 app の出力が交錯しないよう、通常はターゲット単位で出力同期する。
+# ただし既定ビルドは run_ordered_subdir_target.sh が app ごとの出力を制御し、
+# 進捗行を即時表示したいため、親 make では出力同期を付与しない。
 # doxy は長時間処理の進行を見えるようにするため、出力同期を付与しない。
 # 呼び出し側が --output-sync を明示している場合はそれを尊重する。
 # GNU Make 4.0+ が前提 (本リポジトリの最低要件と一致)。
-ifeq ($(filter doxy,$(MAKECMDGOALS)),)
+ifeq ($(strip $(MAKECMDGOALS)),)
+    _MAKEFW_APP_NEEDS_OUTPUT_SYNC :=
+else ifneq ($(filter default,$(MAKECMDGOALS)),)
+    _MAKEFW_APP_NEEDS_OUTPUT_SYNC :=
+else ifneq ($(filter doxy clean,$(MAKECMDGOALS)),)
+    _MAKEFW_APP_NEEDS_OUTPUT_SYNC :=
+else
+    _MAKEFW_APP_NEEDS_OUTPUT_SYNC := 1
+endif
+ifeq ($(_MAKEFW_APP_NEEDS_OUTPUT_SYNC),1)
 ifeq ($(filter --output-sync%,$(MAKEFLAGS)),)
     MAKEFLAGS += --output-sync=recurse
 endif
@@ -64,7 +75,14 @@ submodule :
 	fi
 
 .PHONY: default
-default : submodule $(SUBDIRS)
+default : submodule
+	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
+	app_build_jobs="$$jobs"; \
+	if [ -z "$$app_build_jobs" ]; then app_build_jobs=1; fi; \
+	MAKEFW_SUBDIR_MAKE="$(MAKE)" "$(SHELL)" \
+		"$(MAKEFW_HOME)/bin/run_ordered_subdir_target.sh" \
+		--app-deps --silent-missing --echo-command --progress \
+		"$$app_build_jobs" default $(SUBDIRS)
 	@$(APP_POST_BUILD_CHECKS)
 
 .PHONY: with-cov
@@ -83,7 +101,14 @@ with-cov : submodule
 	@$(APP_POST_BUILD_CHECKS)
 
 .PHONY: clean
-clean : submodule $(SUBDIRS)
+clean : submodule
+	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
+	app_clean_jobs="$$jobs"; \
+	if [ -z "$$app_clean_jobs" ]; then app_clean_jobs=1; fi; \
+	MAKEFW_SUBDIR_MAKE="$(MAKE)" "$(SHELL)" \
+		"$(MAKEFW_HOME)/bin/run_ordered_subdir_target.sh" \
+		--app-deps --silent-missing --echo-command --progress \
+		"$$app_clean_jobs" clean $(SUBDIRS)
 	-find . -name "coverage.xml" -delete
 	rm -f c_cpp_properties.warn
 	rm -rf idir
