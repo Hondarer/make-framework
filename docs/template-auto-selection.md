@@ -150,7 +150,7 @@ include $(WORKSPACE_DIR)/framework/makefw/makefiles/makemain.mk
 # MAKEFW_BUILD 未設定時の自動判定
 ifeq ($(MAKEFW_BUILD),)
     ifneq (,$(findstring /libsrc/,$(CURDIR))$(findstring /src/,$(CURDIR)))
-        ifneq ($(strip $(wildcard *.c) $(wildcard *.cc) $(wildcard *.cpp) $(wildcard *.csproj) $(TEST_SRCS) $(ADD_SRCS)),)
+        ifneq ($(strip $(wildcard *.c) $(wildcard *.cc) $(wildcard *.cpp) $(wildcard *.csproj) $(if $(PLATFORM_WINDOWS),$(wildcard *.mc) $(wildcard *.rc)) $(TEST_SRCS) $(ADD_SRCS)),)
             MAKEFW_BUILD := 1
         else
             MAKEFW_BUILD := 0
@@ -190,6 +190,7 @@ endif  # MAKEFW_BUILD
 | 条件 | 判定結果 |
 |------|---------|
 | パスに `/libsrc/` または `/src/` を含み、かつ直下に `*.c` / `*.cc` / `*.cpp` / `*.csproj` が存在する | `1` (ビルド実行) |
+| パスに `/libsrc/` または `/src/` を含み、Windows で直下に `*.mc` / `*.rc` が存在する | `1` (ビルド実行) |
 | パスに `/libsrc/` または `/src/` を含み、かつ `TEST_SRCS` / `ADD_SRCS` が指定されている | `1` (ビルド実行) |
 | 上記以外 | `0` (走査のみ) |
 
@@ -364,7 +365,8 @@ python framework/makefw/bin/update_template_makefiles.py
 
 ### MAKEFW_BUILD の設定
 
-通常、`MAKEFW_BUILD` の設定は不要です。`/libsrc/` または `/src/` 配下のディレクトリで直下に `*.c` / `*.cc` / `*.cpp` / `*.csproj` が存在するか、`TEST_SRCS` / `ADD_SRCS` が指定されていれば、自動的にビルドが実行されます。
+通常、`MAKEFW_BUILD` の設定は不要です。
+`/libsrc/` または `/src/` 配下のディレクトリで直下に `*.c` / `*.cc` / `*.cpp` / `*.csproj` が存在するか、Windows で `*.mc` / `*.rc` が存在するか、`TEST_SRCS` / `ADD_SRCS` が指定されていれば、自動的にビルドが実行されます。
 
 ただし、サブフォルダーのみにソースを置くライブラリ ルート (サブフォルダーコンパイル方式) は直下ソースがゼロのため自動判定では走査のみになります。このケースのみ `makelocal.mk` に明示設定が必要です。
 
@@ -440,7 +442,7 @@ make
 **確認事項**:
 
 1. ディレクトリ パスに `/libsrc/` または `/src/` が含まれているか
-2. カレント ディレクトリ直下に `*.c` / `*.cc` / `*.cpp` / `*.csproj` が存在するか、あるいは `TEST_SRCS` / `ADD_SRCS` が `makepart.mk` で指定されているか
+2. カレント ディレクトリ直下に `*.c` / `*.cc` / `*.cpp` / `*.csproj` が存在するか、Windows で `*.mc` / `*.rc` が存在するか、あるいは `TEST_SRCS` / `ADD_SRCS` が `makepart.mk` で指定されているか
 3. すべてのソースをサブフォルダーに置くライブラリ ルートの場合、`makelocal.mk` に `MAKEFW_BUILD := 1` が設定されているか
 4. `makelocal.mk` で `MAKEFW_BUILD := 0` が明示設定されていないか
 

@@ -137,6 +137,8 @@ else ifdef PLATFORM_WINDOWS
 _IDENT_MANIFEST_OBJ := $(OBJDIR)/_ident_manifest.obj
 endif
 
+MAKEFW_EXTRA_OBJS += $(_IDENT_MANIFEST_OBJ)
+
 # サブディレクトリに NO_LINK サブディレクトリがある場合、その .ident も依存に加える
 # (make 評価時点で存在するものを列挙; 存在しない場合は第一ビルド時に _ident_manifest.c が
 #  存在しないため recipe は必ず走る)
