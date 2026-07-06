@@ -87,6 +87,10 @@ fi
 
 abort=0
 signal_received=""
+terminate_requested=0
+terminate_started_at=0
+force_terminate_requested=0
+interrupt_grace_seconds=5
 
 now_seconds() {
     date +%s 2>/dev/null || echo 0
@@ -166,12 +170,13 @@ count_pending_nodes() {
 
 handle_interrupt() {
     if [ -n "$signal_received" ]; then
+        force_terminate_requested=1
+        printf 'INFO: Additional interrupt received. Forcing running jobs to stop...\n' >&2
         return
     fi
     signal_received="$1"
     abort=1
-    printf 'INFO: Interrupt received (%s). Waiting for running jobs to finish...\n' "$1" >&2
-    trap '' INT HUP TERM
+    printf 'INFO: Interrupt received (%s). Stopping running jobs...\n' "$1" >&2
 }
 
 cleanup() {
@@ -220,6 +225,7 @@ read_app_deps() {
         deps=$(
             sed -n 's/^[[:space:]]*APP_DEPS[[:space:]]*[:+?]\{0,1\}=[[:space:]]*//p' "$dir/appdeps.mk" |
                 sed 's/#.*//' |
+                tr -d '\r' |
                 tr '\n' ' '
         )
     fi
@@ -232,6 +238,18 @@ run_make_node() {
     local leaf="$3"
     local lock_dir=""
     local rc
+
+    release_slot() {
+        if [ -n "${lock_dir:-}" ]; then
+            rmdir "$lock_dir" 2>/dev/null || true
+            lock_dir=""
+        fi
+    }
+
+    trap 'release_slot' EXIT
+    trap 'release_slot; exit 130' INT
+    trap 'release_slot; exit 143' TERM
+    trap 'release_slot; exit 129' HUP
 
     {
         if [ "$echo_command" -eq 1 ]; then
@@ -248,11 +266,85 @@ run_make_node() {
                 "$make_cmd" -C "$dir" "$target"
         fi
         rc="$?"
-        if [ -n "$lock_dir" ]; then
-            rmdir "$lock_dir"
-        fi
+        release_slot
+        trap - EXIT INT TERM HUP
         return "$rc"
     } > "$out_file" 2>&1
+}
+
+list_descendant_pids() {
+    local parent="$1"
+    local child
+
+    command -v pgrep >/dev/null 2>&1 || return 0
+    for child in $(pgrep -P "$parent" 2>/dev/null); do
+        list_descendant_pids "$child"
+        printf '%s\n' "$child"
+    done
+}
+
+signal_pid_tree() {
+    local sig="$1"
+    local pid="$2"
+    local child
+
+    [ -n "$pid" ] || return 0
+    kill -0 "$pid" 2>/dev/null || return 0
+
+    for child in $(list_descendant_pids "$pid"); do
+        kill "-$sig" "$child" 2>/dev/null || true
+    done
+    kill "-$sig" "$pid" 2>/dev/null || true
+}
+
+is_pid_alive() {
+    local pid="$1"
+
+    [ -n "$pid" ] || return 1
+    kill -0 "$pid" 2>/dev/null
+}
+
+status_for_signal() {
+    case "$1" in
+        INT) printf '%s\n' 130 ;;
+        TERM) printf '%s\n' 143 ;;
+        HUP) printf '%s\n' 129 ;;
+        *) printf '%s\n' 130 ;;
+    esac
+}
+
+begin_running_job_termination() {
+    local sig
+    local idx
+
+    if [ "$terminate_requested" -eq 1 ]; then
+        return 0
+    fi
+
+    sig="${signal_received:-TERM}"
+    terminate_requested=1
+    terminate_started_at=$(now_seconds)
+
+    idx=0
+    while [ "$idx" -lt "$count" ]; do
+        if [ "${state[$idx]}" = "running" ]; then
+            progress_log "stopping ${dirs[$idx]}"
+            signal_pid_tree "$sig" "${node_pids[$idx]}"
+        fi
+        idx=$((idx + 1))
+    done
+}
+
+force_running_job_termination() {
+    local idx
+
+    idx=0
+    while [ "$idx" -lt "$count" ]; do
+        if [ "${state[$idx]}" = "running" ]; then
+            signal_pid_tree KILL "${node_pids[$idx]}"
+        fi
+        idx=$((idx + 1))
+    done
 }
 
 dirs=()
@@ -289,12 +381,14 @@ done
 state=()
 status_values=()
 deps_by_index=()
+node_pids=()
 count="${#dirs[@]}"
 i=0
 while [ "$i" -lt "$count" ]; do
     state[$i]=pending
     status_values[$i]=
     deps_by_index[$i]=""
+    node_pids[$i]=""
     i=$((i + 1))
 done
 
@@ -359,6 +453,7 @@ run_ordered_nodes() {
     local last_wait_report_at
     local pending_count
     local elapsed
+    local pid
 
     if [ "$count" -eq 0 ]; then
         return 0
@@ -385,8 +480,34 @@ run_ordered_nodes() {
                 fi
                 running=$((running - 1))
                 completed=$((completed + 1))
+                pid="${node_pids[$i]}"
+                if [ -n "$pid" ]; then
+                    wait "$pid" 2>/dev/null || true
+                    node_pids[$i]=""
+                fi
                 progress_made=1
                 progress_log "done [$completed/$count] ${dirs[$i]} rc=$status"
+                last_wait_report_at=$(now_seconds)
+            elif [ "${state[$i]}" = "running" ] && [ "$abort" -eq 1 ] && ! is_pid_alive "${node_pids[$i]}"; then
+                status=$(status_for_signal "${signal_received:-INT}")
+                out_file="$tmp_root/node-$i.out"
+                status_file="$tmp_root/node-$i.status"
+                printf 'ERROR: Stopped %s due to interrupt.\n' "${dirs[$i]}" >> "$out_file"
+                printf '%s\n' "$status" > "$status_file"
+                status_values[$i]="$status"
+                state[$i]=interrupted
+                if [ "$failed" -eq 0 ]; then
+                    failed="$status"
+                fi
+                running=$((running - 1))
+                completed=$((completed + 1))
+                pid="${node_pids[$i]}"
+                if [ -n "$pid" ]; then
+                    wait "$pid" 2>/dev/null || true
+                    node_pids[$i]=""
+                fi
+                progress_made=1
+                progress_log "interrupted [$completed/$count] ${dirs[$i]} rc=$status"
                 last_wait_report_at=$(now_seconds)
             fi
             i=$((i + 1))
@@ -425,6 +546,7 @@ run_ordered_nodes() {
                     run_make_node "$dir" "$out_file" "$leaf"
                     printf '%s\n' "$?" > "$status_file"
                 ) &
+                node_pids[$i]="$!"
                 state[$i]=running
                 running=$((running + 1))
                 progress_made=1
@@ -434,6 +556,7 @@ run_ordered_nodes() {
         done
 
         if [ "$abort" -eq 1 ]; then
+            begin_running_job_termination
             i=0
             while [ "$i" -lt "$count" ]; do
                 if [ "${state[$i]}" = "pending" ]; then
@@ -453,6 +576,15 @@ run_ordered_nodes() {
                 fi
                 i=$((i + 1))
             done
+        fi
+
+        if [ "$abort" -eq 1 ] && [ "$running" -gt 0 ]; then
+            current_time=$(now_seconds)
+            if [ "$force_terminate_requested" -eq 1 ] ||
+                [ $((current_time - terminate_started_at)) -ge "$interrupt_grace_seconds" ]; then
+                force_running_job_termination
+                force_terminate_requested=0
+            fi
         fi
 
         while [ "$next_print" -lt "$count" ] && [ -n "${status_values[$next_print]}" ]; do
