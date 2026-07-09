@@ -75,7 +75,7 @@ MAKE_INCLUDE_MK += $(wildcard $(CURDIR)/makepart.mk)
 | `DEFINES` | `-D` に変換される define 群 | `DEFINES += FEATURE_X` |
 | `CFLAGS` | C コンパイラ フラグ | `CFLAGS += -DMYAPP_VERSION=\"1.0.0\"` |
 | `CXXFLAGS` | C++ コンパイラ フラグ | `CXXFLAGS += -std=c++17` |
-| `OUTPUT_DIR` | 出力先ディレクトリ | `OUTPUT_DIR := $(MYAPP_DIR)/prod/bin` |
+| `OUTPUT_DIR` | 出力先ディレクトリ | `OUTPUT_DIR := $(MYAPP_DIR)/prod/cbin` |
 | `LIB_TYPE` | ライブラリ種別 | `LIB_TYPE = shared` (デフォルトは static、`both` で両方生成) |
 | `LINK_INPUTS` | リンカーへ直接渡す追加入力 (EXE / DLL) | `LINK_INPUTS += path/to/prebuilt.res` |
 | `LINK_TEST` | テスト フレームワーク リンク | `LINK_TEST = 1` |
@@ -121,7 +121,7 @@ LIB_TYPE = both
 
 ```makefile
 # app/calc/prod/src/makepart.mk
-OUTPUT_DIR := $(MYAPP_DIR)/prod/bin
+OUTPUT_DIR := $(MYAPP_DIR)/prod/cbin
 ```
 
 **例 3: テスト共通設定**
@@ -389,7 +389,7 @@ SUBDIRS := \
 ```makefile
 # app/calc/makepart.mk
 INCDIR += $(MYAPP_DIR)/prod/include
-OUTPUT_DIR := $(MYAPP_DIR)/prod/bin
+OUTPUT_DIR := $(MYAPP_DIR)/prod/cbin
 ```
 
 #### 他 app の参照 (cross-app)
