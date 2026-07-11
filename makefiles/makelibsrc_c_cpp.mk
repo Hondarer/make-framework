@@ -664,7 +664,7 @@ _clean_main:
     # Replace .gitignore through a unique temporary file
     ifneq ($(strip $(MAKEFW_CLEAN_GITIGNORE_SRCS)),)
 		@tmp=$$(mktemp .gitignore.tmp.XXXXXX); \
-		printf '%s\n' $(addprefix /,$(MAKEFW_CLEAN_GITIGNORE_SRCS)) | sort -u > "$$tmp" && mv "$$tmp" .gitignore || { rc=$$?; rm -f "$$tmp"; exit $$rc; }
+		printf '%s\n' $(addprefix /,$(MAKEFW_CLEAN_GITIGNORE_SRCS)) > "$$tmp" && mv "$$tmp" .gitignore || { rc=$$?; rm -f "$$tmp"; exit $$rc; }
     endif
 	-rm -rf $(strip $(CLEAN_COMMON) $(CLEAN_OS)) *.warn
     # 空ディレクトリを削除する。obj は全 CRT サブディレクトリを含めて削除する

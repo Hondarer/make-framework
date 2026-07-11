@@ -92,6 +92,11 @@ terminate_started_at=0
 force_terminate_requested=0
 interrupt_grace_seconds=5
 
+case "$(uname -s 2>/dev/null)" in
+    MINGW* | MSYS* | CYGWIN*) is_windows=1 ;;
+    *) is_windows=0 ;;
+esac
+
 now_seconds() {
     date +%s 2>/dev/null || echo 0
 }
@@ -179,7 +184,20 @@ handle_interrupt() {
     printf 'INFO: Interrupt received (%s). Stopping running jobs...\n' "$1" >&2
 }
 
+terminate_leftover_nodes() {
+    local idx
+
+    idx=0
+    while [ "$idx" -lt "${count:-0}" ]; do
+        if [ -n "${node_pids[$idx]:-}" ]; then
+            signal_pid_tree KILL "${node_pids[$idx]}"
+        fi
+        idx=$((idx + 1))
+    done
+}
+
 cleanup() {
+    terminate_leftover_nodes
     close_progress_stream
     if [ "$created_slot_root" -eq 1 ]; then
         rm -rf "$slot_root"
@@ -272,6 +290,35 @@ run_make_node() {
     } > "$out_file" 2>&1
 }
 
+windows_pid_for() {
+    local pid="$1"
+    local winpid=""
+
+    # MSYS/Cygwin の pid は Windows の pid と一致しない場合がある。
+    # /proc/<pid>/winpid が対応する Windows pid を公開する。
+    # see: https://cygwin.com/cygwin-ug-net/proc.html
+    if [ -r "/proc/$pid/winpid" ]; then
+        winpid=$(cat "/proc/$pid/winpid" 2>/dev/null)
+    fi
+    printf '%s\n' "${winpid:-$pid}"
+}
+
+taskkill_pid_tree() {
+    local pid="$1"
+    local winpid
+
+    [ -n "$pid" ] || return 0
+    command -v taskkill.exe >/dev/null 2>&1 || return 0
+    kill -0 "$pid" 2>/dev/null || return 0
+    winpid=$(windows_pid_for "$pid")
+    # /T で子プロセスを含めて終了する。/F なしの taskkill は
+    # 終了要求を送るだけで、コンソールの make.exe / cl.exe は応答しない。
+    # see: https://learn.microsoft.com/windows-server/administration/windows-commands/taskkill
+    # MSYS2_ARG_CONV_EXCL は /PID などの引数がパス変換されるのを防ぐ。
+    # see: https://www.msys2.org/docs/filesystem-paths/
+    MSYS2_ARG_CONV_EXCL='*' taskkill.exe /PID "$winpid" /T /F >/dev/null 2>&1 || true
+}
+
 list_descendant_pids() {
     local parent="$1"
     local child
@@ -290,6 +337,19 @@ signal_pid_tree() {
 
     [ -n "$pid" ] || return 0
     kill -0 "$pid" 2>/dev/null || return 0
+
+    if [ "$is_windows" -eq 1 ]; then
+        # Git for Windows に pgrep はなく、MSYS の kill はネイティブ Windows
+        # 子プロセス (make.exe -> cl.exe) にシグナルを届けられない。
+        # see: https://cygwin.com/cygwin-ug-net/kill.html
+        # さらに bash はフォアグラウンドの make.exe が終わるまでトラップを
+        # 実行しないため、シグナルによる段階的終了は成立しない。
+        # see: https://www.gnu.org/software/bash/manual/html_node/Signals.html
+        # よって Windows ではシグナル種別によらず taskkill /T /F で
+        # プロセス ツリーごと強制終了する。
+        taskkill_pid_tree "$pid"
+        return 0
+    fi
 
     for child in $(list_descendant_pids "$pid"); do
         kill "-$sig" "$child" 2>/dev/null || true
