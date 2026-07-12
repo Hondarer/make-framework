@@ -200,22 +200,22 @@ APP_DEPS := com_util
 
 ### 挙動
 
-- `prepare.mk` は自 app と `APP_DEPS` の再帰依存を解決する
-- `app/makefile` は `APP_DEPS` を使って `SUBDIRS` の build 順序を自動決定する
-- 解決済み app ごとに `app/<name>/prod/include` と `app/<name>/prod/lib` を自動追加する
-- `/test/` 配下では同じ依存閉包に対して `app/<name>/test/include` と `app/<name>/test/lib` を自動追加する
-- 自 app の `app/<name>/prod/include_internal` を自動追加する
-- `app/makepart.mk` が `/test/` 配下のビルドに対して `framework/testfw/lib` と `LINK_TEST = 1` を付与する
-- 依存 app の `prod/include_internal` は自動追加しない
-- 依存 app ディレクトリが存在しない場合は定義エラーとして make を停止する
-- 循環依存があっても訪問済み管理で無限ループしない
+- `prepare.mk` は自 app と `APP_DEPS` の再帰依存を解決します
+- `app/makefile` は `APP_DEPS` を使って `SUBDIRS` の build 順序を自動決定します
+- 解決済み app ごとに `app/<name>/prod/include` と `app/<name>/prod/lib` を自動追加します
+- `/test/` 配下では同じ依存閉包に対して `app/<name>/test/include` と `app/<name>/test/lib` を自動追加します
+- 自 app の `app/<name>/prod/include_internal` を自動追加します
+- `app/makepart.mk` が `/test/` 配下のビルドに対して `framework/testfw/lib` と `LINK_TEST = 1` を付与します
+- 依存 app の `prod/include_internal` は自動追加しません
+- 依存 app ディレクトリが存在しない場合は定義エラーとして make を停止します
+- 循環依存があっても訪問済み管理で無限ループしません
 
 ### 運用ルール
 
-- `APP_DEPS` には直接依存だけを書く
-- build 順だけに必要な依存も `APP_DEPS` に書く
-- `../otherapp/prod/include` や `../otherapp/prod/lib` を `makepart.mk` に手書きしない
-- 自 app の `prod/include`、`prod/include_internal`、`prod/lib` は自動追加されるため、app 直下 `makepart.mk` には通常書かない
+- `APP_DEPS` には直接依存だけを書きます
+- build 順だけに必要な依存も `APP_DEPS` に書きます
+- `../otherapp/prod/include` や `../otherapp/prod/lib` を `makepart.mk` に手書きしません
+- 自 app の `prod/include`、`prod/include_internal`、`prod/lib` は自動追加されるため、app 直下 `makepart.mk` には通常書きません
 
 ## makechild.mk
 
@@ -268,9 +268,9 @@ endef
 $(foreach make_config, $(MAKE_INCLUDE_MK), $(call _include_make_config,$(make_config)))
 ```
 
-- `makechild.mk` は検索時点でカレント ディレクトリを除外
-- `makepart.mk` と `makechild.mk` は実在するファイルだけを include
-- 同一階層では `makepart.mk` の直後に `makechild.mk` を include
+- `makechild.mk` は検索時点でカレント ディレクトリを除外します
+- `makepart.mk` と `makechild.mk` は実在するファイルだけを include します
+- 同一階層では `makepart.mk` の直後に `makechild.mk` を include します
 
 ### 記述例
 
@@ -321,8 +321,8 @@ NO_LINK = 1
 -include $(CURDIR)/makelocal.mk
 ```
 
-- `-include` を使用することで、ファイルが存在しない場合もエラーにならない
-- `$(CURDIR)` はカレント ディレクトリを指すため、継承は発生しない
+- `-include` を使用することで、ファイルが存在しない場合もエラーになりません
+- `$(CURDIR)` はカレント ディレクトリを指すため、継承は発生しません
 
 ### 記述例
 
@@ -411,10 +411,10 @@ INCDIR += $(WORKSPACE_DIR)/framework/testfw/include
 
 ### 内部動作
 
-1. `prepare.mk` が `CURDIR` から `app/<appname>` を抽出し、`APP_DIR` と `MYAPP_DIR` に絶対パスを設定
-2. `makepart.mk` / `makechild.mk` / `makelocal.mk` の読み込み後、パス系変数 (`INCDIR`, `LIBSDIR`, `OUTPUT_DIR`, `TEST_SRCS`, `ADD_SRCS`) を一括正規化
-3. 正規化は `realpath -m` (Linux) / `realpath -m` + `cygpath -m` (Windows) で実行
-4. コンパイラに渡されるパスは常に `..` を含まない絶対パス
+1. `prepare.mk` が `CURDIR` から `app/<appname>` を抽出し、`APP_DIR` と `MYAPP_DIR` に絶対パスを設定します
+2. `makepart.mk` / `makechild.mk` / `makelocal.mk` の読み込み後、パス系変数 (`INCDIR`, `LIBSDIR`, `OUTPUT_DIR`, `TEST_SRCS`, `ADD_SRCS`) を一括正規化します
+3. 正規化は `realpath -m` (Linux) / `realpath -m` + `cygpath -m` (Windows) で実行します
+4. コンパイラに渡されるパスは常に `..` を含まない絶対パスになります
 
 ## インクルード順序
 
@@ -474,15 +474,15 @@ MY_LOCAL_VAR := 1
 
 この構成により、`prod/myapp/` でビルドした場合:
 
-- `LIBS += mybaselib` が適用される (makepart.mk)
-- `CFLAGS += -DCHILD_ONLY_FLAG` は **適用されない** (makechild.mk は自身を除く)
-- `MY_LOCAL_VAR := 1` が適用される (makelocal.mk)
+- `LIBS += mybaselib` が適用されます (makepart.mk)
+- `CFLAGS += -DCHILD_ONLY_FLAG` は **適用されません** (makechild.mk は自身を除く)
+- `MY_LOCAL_VAR := 1` が適用されます (makelocal.mk)
 
 `prod/myapp/libsrc/mylib/` でビルドした場合:
 
-- `LIBS += mybaselib` が適用される (makepart.mk が継承)
-- `CFLAGS += -DCHILD_ONLY_FLAG` が **適用される** (makechild.mk が子階層に適用)
-- `MY_LOCAL_VAR := 1` は **適用されない** (makelocal.mk は自ディレクトリ限定)
+- `LIBS += mybaselib` が適用されます (makepart.mk が継承)
+- `CFLAGS += -DCHILD_ONLY_FLAG` が **適用されます** (makechild.mk が子階層に適用)
+- `MY_LOCAL_VAR := 1` は **適用されません** (makelocal.mk は自ディレクトリ限定)
 
 ## ホスト環境プローブと同期評価 (MAKEFW_SYNC_EVAL)
 
@@ -511,7 +511,7 @@ endif
 
 ### ビルド システムによるソース ファイルの分類
 
-`TEST_SRCS` と `ADD_SRCS` に指定したソース ファイルは、`make test` 時に `_collect_srcs.mk` が以下の 3 種類に自動分類し、テストのビルド ディレクトリへ取り込む。
+`TEST_SRCS` と `ADD_SRCS` に指定したソース ファイルは、`make test` 時に `_collect_srcs.mk` が以下の 3 種類に自動分類し、テストのビルド ディレクトリへ取り込みます。
 
 | 分類 | 説明 | 条件 |
 |------|------|------|
@@ -519,12 +519,27 @@ endif
 | `LINK_SRCS` | シンボリック リンクで引き込むファイル | Linux 環境で、inject ファイルおよびフィルター ファイルがない場合 |
 | `CP_SRCS` | コピーで引き込むファイル | Windows 環境の場合、または inject / フィルター ファイルが存在する場合 |
 
-通常の関数単体テスト (Linux 環境、inject なし) では `TEST_SRCS` に指定したファイルは `LINK_SRCS` として処理され、テスト ビルド ディレクトリ内の当該ファイル名は `prod/` にある実体ファイルへのシンボリック リンクとなる。
+通常の関数単体テスト (Linux 環境、inject なし) では `TEST_SRCS` に指定したファイルは `LINK_SRCS` として処理され、テスト ビルド ディレクトリ内の当該ファイル名は `prod/` にある実体ファイルへのシンボリック リンクになります。
 
 ### ビルド ディレクトリ内のファイルを直接変更しないこと
 
-`make test` のたびにビルド ディレクトリ内の `LINK_SRCS` / `CP_SRCS` は再生成される。そのため、ビルド ディレクトリ内のファイルを直接変更しても、次回の `make test` で上書きされ変更が失われる。
+`make test` のたびにビルド ディレクトリ内の `LINK_SRCS` / `CP_SRCS` は再生成されます。そのため、ビルド ディレクトリ内のファイルを直接変更しても、次回の `make test` で上書きされ変更が失われます。
 
-**ソース コードを変更する場合は、`prod/` にある実体ファイルを変更すること。**
+**ソース コードを変更する場合は、`prod/` にある実体ファイルを変更してください。**
 
-例として `app/calc/test/src/libcalcbaseTest/addTest/add.c` は `app/calc/prod/libsrc/calcbase/add.c` へのシンボリック リンクである。このファイルを変更したい場合は `app/calc/prod/libsrc/calcbase/add.c` を変更する。
+例として `app/calc/test/src/libcalcbaseTest/addTest/add.c` は `app/calc/prod/libsrc/calcbase/add.c` へのシンボリック リンクです。このファイルを変更したい場合は `app/calc/prod/libsrc/calcbase/add.c` を変更します。
+
+### TEST_SRCS からソースを除去したときの残存成果物
+
+`TEST_SRCS` からソース ファイルを除去しても、`make test` は以前の成果物への処置を自動では行いません。
+除去したはずのソースの (1) シンボリック リンク、(2) `obj/{名前}.o` / `.d` / `.gcno`、(3) 古い `bin/{テスト名}` が残ると、実装の強シンボルが `MOCK_WEAK_IMPL` の弱シンボルに勝ち続け、モックが効かないままになります。
+obj を消しても bin が再リンクされない場合があります (make が bin を最新と判定するため)。
+
+`TEST_SRCS` からソースを除去したら、テスト ディレクトリで以下を手動削除してから `make test` してください。
+
+1. 残存シンボリック リンク (`rm {テストdir}/{除去したソース}`)
+2. `obj/{除去したソース}.o` と対応する `.d` / `.gcno`
+3. `bin/{テスト名}` (再リンクを強制)
+
+シンボルの状態は `nm bin/{テスト名} | grep {関数名}` で確認できます。T (強シンボル = 実体が残存) なら掃除漏れ、W (弱シンボル) ならモックが有効です。
+なお、ビルド システムはテスト ディレクトリの `.gitignore` を `TEST_SRCS` に合わせて自動更新します (この差分は正当です)。
