@@ -75,7 +75,7 @@ exe で確認する場合は、`prod/src/cmd/` 配下のターゲットを使う
 
 ```powershell
 make -C app/calc/prod/src/cmd/calc IDENT=1
-$bytes = [IO.File]::ReadAllBytes('app\calc\prod\bin\calc.exe')
+$bytes = [IO.File]::ReadAllBytes('app\calc\prod\cbin\calc.exe')
 $text = [Text.Encoding]::ASCII.GetString($bytes)
 [regex]::Matches($text, '@\(#\)IDENT-[^\x00\r\n]*') | ForEach-Object { $_.Value }
 ```
@@ -119,7 +119,7 @@ exe で確認する場合は、`prod/src/cmd/` 配下のターゲットを使う
 
 ```bash
 make -C app/calc/prod/src/cmd/calc IDENT=1
-strings app/calc/prod/bin/calc | grep -F '@(#)IDENT-'
+strings app/calc/prod/cbin/calc | grep -F '@(#)IDENT-'
 ```
 
 `test/` 配下の自動除外を確認する場合は、次のように実行する。
