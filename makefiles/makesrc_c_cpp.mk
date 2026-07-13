@@ -471,7 +471,7 @@ $(eval $(call compile_rule_template,cpp,CXX,CXXFLAGS))
 # Create symbolic links for LINK_SRCS
 define generate_link_src_rule
 $(1):
-	ln -s $(2) $(1)
+	ln -sf $(2) $(1)
 endef
 
 # ファイルごとの依存関係を動的に定義
