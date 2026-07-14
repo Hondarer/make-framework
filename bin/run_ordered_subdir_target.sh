@@ -409,6 +409,71 @@ taskkill_pid_tree() {
     MSYS2_ARG_CONV_EXCL='*' taskkill.exe /PID "$winpid" /T /F >/dev/null 2>&1 || true
 }
 
+list_windows_tree_procs() {
+    # 指定した Windows pid を根とするプロセス ツリーの「pid 実行体名」の
+    # 一覧を返す。Windows 11 では wmic が既定で存在しないため PowerShell を使う。
+    # see: https://learn.microsoft.com/en-us/windows/win32/wmisdk/wmic
+    local root_winpid="$1"
+
+    MAKEFW_TREE_ROOT="$root_winpid" powershell.exe -NoProfile -Command '
+        $root = [uint32]$env:MAKEFW_TREE_ROOT
+        $procs = Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId, Name
+        $tree = New-Object "System.Collections.Generic.HashSet[uint32]"
+        [void]$tree.Add($root)
+        $changed = $true
+        while ($changed) {
+            $changed = $false
+            foreach ($p in $procs) {
+                if ($tree.Contains([uint32]$p.ParentProcessId) -and -not $tree.Contains([uint32]$p.ProcessId)) {
+                    [void]$tree.Add([uint32]$p.ProcessId)
+                    $changed = $true
+                }
+            }
+        }
+        foreach ($p in $procs) {
+            if ($tree.Contains([uint32]$p.ProcessId)) {
+                Write-Output ("" + $p.ProcessId + " " + $p.Name)
+            }
+        }
+    ' 2>/dev/null | tr -d '\r'
+}
+
+terminate_native_tree_members() {
+    # ノードのプロセス ツリー内のネイティブ プロセスだけを個別に終了し、
+    # MSYS シェル (bash/sh) は残して自力で終了させる。
+    #
+    # コンソールの Ctrl-C を仲介できる MSYS のシグナルは、ネイティブ
+    # プロセス (make.exe など) を親に挟んだ先の MSYS シェルへは届かない。
+    # ネイティブの親を持つ MSYS プロセスは別のプロセス テーブルになり、
+    # この runner の /proc や kill からは見えないことを本リポジトリの
+    # Ctrl-C 検証で確認済み (prompt/windows-ctrl-c-handoff.md の検証記録)。
+    # そのため trap を持つスクリプト (doxyfw など) へ後処理の契機を渡すには、
+    # シェルが wait しているネイティブの子だけを終了して wait から戻し、
+    # シェル自身のエラー経路と EXIT trap に後処理を委ねる。
+    # 残った場合は interrupt_grace_seconds 経過後に KILL 経路の
+    # taskkill /T /F で回収する。
+    local pid="$1"
+    local root_winpid line member_pid member_name
+
+    command -v taskkill.exe >/dev/null 2>&1 || return 0
+    root_winpid=$(windows_pid_for "$pid")
+    list_windows_tree_procs "$root_winpid" | while IFS=' ' read -r member_pid member_name; do
+        [ -n "$member_pid" ] || continue
+        case "$member_name" in
+            bash.exe | sh.exe | dash.exe)
+                # trap による後処理を持ち得る MSYS シェルは終了させない。
+                continue
+                ;;
+            conhost.exe | OpenConsole.exe)
+                # コンソール ホストを終了するとコンソール全体が失われる。
+                continue
+                ;;
+        esac
+        MSYS2_ARG_CONV_EXCL='*' taskkill.exe /PID "$member_pid" /F >/dev/null 2>&1 || true
+    done
+    return 0
+}
+
 signal_pid_tree() {
     local sig="$1"
     local pid="$2"
@@ -418,15 +483,22 @@ signal_pid_tree() {
     kill -0 "$pid" 2>/dev/null || return 0
 
     if [ "$is_windows" -eq 1 ]; then
-        # Git for Windows に pgrep はなく、MSYS の kill はネイティブ Windows
-        # 子プロセス (make.exe -> cl.exe) にシグナルを届けられない。
-        # see: https://cygwin.com/cygwin-ug-net/kill.html
-        # さらに bash はフォアグラウンドの make.exe が終わるまでトラップを
-        # 実行しないため、シグナルによる段階的終了は成立しない。
-        # see: https://www.gnu.org/software/bash/manual/html_node/Signals.html
-        # よって Windows ではシグナル種別によらず taskkill /T /F で
-        # プロセス ツリーごと強制終了する。
-        taskkill_pid_tree "$pid"
+        if [ "$sig" = "KILL" ]; then
+            # Git for Windows に pgrep はなく、MSYS の kill はネイティブ Windows
+            # 子プロセス (make.exe -> cl.exe) にシグナルを届けられない。
+            # see: https://cygwin.com/cygwin-ug-net/kill.html
+            # よって強制終了は taskkill /T /F でプロセス ツリーごと行う。
+            taskkill_pid_tree "$pid"
+            return 0
+        fi
+        # 初回の INT/TERM/HUP では taskkill /T /F を行わない。
+        # trap で後処理を行うノード (doxyfw の一時領域やロックの削除など) を
+        # 即時強制終了すると、後処理が完了する前にツリーごと終了され、
+        # 一時ファイルやロックが残存する。ネイティブ プロセスだけを
+        # 個別に終了して MSYS シェルに後処理の機会を与え、
+        # interrupt_grace_seconds 経過後も残る場合に KILL 経路の
+        # taskkill /T /F で回収する。
+        terminate_native_tree_members "$pid"
         return 0
     fi
 
