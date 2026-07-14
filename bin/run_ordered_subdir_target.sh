@@ -2,6 +2,80 @@
 
 set -u
 
+run_node_worker() {
+    local dir="$1"
+    local out_file="$2"
+    local leaf="$3"
+    local status_file="$4"
+    local worker_make_cmd="$5"
+    local worker_target="$6"
+    local worker_test_run_jobs="$7"
+    local worker_slot_root="$8"
+    local worker_echo_command="$9"
+    local lock_dir=""
+    local rc
+
+    release_worker_slot() {
+        if [ -n "$lock_dir" ]; then
+            rmdir "$lock_dir" 2>/dev/null || true
+            lock_dir=""
+        fi
+    }
+
+    finish_worker() {
+        rc=$?
+        trap - EXIT INT TERM HUP
+        release_worker_slot
+        printf '%s\n' "$rc" > "$status_file"
+        exit "$rc"
+    }
+
+    acquire_worker_slot() {
+        local candidate
+        local candidate_lock
+
+        while :; do
+            for candidate in "$worker_slot_root"/slot-*; do
+                [ -d "$candidate" ] || continue
+                candidate_lock="$candidate/lock"
+                if mkdir "$candidate_lock" 2>/dev/null; then
+                    lock_dir="$candidate_lock"
+                    return 0
+                fi
+            done
+            sleep 0.05
+        done
+    }
+
+    trap finish_worker EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    trap 'exit 129' HUP
+
+    {
+        if [ "$worker_echo_command" -eq 1 ]; then
+            echo "$worker_make_cmd -C $dir $worker_target"
+        fi
+        if [ "$leaf" -eq 1 ]; then
+            acquire_worker_slot
+            MAKEFLAGS= MFLAGS= MAKEFW_TEST_RUN_JOBS="$worker_test_run_jobs" MAKEFW_TEST_SLOT_DIR="$worker_slot_root" \
+                "$worker_make_cmd" -j1 -C "$dir" "$worker_target"
+        else
+            MAKEFLAGS= MFLAGS= MAKEFW_TEST_RUN_JOBS="$worker_test_run_jobs" MAKEFW_TEST_SLOT_DIR="$worker_slot_root" \
+                "$worker_make_cmd" -C "$dir" "$worker_target"
+        fi
+    } > "$out_file" 2>&1
+    exit $?
+}
+
+if [ "${1:-}" = "--run-node" ]; then
+    shift
+    if [ "$#" -ne 9 ]; then
+        exit 2
+    fi
+    run_node_worker "$@"
+fi
+
 usage() {
     echo "Usage: $0 [--app-deps] [--silent-missing] [--echo-command] [--progress] <jobs> <target> [subdir ...]" >&2
 }
@@ -91,11 +165,18 @@ terminate_requested=0
 terminate_started_at=0
 force_terminate_requested=0
 interrupt_grace_seconds=5
+active_nested_pid=""
+self_script=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
 
 case "$(uname -s 2>/dev/null)" in
     MINGW* | MSYS* | CYGWIN*) is_windows=1 ;;
     *) is_windows=0 ;;
 esac
+
+if [ "$is_windows" -eq 0 ] && ! command -v setsid >/dev/null 2>&1; then
+    echo "ERROR: setsid is required to manage parallel process groups on Linux." >&2
+    exit 2
+fi
 
 now_seconds() {
     date +%s 2>/dev/null || echo 0
@@ -176,11 +257,17 @@ count_pending_nodes() {
 handle_interrupt() {
     if [ -n "$signal_received" ]; then
         force_terminate_requested=1
+        if [ -n "$active_nested_pid" ] && declare -F signal_pid_tree >/dev/null 2>&1; then
+            signal_pid_tree KILL "$active_nested_pid"
+        fi
         printf 'INFO: Additional interrupt received. Forcing running jobs to stop...\n' >&2
         return
     fi
     signal_received="$1"
     abort=1
+    if [ -n "$active_nested_pid" ] && declare -F signal_pid_tree >/dev/null 2>&1; then
+        signal_pid_tree "$1" "$active_nested_pid"
+    fi
     printf 'INFO: Interrupt received (%s). Stopping running jobs...\n' "$1" >&2
 }
 
@@ -194,6 +281,9 @@ terminate_leftover_nodes() {
         fi
         idx=$((idx + 1))
     done
+    if [ -n "$active_nested_pid" ]; then
+        signal_pid_tree KILL "$active_nested_pid"
+    fi
 }
 
 cleanup() {
@@ -319,17 +409,6 @@ taskkill_pid_tree() {
     MSYS2_ARG_CONV_EXCL='*' taskkill.exe /PID "$winpid" /T /F >/dev/null 2>&1 || true
 }
 
-list_descendant_pids() {
-    local parent="$1"
-    local child
-
-    command -v pgrep >/dev/null 2>&1 || return 0
-    for child in $(pgrep -P "$parent" 2>/dev/null); do
-        list_descendant_pids "$child"
-        printf '%s\n' "$child"
-    done
-}
-
 signal_pid_tree() {
     local sig="$1"
     local pid="$2"
@@ -351,10 +430,9 @@ signal_pid_tree() {
         return 0
     fi
 
-    for child in $(list_descendant_pids "$pid"); do
-        kill "-$sig" "$child" 2>/dev/null || true
-    done
-    kill "-$sig" "$pid" 2>/dev/null || true
+    # Linux では各並列ノードを setsid で独立プロセス グループにしている。
+    # 負の PID を指定し、実行中に増えた子孫も含めてグループ全体へ送信する。
+    kill "-$sig" -- "-$pid" 2>/dev/null || true
 }
 
 is_pid_alive() {
@@ -602,10 +680,16 @@ run_ordered_nodes() {
                 status_file="$tmp_root/node-$i.status"
                 started=$((started + 1))
                 progress_log "dispatch [$started/$count] $dir"
-                (
-                    run_make_node "$dir" "$out_file" "$leaf"
-                    printf '%s\n' "$?" > "$status_file"
-                ) &
+                if [ "$is_windows" -eq 1 ]; then
+                    (
+                        run_make_node "$dir" "$out_file" "$leaf"
+                        printf '%s\n' "$?" > "$status_file"
+                    ) &
+                else
+                    setsid --wait "$self_script" --run-node \
+                        "$dir" "$out_file" "$leaf" "$status_file" \
+                        "$make_cmd" "$target" "$test_run_jobs" "$slot_root" "$echo_command" &
+                fi
                 node_pids[$i]="$!"
                 state[$i]=running
                 running=$((running + 1))
@@ -707,13 +791,41 @@ run_ordered_nodes() {
 
 run_nested_dirs() {
     local dir
+    local nested_rc
+    local wait_i
 
     for dir in "${nested_dirs[@]}"; do
         if ! has_makefile "$dir"; then
             echo "Skipping $dir (no makefile found)"
-        else
+        elif [ "$is_windows" -eq 1 ]; then
             MAKEFLAGS= MFLAGS= MAKEFW_TEST_RUN_JOBS="$test_run_jobs" MAKEFW_TEST_SLOT_DIR="$slot_root" \
                 "$make_cmd" -C "$dir" "$target" || return "$?"
+        else
+            MAKEFLAGS= MFLAGS= MAKEFW_TEST_RUN_JOBS="$test_run_jobs" MAKEFW_TEST_SLOT_DIR="$slot_root" \
+                setsid --wait "$make_cmd" -C "$dir" "$target" &
+            active_nested_pid="$!"
+            if wait "$active_nested_pid"; then
+                nested_rc=0
+            else
+                nested_rc=$?
+            fi
+            if [ "$abort" -eq 1 ]; then
+                wait_i=0
+                while is_pid_alive "$active_nested_pid" && [ "$wait_i" -lt 50 ]; do
+                    sleep 0.1
+                    wait_i=$((wait_i + 1))
+                done
+                if is_pid_alive "$active_nested_pid"; then
+                    signal_pid_tree KILL "$active_nested_pid"
+                fi
+                wait "$active_nested_pid" 2>/dev/null || true
+                active_nested_pid=""
+                return "$(status_for_signal "${signal_received:-INT}")"
+            fi
+            active_nested_pid=""
+            if [ "$nested_rc" -ne 0 ]; then
+                return "$nested_rc"
+            fi
         fi
     done
 }
