@@ -439,8 +439,8 @@ list_windows_tree_procs() {
 }
 
 terminate_native_tree_members() {
-    # ノードのプロセス ツリー内のネイティブ プロセスだけを個別に終了し、
-    # MSYS シェル (bash/sh) は残して自力で終了させる。
+    # ノードのプロセス ツリー内の末端のネイティブ プロセスだけを個別に
+    # 終了し、MSYS シェル (bash/sh) と make は残して自力で終了させる。
     #
     # コンソールの Ctrl-C を仲介できる MSYS のシグナルは、ネイティブ
     # プロセス (make.exe など) を親に挟んだ先の MSYS シェルへは届かない。
@@ -452,8 +452,14 @@ terminate_native_tree_members() {
     # シェル自身のエラー経路と EXIT trap に後処理を委ねる。
     # 残った場合は interrupt_grace_seconds 経過後に KILL 経路の
     # taskkill /T /F で回収する。
+    #
+    # make.exe を終了させない理由は 2 つある。子の失敗を検知した make は
+    # 中断ターゲットの削除を行って自力で終了できること、および列挙の
+    # スナップショット後に make が生成した子プロセスは、親の make を先に
+    # 終了すると孤児となり、KILL 経路の taskkill /T が親子関係を辿れず
+    # ビルドを継続したまま残存すること (本リポジトリの検証で確認済み)。
     local pid="$1"
-    local root_winpid line member_pid member_name
+    local root_winpid member_pid member_name
 
     command -v taskkill.exe >/dev/null 2>&1 || return 0
     root_winpid=$(windows_pid_for "$pid")
@@ -462,6 +468,10 @@ terminate_native_tree_members() {
         case "$member_name" in
             bash.exe | sh.exe | dash.exe)
                 # trap による後処理を持ち得る MSYS シェルは終了させない。
+                continue
+                ;;
+            make.exe | gmake.exe | mingw32-make.exe)
+                # ツリー構造の維持と make 自身の中断処理のため終了させない。
                 continue
                 ;;
             conhost.exe | OpenConsole.exe)
