@@ -68,6 +68,13 @@ ifeq ($(LINK_TEST), 1)
     LIBS += test_com gtest gmock
 endif
 
+# std::filesystem 使用時の -lstdc++fs は、これを必要とする静的ライブラリ (test_com 等) を
+# LIBS へ追加し終えた後に追加する。GNU ld はライブラリ探索が左から右への 1 パスであるため、
+# -lstdc++fs が要求元より前にあると未定義参照になる (GCC 8 / Oracle Linux 8 で確認)。
+ifeq ($(NEED_STDCXXFS),1)
+    LIBS += stdc++fs
+endif
+
 # LIBS で要求されたライブラリの実体パスのみを解決する (.a/.so/.lib)
 # LINK_TEST ブロック後なので gtest のパスも含まれる。
 # Resolve LIBSFILES from only the libraries requested by LIBS (.a/.so/.lib).

@@ -230,17 +230,25 @@ endif
 CAPTURE_WARNINGS := "$(SHELL)" "$(WORKSPACE_DIR)/framework/makefw/bin/capture_warnings.sh"
 
 # std::filesystem サポート (GCC < 9 では -lstdc++fs が必須)
+# ここでは要否のフラグ (NEED_STDCXXFS) のみを設定する。
+# _flags.mk はテスト用ライブラリ (test_com 等) が LIBS に積まれるより前に
+# include されるため、ここで直接 LIBS += stdc++fs すると、
+# -lstdc++fs が要求元の静的ライブラリより前に置かれてしまう。
+# GNU ld はライブラリ探索が左から右への 1 パスであるため、この順序では
+# 未定義参照になる (GCC 8 / Oracle Linux 8 で確認)。
+# 実際の LIBS += stdc++fs は、LIBS へのライブラリ追加が出揃った後段
+# (makesrc_c_cpp.mk の LIBSFILES 解決直前) で行う。
 ifdef PLATFORM_LINUX
     ifdef CXX_STDFLAG
         # GCC のバージョンを検出
         _GCC_VERSION := $(shell gcc -dumpversion 2>/dev/null || echo "0")
         _GCC_MAJOR := $(word 1,$(subst ., ,$(_GCC_VERSION)))
-        
+
         # GCC < 9 では C++17/20 の std::filesystem 使用時に -lstdc++fs が必須
         # (GCC 9.0 以降では libstdc++.so に統合されている)
         ifeq ($(shell [ $(_GCC_MAJOR) -lt 9 ] 2>/dev/null && echo 1),1)
             ifneq ($(filter -std=c++17 -std=c++20 -std=gnu++17 -std=gnu++20,$(CXX_STDFLAG)),)
-                LIBS += stdc++fs
+                NEED_STDCXXFS := 1
             endif
         endif
     endif
