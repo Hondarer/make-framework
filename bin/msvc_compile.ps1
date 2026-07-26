@@ -75,7 +75,7 @@ foreach ($record in (New-MsvcCommandDisplayRecords -Tokens @($Compiler, "@$rspFi
 }
 
 if ($DryRun) {
-    Write-MsvcOutputRecords -Records $outputRecords.ToArray()
+    Write-MsvcOutputRecordsToStdout -Records $outputRecords.ToArray()
     exit 0
 }
 
@@ -212,6 +212,6 @@ if ($compileExitCode -ne 0) {
 # 一時ファイルの削除
 Remove-Item -Path $rspFile -Force -ErrorAction SilentlyContinue
 
-Write-MsvcOutputRecords -Records $outputRecords.ToArray()
+Write-MsvcOutputRecordsToStdout -Records $outputRecords.ToArray()
 
 exit $compileExitCode
