@@ -92,7 +92,7 @@ def emit_windows(path: Path) -> int:
     try:
         if emit_with_write_console(path):
             return 0
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         pass
     return emit_bytes_with_utf8_codepage(path)
 
