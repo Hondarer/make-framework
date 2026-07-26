@@ -254,6 +254,29 @@ count_pending_nodes() {
     printf '%s\n' "$pending_count"
 }
 
+join_dirs_by_state() {
+    local want=" $1 "
+    local idx=0
+    local st
+    local result=""
+
+    while [ "$idx" -lt "$count" ]; do
+        st="${state[$idx]}"
+        case "$want" in
+            *" $st "*)
+                if [ -n "$result" ]; then
+                    result="$result,${dirs[$idx]}"
+                else
+                    result="${dirs[$idx]}"
+                fi
+                ;;
+        esac
+        idx=$((idx + 1))
+    done
+
+    printf '%s\n' "$result"
+}
+
 handle_interrupt() {
     if [ -n "$signal_received" ]; then
         force_terminate_requested=1
@@ -674,6 +697,9 @@ run_ordered_nodes() {
     local pending_count
     local elapsed
     local pid
+    local running_names
+    local pending_names
+    local completed_names
 
     if [ "$count" -eq 0 ]; then
         return 0
@@ -848,7 +874,10 @@ run_ordered_nodes() {
             if [ "$running" -gt 0 ] && [ $((current_time - last_wait_report_at)) -ge "$progress_interval" ]; then
                 pending_count=$(count_pending_nodes)
                 elapsed=$(format_duration $((current_time - start_time)))
-                progress_log "waiting elapsed=$elapsed running=$running pending=$pending_count completed=$completed/$count"
+                running_names=$(join_dirs_by_state "running")
+                pending_names=$(join_dirs_by_state "pending")
+                completed_names=$(join_dirs_by_state "done failed blocked interrupted")
+                progress_log "waiting elapsed=$elapsed running=$running[$running_names] pending=$pending_count[$pending_names] completed=$completed/$count[$completed_names]"
                 last_wait_report_at="$current_time"
             fi
 
