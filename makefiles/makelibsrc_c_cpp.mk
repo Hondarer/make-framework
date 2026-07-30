@@ -648,9 +648,6 @@ ifndef NO_LINK
         endif
     endif
 endif
-ifeq ($(strip $(MAKEFW_CLEAN_GITIGNORE_SRCS)),)
-    CLEAN_COMMON += .gitignore
-endif
 
 .PHONY: clean _clean_main
 clean: _pre_clean_hook _clean_main _post_clean_hook

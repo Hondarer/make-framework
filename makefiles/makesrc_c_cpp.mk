@@ -568,9 +568,6 @@ ifdef PLATFORM_LINUX
 else ifdef PLATFORM_WINDOWS
     CLEAN_OS := $(call _relpath,$(patsubst %.exe,%.pdb,$(OUTPUT_DIR)/$(TARGET)))
 endif
-ifeq ($(strip $(MAKEFW_CLEAN_GITIGNORE_SRCS)),)
-    CLEAN_COMMON += .gitignore
-endif
 
 .PHONY: clean _clean_main
 clean: _pre_clean_hook _clean_main _post_clean_hook
