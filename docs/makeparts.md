@@ -80,6 +80,7 @@ MAKE_INCLUDE_MK += $(wildcard $(CURDIR)/makepart.mk)
 | `LINK_INPUTS` | リンカーへ直接渡す追加入力 (EXE / DLL) | `LINK_INPUTS += path/to/prebuilt.res` |
 | `LINK_TEST` | テスト フレームワーク リンク | `LINK_TEST = 1` |
 | `TEST_SRCS` | テスト対象ソース ファイル | `TEST_SRCS := $(MYAPP_DIR)/prod/.../add.c` |
+| `ADD_SRCS` | テスト対象の依存実装など、カバレッジ対象外の追加ソース ファイル | `ADD_SRCS := $(MYAPP_DIR)/prod/.../result.c` |
 
 `appdeps.mk` により、自 app と依存 app の `prod/lib` は `LIBSDIR` へ自動的に追加されます。
 `LIBSDIR` を明示するのは、依存関係の解決対象に含まれない外部ライブラリの検索パスだけです。
@@ -519,6 +520,22 @@ endif
 ```
 
 ## TEST_SRCS / ADD_SRCS の留意事項
+
+### TEST_SRCS と ADD_SRCS の選択基準
+
+`TEST_SRCS` には、テストで動作を確認し、カバレッジを充足する対象のソース ファイルだけを指定します。`TEST_SRCS` はテスト用コンパイル フラグ (`CFLAGS_TEST` / `CXXFLAGS_TEST`) と `_IN_TEST_SRC` を付けてコンパイルされ、override ヘッダーによる関数置換の対象になります。
+
+`ADD_SRCS` には、テスト対象のリンクを成立させる依存実装やテスト固有の補助実装など、カバレッジ対象にしない追加ソース ファイルを指定します。`ADD_SRCS` は通常のコンパイル フラグでコンパイルされ、override ヘッダーによる関数置換の対象にはなりません。
+
+ソース ファイルが `prod/` 配下にあるかどうかではなく、そのテストでの役割に基づいて変数を選択してください。例えば、`path.c` の動作を試験し、内部依存である `result.c` をリンクする場合は、次のように指定します。
+
+```makefile
+TEST_SRCS := \
+    $(MYAPP_DIR)/prod/libsrc/sample/crt/path.c
+
+ADD_SRCS := \
+    $(MYAPP_DIR)/prod/libsrc/sample/base/result.c
+```
 
 ### ビルド システムによるソース ファイルの分類
 
