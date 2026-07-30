@@ -70,7 +70,7 @@ MAKE_INCLUDE_MK += $(wildcard $(CURDIR)/makepart.mk)
 | 変数 | 説明 | 例 |
 |------|------|-----|
 | `LIBS` | リンクするライブラリ | `LIBS += calcbase` |
-| `LIBSDIR` | ライブラリ検索パス | `LIBSDIR += $(MYAPP_DIR)/prod/lib` |
+| `LIBSDIR` | ライブラリ検索パス | `LIBSDIR += path/to/prebuilt/lib` |
 | `INCDIR` | インクルード検索パス | `INCDIR += $(MYAPP_DIR)/prod/include` |
 | `DEFINES` | `-D` に変換される define 群 | `DEFINES += FEATURE_X` |
 | `CFLAGS` | C コンパイラ フラグ | `CFLAGS += -DMYAPP_VERSION=\"1.0.0\"` |
@@ -80,6 +80,9 @@ MAKE_INCLUDE_MK += $(wildcard $(CURDIR)/makepart.mk)
 | `LINK_INPUTS` | リンカーへ直接渡す追加入力 (EXE / DLL) | `LINK_INPUTS += path/to/prebuilt.res` |
 | `LINK_TEST` | テスト フレームワーク リンク | `LINK_TEST = 1` |
 | `TEST_SRCS` | テスト対象ソース ファイル | `TEST_SRCS := $(MYAPP_DIR)/prod/.../add.c` |
+
+`appdeps.mk` により、自 app と依存 app の `prod/lib` は `LIBSDIR` へ自動的に追加されます。
+`LIBSDIR` を明示するのは、依存関係の解決対象に含まれない外部ライブラリの検索パスだけです。
 
 ### 記述例
 
@@ -196,6 +199,14 @@ INCDIR += \
 ```makefile
 # app/porter/appdeps.mk
 APP_DEPS := com_util
+```
+
+依存先が複数ある場合は、行末の `\` で `APP_DEPS` の定義を継続できます。
+
+```makefile
+APP_DEPS := \
+    com_util \
+    calc
 ```
 
 ### 挙動

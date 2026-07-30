@@ -354,10 +354,37 @@ read_app_deps() {
 
     if [ -f "$dir/appdeps.mk" ]; then
         deps=$(
-            sed -n 's/^[[:space:]]*APP_DEPS[[:space:]]*[:+?]\{0,1\}=[[:space:]]*//p' "$dir/appdeps.mk" |
-                sed 's/#.*//' |
-                tr -d '\r' |
-                tr '\n' ' '
+            awk '
+                BEGIN { collecting = 0 }
+                {
+                    line = $0
+                    sub(/\r$/, "", line)
+                    sub(/#.*/, "", line)
+
+                    if (collecting) {
+                        continued = (line ~ /\\[[:space:]]*$/)
+                        sub(/\\[[:space:]]*$/, "", line)
+                        emit_deps(line)
+                        if (!continued) collecting = 0
+                        next
+                    }
+
+                    if (line ~ /^[[:space:]]*APP_DEPS[[:space:]]*[+?:]?=/) {
+                        sub(/^[[:space:]]*APP_DEPS[[:space:]]*[+?:]?=/, "", line)
+                        continued = (line ~ /\\[[:space:]]*$/)
+                        sub(/\\[[:space:]]*$/, "", line)
+                        emit_deps(line)
+                        if (continued) collecting = 1
+                    }
+                }
+
+                function emit_deps(line, fields, count, i) {
+                    count = split(line, fields, /[[:space:]]+/)
+                    for (i = 1; i <= count; i++) {
+                        if (fields[i] != "") print fields[i]
+                    }
+                }
+            ' "$dir/appdeps.mk"
         )
     fi
     printf '%s\n' "$deps"
