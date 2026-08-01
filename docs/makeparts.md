@@ -312,7 +312,7 @@ NO_LINK = 1
 
 `NO_LINK = 1` を `makechild.mk` に設定することで、カレント ディレクトリ (`libsubfolder-sample/`) は  
 全サブフォルダーのオブジェクトを収集してリンクし、子ディレクトリ (`audio/` 等) はコンパイルのみとなります。  
-詳細は [サブフォルダーコンパイル](../../../app/c-modernization-kit/docs/subfolder-compilation.md) を参照してください。
+詳細は [サブフォルダーコンパイル](../../../app/general/docs/subfolder-compilation.md) を参照してください。
 
 ## makelocal.mk
 
