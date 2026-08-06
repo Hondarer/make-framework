@@ -11,7 +11,7 @@ makefile でよく使う "=" と ":=" は、変数の値をいつ確定させる
 
 ## 例で理解する
 
-```{.makefile caption="= と := の例"}
+```makefile
 B := one
 
 A = $(B)      # 遅延展開 (=)。参照時に $(B) を評価する
@@ -23,6 +23,8 @@ all:
     @echo A=$(A)  # two (実行時点で B=two を見る)
     @echo C=$(C)  # one (定義時点の値を保持)
 ```
+
+CodeBlock: = と := の例
 
 この例では、A は実行時点の B を見るので two、C は定義時点の B を固定したので one になります。
 
@@ -36,18 +38,20 @@ all:
     - 追加するテキストを先に展開してから、既存の値に足します
     - 等価変換のイメージは次の通りです
 
-```{.makefile caption=":= に対する += の等価変換"}
+```makefile
 X := value
 X += more
 # 上と同じ意味
 X := $(X) more
 ```
 
+CodeBlock: := に対する += の等価変換
+
 - もとが 遅延展開 ("=") の場合
     - 追加するテキストは展開せず、そのまま既存の右辺に連結します (参照時にまとめて展開されます)
     - 等価変換のイメージは次の通りです
 
-```{.makefile caption="= に対する += の等価変換のイメージ"}
+```makefile
 X = value
 X += more
 # 概念的には次に近い (X は遅延展開のまま、more は未展開で足される)
@@ -55,19 +59,25 @@ X += more
 # X = $(temp) more
 ```
 
+CodeBlock: = に対する += の等価変換のイメージ
+
 この違いは、右辺に他の変数参照が含まれるときに重要です。次の例では、includes の定義が後から来ても保持したいので、CFLAGS は遅延展開 ("=") のままにし、追記には "+=" を使います。
 
-```{.makefile caption="CFLAGS への追記例"}
+```makefile
 CFLAGS = $(includes) -O
 # ... (あとで includes が定義されるかもしれない)
 CFLAGS += -pg  # プロファイリングを有効化
 ```
 
+CodeBlock: CFLAGS への追記例
+
 もしここで
 
-```{.makefile caption=":= を使ってしまった例"}
+```makefile
 CFLAGS := $(CFLAGS) -pg
 ```
+
+CodeBlock: := を使ってしまった例
 
 としてしまうと、この時点で $(CFLAGS) が展開され、includes が未定義ならその参照が消えてしまいます。結果として、後から includes を定義しても反映されません。
 
@@ -75,18 +85,22 @@ CFLAGS := $(CFLAGS) -pg
 
 まだ一度も設定されていない変数にだけ値を入れる方法です。条件付き代入 (conditional assignment) では、"?=" を使います。環境変数やコマンド ラインで設定済みのときも「設定済み」と見なして何もしません。新しく定義される場合の種類は遅延展開です。
 
-```{.makefile caption="?= の基本"}
+```makefile
 FOO ?= default
 # FOO が未定義なら "default" になる。すでに設定済みなら何もしない
 ```
 
+CodeBlock: ?= の基本
+
 等価表現は次の通りです。
 
-```{.makefile caption="origin 関数での等価表現"}
+```makefile
 ifeq ($(origin FOO), undefined)
 FOO = default
 endif
 ```
+
+CodeBlock: origin 関数での等価表現
 
 即時展開のデフォルトが欲しいときは、上の等価表現で ":=" を使います。
 
@@ -98,9 +112,11 @@ endif
 
 例として、日時などを 1 度だけ決めたい場合は ":=" が向きます。
 
-```{.makefile caption="shell の結果を 1 回だけ確定"}
+```makefile
 BUILD_TIME := $(shell date +%Y%m%d-%H%M%S)
 ```
+
+CodeBlock: shell の結果を 1 回だけ確定
 
 ## よくある落とし穴
 

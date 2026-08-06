@@ -94,9 +94,11 @@ C ランタイム ライブラリのコードは実行ファイルには埋め�
 
 **ビルド設定例**
 
-```{.makefile caption="デバッグ構成の例（静的）"}
+```makefile
 CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MTd /Fd:$(OUTPUT_DIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_DIR)/app/calc/prod/include
 ```
+
+CodeBlock: デバッグ構成の例 (静的)
 
 ### /MDd (動的・デバッグ CRT)
 
@@ -121,9 +123,11 @@ CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MTd /Fd:$(OUTPUT_DIR)/$(TARGET_BASE).p
 
 **ビルド設定例**
 
-```{.makefile caption="デバッグ構成の例（動的）"}
+```makefile
 CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MDd /Fd:$(OUTPUT_DIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_DIR)/app/calc/prod/include
 ```
+
+CodeBlock: デバッグ構成の例 (動的)
 
 ### デバッグ CRT 利用時の注意
 
@@ -139,7 +143,7 @@ CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MDd /Fd:$(OUTPUT_DIR)/$(TARGET_BASE).p
 
 `/MT` と `/MD` では、それぞれ独立したヒープ マネージャーが使用されます。一方のヒープで確保したメモリを他方で解放しようとすると、クラッシュが発生します。
 
-```{.c caption="ヒープ不一致の例"}
+```c
 // libfoo.lib (/MT でビルド) 内の関数
 char* create_buffer(void) {
     return malloc(100);  // /MT のヒープで確保
@@ -153,11 +157,13 @@ int main(void) {
 }
 ```
 
+CodeBlock: ヒープ不一致の例
+
 ### グローバル変数の二重インスタンス
 
 C ランタイムのグローバル変数 (例: `errno`, `stdin`, `stdout`) が、`/MT` と `/MD` のモジュールでそれぞれ別のインスタンスとして存在します。一方で設定した値が他方では反映されず、意図しない動作が発生します。
 
-```{.c caption="errno の二重インスタンス"}
+```c
 // libfoo.lib (/MT でビルド) 内の関数
 void set_error(void) {
     errno = EINVAL;  // /MT の errno に設定
@@ -170,6 +176,8 @@ int main(void) {
     return 0;
 }
 ```
+
+CodeBlock: errno の二重インスタンス
 
 ### リンカー警告 LNK4098
 

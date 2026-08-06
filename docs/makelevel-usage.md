@@ -15,7 +15,7 @@
 
 起点の make が完了したときにだけ実行したい処理は、`MAKELEVEL` が `0` かどうかで判定します。
 
-```{.makefile caption="トップレベルでのみ実行"}
+```makefile
 .PHONY: all
 all: subdirs local-build
 ifeq ($(MAKELEVEL),0)
@@ -33,13 +33,15 @@ local-build:
     @echo "ローカルビルド処理"
 ```
 
+CodeBlock: トップレベルでのみ実行
+
 この例では、サブディレクトリの make が完了し、ローカル ビルドも終わった後で、トップレベルの場合のみ完了メッセージを表示します。
 
 ## 各階層で処理を実行する
 
 各階層の make が終わったときに、その階層の情報を含めて処理を実行する例です。
 
-```{.makefile caption="各階層で終了時処理を実行"}
+```makefile
 .PHONY: all
 all: subdirs local-build
     @echo "[MAKELEVEL=$(MAKELEVEL)] この階層の処理が完了: $(CURDIR)"
@@ -55,11 +57,13 @@ local-build:
     @echo "[MAKELEVEL=$(MAKELEVEL)] ローカルビルド実行中"
 ```
 
+CodeBlock: 各階層で終了時処理を実行
+
 ## 実用例: ビルド完了時のサマリー表示
 
 トップレベルでのみビルド結果のサマリーを表示する実用的な例です。
 
-```{.makefile caption="ビルド完了サマリの表示"}
+```makefile
 .PHONY: all
 all: build
 ifeq ($(MAKELEVEL),0)
@@ -75,11 +79,13 @@ endif
 build: $(TARGETS)
 ```
 
+CodeBlock: ビルド完了サマリーの表示
+
 ## 実用例: テスト実行後のレポート生成
 
 すべてのテストが完了した後でのみレポートを生成する例です。
 
-```{.makefile caption="テスト完了後のレポート生成"}
+```makefile
 .PHONY: test
 test: run-tests
 ifeq ($(MAKELEVEL),0)
@@ -93,6 +99,8 @@ run-tests:
     $(MAKE) -C test/unit
     $(MAKE) -C test/integration
 ```
+
+CodeBlock: テスト完了後のレポート生成
 
 ## 注意点
 

@@ -21,7 +21,7 @@ Windows 10 1903 以降では、アプリケーション マニフェストの `a
 
 Windows 10 1903 以降では、アプリケーション マニフェストに `activeCodePage=UTF-8` を指定することで、プロセスのコード ページを UTF-8 にできます。
 
-```{.xml caption="utf8_manifest.manifest"}
+```xml
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <application xmlns="urn:schemas-microsoft-com:asm.v3">
@@ -31,6 +31,8 @@ Windows 10 1903 以降では、アプリケーション マニフェストに `a
   </application>
 </assembly>
 ```
+
+CodeBlock: utf8_manifest.manifest
 
 `activeCodePage=UTF-8` の主な効果は次のとおりです。
 
@@ -78,16 +80,20 @@ makefw は `WIN32_MANIFEST` 変数を使ったマニフェスト埋め込み機�
 
 `makepart.mk` に以下を追加します。
 
-```{.makefile caption="makepart.mk への追加例"}
+```makefile
 # Windows EXE に activeCodePage=UTF-8 マニフェストを埋め込む
 WIN32_MANIFEST = utf8
 ```
 
+CodeBlock: makepart.mk への追加例
+
 `utf8` キーワードを指定すると、makefw 付属の `makefiles/utf8_manifest.manifest` が自動的に使用されます。独自のマニフェスト ファイルを使う場合はパスを直接指定します。
 
-```{.makefile caption="カスタムマニフェストを指定する場合"}
+```makefile
 WIN32_MANIFEST = path/to/custom.manifest
 ```
+
+CodeBlock: カスタムマニフェストを指定する場合
 
 `makepart.mk` を配置するディレクトリ以下のすべての EXE に継承されます。Linux 環境では、Windows 専用のリンク オプションは追加されません。
 
@@ -103,15 +109,19 @@ link.exe /NOLOGO /SUBSYSTEM:CONSOLE /MANIFEST:EMBED /MANIFESTINPUT:C:\...\utf8_m
 
 ビルド後に以下のコマンドでマニフェストが正しく埋め込まれているか確認できます。
 
-```{.bat caption="mt.exe でマニフェストを抽出して確認"}
+```bat
 mt.exe -inputresource:send.exe;#1
 ```
 
+CodeBlock: mt.exe でマニフェストを抽出して確認
+
 または:
 
-```{.bat caption="dumpbin でマニフェストリソースを確認"}
+```bat
 dumpbin /MANIFESTRESOURCE send.exe
 ```
+
+CodeBlock: dumpbin でマニフェストリソースを確認
 
 出力に `activeCodePage` と `UTF-8` が含まれていれば成功です。
 
