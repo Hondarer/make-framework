@@ -129,6 +129,22 @@ ifdef PLATFORM_LINUX
     else
         TARGET := lib$(TARGET).a
     endif
+    # 既定可視性を hidden にし、公開 API だけ *_EXPORT (visibility("default"))
+    # で動的シンボル表へ載せる。
+    # static の .a にも付ける。shared へ静的ライブラリをリンクしたとき、
+    # アーカイブ内の大域シンボルが .so の dyn 表へ漏れないようにするため。
+    # (実行ファイルへ静的リンクする場合、hidden シンボルはそのまま解決される。)
+    # MSVC は __declspec(dllexport) のみが export されるため同種のフラグは不要。
+    # see: app/general/docs/coding-guideline.md 「共有ライブラリのシンボル可視性」
+    ifeq ($(findstring -fvisibility=hidden,$(CFLAGS)),)
+        CFLAGS += -fvisibility=hidden
+    endif
+    ifeq ($(findstring -fvisibility=hidden,$(CXXFLAGS)),)
+        CXXFLAGS += -fvisibility=hidden
+    endif
+    ifeq ($(findstring -fvisibility-inlines-hidden,$(CXXFLAGS)),)
+        CXXFLAGS += -fvisibility-inlines-hidden
+    endif
 else ifdef PLATFORM_WINDOWS
     # Linux 同様に lib プレフィックスを付与
     # Add lib prefix like Linux
