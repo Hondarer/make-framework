@@ -37,6 +37,8 @@ EL8 (GCC 8) と EL10 (GCC 14) の両環境でビルドを破綻させずに
 -Wpacked
 -Wpadded
 -Wunknown-pragmas
+-Wconversion
+-Wsign-conversion
 ```
 
 ### C 専用警告
@@ -57,7 +59,9 @@ WARN_BASE = \
     -Wpointer-arith -Wcast-qual -Wcast-align \
     -Wswitch-enum -Wswitch-default \
     -Wpacked -Wpadded \
-    -Wunknown-pragmas
+    -Wunknown-pragmas \
+    -Wconversion \
+    -Wsign-conversion
 
 WARN_C_ONLY = \
     -Wmissing-prototypes \
@@ -67,6 +71,13 @@ WARN_C_ONLY = \
 CFLAGS   += $(WARN_BASE) $(WARN_C_ONLY)
 CXXFLAGS += $(WARN_BASE)
 ```
+
+## 型変換の検出と規範の分担
+
+- `-Wconversion` / `-Wsign-conversion` は暗黙の型変換を検出します
+- 明示キャストはこれらの警告を消すため、キャスト直前の範囲検査または理由コメントはコーディング規範の「整数演算の安全性」で担保します  
+  (see: `app/general/docs/coding-guideline.md`)
+- 符号付きと符号なしの比較は `-Wsign-compare` (`-Wextra` に含まれる) が検出します
 
 ## 構造体レイアウト固定 (I/O) に関する指針
 
@@ -115,6 +126,12 @@ CXXFLAGS += $(WARN_BASE)
 
 - -Wunknown-pragmas  
   未対応 pragma を検出します。
+
+- -Wconversion  
+  値を変えうる暗黙の型変換 (縮小変換を含む) を検出します。
+
+- -Wsign-conversion  
+  符号付きと符号なしのあいだの暗黙変換を検出します。
 
 - -Wmissing-prototypes (C)  
   非 static 関数の未宣言を検出します。
