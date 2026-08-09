@@ -301,7 +301,13 @@ ifneq ($(filter shared both,$(LIB_TYPE)),)
         # リンク ライブラリ フォルダー名の解決 (DYNAMIC_LIBS の -l に対応する -L パスを追加)
         # Add library search paths to LDFLAGS for dynamic link flags
         ifdef PLATFORM_LINUX
-            LDFLAGS += $(addprefix -L, $(LIBSDIR))
+            # -L は直接リンクする -l<name> の探索にしか使われず、共有ライブラリが
+            # DT_NEEDED として要求する間接依存の探索には使われない。間接依存の探索先は
+            # -rpath-link / -rpath / LD_LIBRARY_PATH に限られるため、-L と同じ場所を
+            # -rpath-link にも与えて、リンクの成否が LD_LIBRARY_PATH に依存しないようにする。
+            # -rpath-link はリンク時の探索にのみ使われ、生成物に RUNPATH としては記録されない。
+            # see: https://sourceware.org/binutils/docs/ld/Options.html (-rpath-link)
+            LDFLAGS += $(addprefix -L, $(LIBSDIR)) $(foreach dir,$(LIBSDIR),-Wl,-rpath-link,$(dir))
         else ifdef PLATFORM_WINDOWS
             LDFLAGS += $(addprefix /LIBPATH:, $(LIBSDIR))
         endif
