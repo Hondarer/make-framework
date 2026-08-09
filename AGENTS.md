@@ -21,6 +21,7 @@ C/C++ と .NET のビルドを支える Make テンプレート、補助スク�
 - `bin/` - その他の補助スクリプト
 - `docs/template-auto-selection.md` - 自動選択ルール
 - `docs/makeparts.md` - `makepart.mk`、`makechild.mk`、`makelocal.mk` の役割
+- `docs/hooks.md` - `makelocal.mk` の pre/post フック
 
 ## 注意点
 

@@ -356,6 +356,8 @@ pre-build:
     python $(WORKSPACE_DIR)/tools/codegen.py
 ```
 
+フックの種類、検出仕様、PLATFORM 条件との注意は [フック機能](hooks.md) を参照してください。
+
 **例 3: 走査 makefile のローカル順序指定**
 
 ```makefile
