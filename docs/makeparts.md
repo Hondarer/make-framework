@@ -54,8 +54,8 @@ prod/
 
 `prepare.mk` は、カレント ディレクトリからワークスペース ルート (`.workspaceRoot` ファイルが存在するディレクトリ) まで遡って `makepart.mk` / `makechild.mk` を検索し、親階層から順にインクルードします。
 
-再帰 make では、親 make が検索結果を環境変数として子 make へ渡します。
-子 make は、親の検索結果に親の `makechild.mk` と自身の `makepart.mk` を追加するため、階層全体を検索し直しません。
+再帰 make では、親 make が検索結果を環境変数として子 make へ渡します。  
+子 make は、親の検索結果に親の `makechild.mk` と自身の `makepart.mk` を追加するため、階層全体を検索し直しません。  
 末端ディレクトリで make を直接実行した場合や、継承した情報とカレント ディレクトリが一致しない場合は、従来どおりワークスペース ルートまで検索します。
 
 ```makefile
@@ -82,7 +82,7 @@ MAKE_INCLUDE_MK += $(wildcard $(CURDIR)/makepart.mk)
 | `TEST_SRCS` | テスト対象ソース ファイル | `TEST_SRCS := $(MYAPP_DIR)/prod/.../add.c` |
 | `ADD_SRCS` | テスト対象の依存実装など、カバレッジ対象外の追加ソース ファイル | `ADD_SRCS := $(MYAPP_DIR)/prod/.../result.c` |
 
-`appdeps.mk` により、自 app と依存 app の `prod/lib` は `LIBSDIR` へ自動的に追加されます。
+`appdeps.mk` により、自 app と依存 app の `prod/lib` は `LIBSDIR` へ自動的に追加されます。  
 `LIBSDIR` を明示するのは、依存関係の解決対象に含まれない外部ライブラリの検索パスだけです。
 
 ### 記述例
@@ -151,8 +151,8 @@ TEST_SRCS := \
 
 **例 5: Windows リソース (.mc / .rc) を埋め込む**
 
-ソース ディレクトリに `.mc` (メッセージ テーブル) または `.rc` を置くだけで、makefw が自動的に `mc.exe` / `rc.exe` で `.res` へコンパイルし、実行体 (EXE) または共有ライブラリ (DLL) のリンクに含めます。
-静的ライブラリ (`.lib`) では、`.res` を COFF オブジェクトへ変換してアーカイブに含めます。
+ソース ディレクトリに `.mc` (メッセージ テーブル) または `.rc` を置くだけで、makefw が自動的に `mc.exe` / `rc.exe` で `.res` へコンパイルし、実行体 (EXE) または共有ライブラリ (DLL) のリンクに含めます。  
+静的ライブラリ (`.lib`) では、`.res` を COFF オブジェクトへ変換してアーカイブに含めます。  
 makepart.mk / makelocal.mk への記述は不要です。
 
 ```text
@@ -302,7 +302,7 @@ CFLAGS += -DMYAPP_CHILD_BUILD
 OUTPUT_DIR := $(WORKSPACE_DIR)/bin/myapp
 ```
 
-**例 3: サブフォルダーコンパイル方式の設定**
+**例 3: サブフォルダー コンパイル方式の設定**
 
 ```makefile
 # app/subfolder-sample/prod/libsrc/libsubfolder-sample/makechild.mk
@@ -312,7 +312,7 @@ NO_LINK = 1
 
 `NO_LINK = 1` を `makechild.mk` に設定することで、カレント ディレクトリ (`libsubfolder-sample/`) は  
 全サブフォルダーのオブジェクトを収集してリンクし、子ディレクトリ (`audio/` 等) はコンパイルのみとなります。  
-詳細は [サブフォルダーコンパイル](../../../app/general/docs/subfolder-compilation.md) を参照してください。
+詳細は [サブフォルダー コンパイル](../../../app/general/docs/subfolder-compilation.md) を参照してください。
 
 ## makelocal.mk
 
@@ -500,11 +500,11 @@ MY_LOCAL_VAR := 1
 
 ## ホスト環境プローブと同期評価 (MAKEFW_SYNC_EVAL)
 
-`bin/sync_c_cpp_properties.sh` は `.vscode/c_cpp_properties.json` の同期のために、ホスト OS に関係なく Linux 構成 (`PLATFORM_LINUX := 1`) と Windows 構成 (`PLATFORM_WINDOWS := 1`) の両方で各 `makepart.mk` を評価します。
+`bin/sync_c_cpp_properties.sh` は `.vscode/c_cpp_properties.json` の同期のために、ホスト OS に関係なく Linux 構成 (`PLATFORM_LINUX := 1`) と Windows 構成 (`PLATFORM_WINDOWS := 1`) の両方で各 `makepart.mk` を評価します。  
 このため、Windows ホスト上でも `ifdef PLATFORM_LINUX` ブロックが評価されます (逆も同様)。
 
-この同期評価では、一時 makefile に `MAKEFW_SYNC_EVAL := 1` が定義されます。
-`makepart.mk` で `$(shell ...)` によるホスト環境のプローブ (`pkg-config` など) と `$(error)` を組み合わせる場合は、必ず `ifndef MAKEFW_SYNC_EVAL` でガードし、実ビルド時のみ前提条件チェックを行ってください。
+この同期評価では、一時 makefile に `MAKEFW_SYNC_EVAL := 1` が定義されます。  
+`makepart.mk` で `$(shell ...)` によるホスト環境のプローブ (`pkg-config` など) と `$(error)` を組み合わせる場合は、必ず `ifndef MAKEFW_SYNC_EVAL` でガードし、実ビルド時のみ前提条件チェックを行ってください。  
 ガードがないと、対象プラットフォームのコマンドやライブラリが存在しないホストでの同期評価が `$(error)` で失敗し、ビルド後の同期チェック全体がエラー終了します。
 
 ```makefile
@@ -561,8 +561,8 @@ ADD_SRCS := \
 
 ### TEST_SRCS からソースを除去したときの残存成果物
 
-`TEST_SRCS` からソース ファイルを除去しても、`make test` は以前の成果物への処置を自動では行いません。
-除去したはずのソースの (1) シンボリック リンク、(2) `obj/{名前}.o` / `.d` / `.gcno`、(3) 古い `bin/{テスト名}` が残ると、実装の強シンボルが `MOCK_WEAK_IMPL` の弱シンボルに勝ち続け、モックが効かないままになります。
+`TEST_SRCS` からソース ファイルを除去しても、`make test` は以前の成果物への処置を自動では行いません。  
+除去したはずのソースの (1) シンボリック リンク、(2) `obj/{名前}.o` / `.d` / `.gcno`、(3) 古い `bin/{テスト名}` が残ると、実装の強シンボルが `MOCK_WEAK_IMPL` の弱シンボルに勝ち続け、モックが効かないままになります。  
 obj を消しても bin が再リンクされない場合があります (make が bin を最新と判定するため)。
 
 `TEST_SRCS` からソースを除去したら、テスト ディレクトリで以下を手動削除してから `make test` してください。
@@ -571,8 +571,8 @@ obj を消しても bin が再リンクされない場合があります (make �
 2. `obj/{除去したソース}.o` と対応する `.d` / `.gcno`
 3. `bin/{テスト名}` (再リンクを強制)
 
-シンボルの状態は `nm bin/{テスト名} | grep {関数名}` で確認できます。T (強シンボル = 実体が残存) なら掃除漏れ、W (弱シンボル) ならモックが有効です。
-なお、ビルド システムはテスト ディレクトリの `.gitignore` を `TEST_SRCS` と `ADD_SRCS` に合わせて自動更新します (この差分は正当です)。
-`.gitignore` の再生成対象が 1 件以上ある場合は、現在の対象一覧から `.gitignore` を再生成します。
-再生成対象がない場合は、既存の `.gitignore` を削除または更新しません。
+シンボルの状態は `nm bin/{テスト名} | grep {関数名}` で確認できます。T (強シンボル = 実体が残存) なら掃除漏れ、W (弱シンボル) ならモックが有効です。  
+なお、ビルド システムはテスト ディレクトリの `.gitignore` を `TEST_SRCS` と `ADD_SRCS` に合わせて自動更新します (この差分は正当です)。  
+`.gitignore` の再生成対象が 1 件以上ある場合は、現在の対象一覧から `.gitignore` を再生成します。  
+再生成対象がない場合は、既存の `.gitignore` を削除または更新しません。  
 そのため、再生成対象が 1 件以上から 0 件になった場合は、以前の `.gitignore` が残ります。

@@ -93,7 +93,7 @@ CodeBlock: makepart.mk への追加例
 WIN32_MANIFEST = path/to/custom.manifest
 ```
 
-CodeBlock: カスタムマニフェストを指定する場合
+CodeBlock: カスタム マニフェストを指定する場合
 
 `makepart.mk` を配置するディレクトリ以下のすべての EXE に継承されます。Linux 環境では、Windows 専用のリンク オプションは追加されません。
 
@@ -121,7 +121,7 @@ CodeBlock: mt.exe でマニフェストを抽出して確認
 dumpbin /MANIFESTRESOURCE send.exe
 ```
 
-CodeBlock: dumpbin でマニフェストリソースを確認
+CodeBlock: dumpbin でマニフェスト リソースを確認
 
 出力に `activeCodePage` と `UTF-8` が含まれていれば成功です。
 

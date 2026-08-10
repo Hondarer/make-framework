@@ -1,6 +1,6 @@
 #!/bin/bash
 # 再コンパイルが必要なソースを抽出するスクリプト
-# 引数: $1=ソースリスト (スペース区切り), $2=OBJDIR, $3=WORKSPACE_DIR
+# 引数: $1=ソース リスト (スペース区切り), $2=OBJDIR, $3=WORKSPACE_DIR
 
 SRCS="$1"
 OBJDIR="$2"

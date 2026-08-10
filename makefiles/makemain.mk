@@ -57,7 +57,7 @@ SUBDIRS := $(foreach d,$(SUBDIRS),$(call _os_filter_subdir,$(d)))
 # 直下にビルド対象ソース (*.c / *.cc / *.cpp / *.csproj)、Windows リソース
 # (*.mc / *.rc)、または TEST_SRCS / ADD_SRCS が存在し、かつパスに /libsrc/
 # または /src/ を含む場合のみ 1 とする。
-# サブフォルダーのみにソースを持つライブラリルートは 0 と誤判定されるため、
+# サブフォルダーのみにソースを持つライブラリ ルートは 0 と誤判定されるため、
 # その場合は makelocal.mk で MAKEFW_BUILD := 1 を明示する。
 ifeq ($(MAKEFW_BUILD),)
     ifneq (,$(findstring /libsrc/,$(CURDIR))$(findstring /src/,$(CURDIR)))
@@ -154,7 +154,7 @@ _test_run:
 endif
 
 # test エントリ: 配下を 2 フェーズで巡回する。
-#   Phase 1 (_test_build): テストバイナリのコンパイル/リンクのみ。ビルド並列。
+#   Phase 1 (_test_build): テスト バイナリのコンパイル/リンクのみ。ビルド並列。
 #   Phase 2 (_test_run):   ビルド済みバイナリのテスト実行のみ。-j1 直列で出力順序維持。
 # どの階層 (ルート / app モジュール / test 配下サブディレクトリ) で `make test` を
 # 起動しても、その起動点がエントリとなり 2 フェーズが成立する。

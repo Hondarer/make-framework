@@ -1,26 +1,26 @@
 #!/bin/bash
 
-# dotnet build のラッパースクリプト
+# dotnet build のラッパー スクリプト
 # dotnet build wrapper script
 #
 # 正常終了 (warning/error なし、終了コード 0) の場合は出力を抑制する。
 # warning/error が検出された場合、またはビルド失敗の場合は、
-# バッファしていた全出力を着色して表示する。
+# バッファーしていた全出力を着色して表示する。
 #
 # Suppresses output on clean success (no warnings/errors, exit code 0).
 # When warnings/errors are detected or build fails,
 # flushes all buffered output with colorization.
 #
-# パイプ経由で dotnet build を実行するため、ターミナルロガーは自動的に無効化され、
-# 無着色のクラシックロガー出力が得られる。この出力に対して sed で着色を付与する。
+# パイプ経由で dotnet build を実行するため、ターミナル ロガーは自動的に無効化され、
+# 無着色のクラシック ロガー出力が得られる。この出力に対して sed で着色を付与する。
 # Running dotnet build through a pipe automatically disables the terminal logger,
 # producing uncolored classic logger output. sed then adds coloring.
 #
 # 着色ルール / Coloring rules:
 #   - ": warning " を含む行 → 黄色 (Yellow)
 #   - ": error " を含む行   → 赤色 (Red)
-#   - サマリの警告行 (1件以上) → 黄色 (Yellow)
-#   - サマリのエラー行 (1件以上) → 赤色 (Red)
+#   - サマリーの警告行 (1 件以上) → 黄色 (Yellow)
+#   - サマリーのエラー行 (1 件以上) → 赤色 (Red)
 #
 # Usage:
 #   dotnet_build.sh [dotnet build arguments...]
@@ -42,7 +42,7 @@ if [ -z "$DOTNET_CMD" ]; then
     exit 127
 fi
 
-# dotnet build を実行し、出力をシェル変数にバッファ
+# dotnet build を実行し、出力をシェル変数にバッファリングする
 # Run dotnet build and buffer output in a shell variable
 buf=$("$DOTNET_CMD" build "$@" 2>&1)
 rc=$?

@@ -365,10 +365,10 @@ python framework/makefw/bin/update_template_makefiles.py
 
 ### MAKEFW_BUILD の設定
 
-通常、`MAKEFW_BUILD` の設定は不要です。
+通常、`MAKEFW_BUILD` の設定は不要です。  
 `/libsrc/` または `/src/` 配下のディレクトリで直下に `*.c` / `*.cc` / `*.cpp` / `*.csproj` が存在するか、Windows で `*.mc` / `*.rc` が存在するか、`TEST_SRCS` / `ADD_SRCS` が指定されていれば、自動的にビルドが実行されます。
 
-ただし、サブフォルダーのみにソースを置くライブラリ ルート (サブフォルダーコンパイル方式) は直下ソースがゼロのため自動判定では走査のみになります。このケースのみ `makelocal.mk` に明示設定が必要です。
+ただし、サブフォルダーのみにソースを置くライブラリ ルート (サブフォルダー コンパイル方式) は直下ソースがゼロのため自動判定では走査のみになります。このケースのみ `makelocal.mk` に明示設定が必要です。
 
 ```makefile
 # app/com_util/prod/libsrc/com_util/makelocal.mk

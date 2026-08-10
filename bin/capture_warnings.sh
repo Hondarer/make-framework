@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# コンパイラ/リンカ出力から警告行を抽出してファイルに記録する
+# コンパイラ/リンカー出力から警告行を抽出してファイルに記録する
 # Extract warning lines from compiler/linker output and save to a file
 #
 # stdin をそのまま stdout に流しつつ (ターミナル出力を保持)、
@@ -11,7 +11,7 @@
 # 警告がなければ warn_file は作成しない。
 # Does not create warn_file when no warnings are found.
 #
-# ANSI エスケープは warn_file には含めない (プレーンテキスト)。
+# ANSI エスケープは warn_file には含めない (プレーン テキスト)。
 # ANSI escape codes are stripped from warn_file (plain text output).
 #
 # Usage:

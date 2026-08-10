@@ -596,12 +596,12 @@ _clean_main:
 
 # test は makemain.mk の 2 フェーズ エントリが所有する。
 # ここでは末端のフェーズ ターゲットだけを定義する。
-#   _test_build: テストバイナリのコンパイル/リンクのみ (実行しない)
+#   _test_build: テスト バイナリのコンパイル/リンクのみ (実行しない)
 #   _test_run:   ビルド済みバイナリのテスト実行のみ (ビルド依存は引かない)
 # 'test' is owned by the 2-phase entry in makemain.mk; define only the leaf phases.
 .PHONY: _test_build _test_run _test_main
 
-# ビルド フェーズ: テストバイナリのコンパイル/リンクのみ
+# ビルド フェーズ: テスト バイナリのコンパイル/リンクのみ
 # Build phase: compile/link the test binary only
 ifeq ($(call should_skip,$(SKIP_BUILD)),true)
 _test_build:

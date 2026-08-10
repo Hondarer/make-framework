@@ -31,7 +31,7 @@ PROJECT_FILE := $(wildcard *.csproj)
 .PHONY: default
 default: build
 
-# dotnet build ラッパースクリプト (warning/error のみ着色)
+# dotnet build ラッパー スクリプト (warning/error のみ着色)
 # dotnet build wrapper script (colorizes only warnings/errors)
 DOTNET_BUILD := $(WORKSPACE_DIR)/framework/makefw/bin/dotnet_build.sh
 

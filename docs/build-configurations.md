@@ -75,13 +75,13 @@ Windows ビルドには Visual Studio 2022 以降が必要です。
 MSVC のコンパイルでは複数のソース ファイルを `cl.exe` に渡し、`/MP` で並列処理します。  
 ヘッダー依存関係は `/sourceDependencies` で取得します。
 
-makefw は Linux と Windows のどちらでも、利用可能な論理 CPU 数を CPU 予算として並列度を算出します。
-Linux では `nproc`、Windows では `NUMBER_OF_PROCESSORS` から CPU 予算を取得し、取得できない場合は 6 を使います。
+makefw は Linux と Windows のどちらでも、利用可能な論理 CPU 数を CPU 予算として並列度を算出します。  
+Linux では `nproc`、Windows では `NUMBER_OF_PROCESSORS` から CPU 予算を取得し、取得できない場合は 6 を使います。  
 `MAKEFW_CPU_BUDGET` に正の整数を指定すると、自動検出した CPU 予算を上書きできます。
 
-Linux の make には CPU 予算と 16 の小さい方を割り当てます。
-Windows の make には CPU 予算の平方根を切り上げた値を割り当て、上限を 8 とします。
-MSVC の `/MP` と MSBuild の `-m` には、CPU 予算を make の並列度で割った値を割り当て、1 から 16 の範囲に制限します。
+Linux の make には CPU 予算と 16 の小さい方を割り当てます。  
+Windows の make には CPU 予算の平方根を切り上げた値を割り当て、上限を 8 とします。  
+MSVC の `/MP` と MSBuild の `-m` には、CPU 予算を make の並列度で割った値を割り当て、1 から 16 の範囲に制限します。  
 この配分により、GNU Make とコンパイラによる二重の並列化が CPU 予算を超えないようにします。
 
 論理 CPU が 72 個ある場合の自動設定は次のとおりです。
@@ -91,9 +91,9 @@ MSVC の `/MP` と MSBuild の `-m` には、CPU 予算を make の並列度で�
 | Linux | `-j16` | make の並列度を使用 | - | `-m:4` |
 | Windows | `-j8` | - | `/MP9` | `-m:9` |
 
-引数なし、`default`、`build`、`clean`、`rebuild`、`test` では自動設定を使用します。
-`make test` は内部で 2 フェーズに分かれます。Phase 1 (ビルド フェーズ、ターゲット `_test_build`) はテスト バイナリのコンパイルとリンクのみを自動設定の並列度で実行し、Phase 2 (実行フェーズ、ターゲット `_test_run`) はテストの実行順を維持するため `-j1` で実行します。
-これにより、出力順序を保ったまま、支配的なコンパイルとリンクの所要を並列化します。
+引数なし、`default`、`build`、`clean`、`rebuild`、`test` では自動設定を使用します。  
+`make test` は内部で 2 フェーズに分かれます。Phase 1 (ビルド フェーズ、ターゲット `_test_build`) はテスト バイナリのコンパイルとリンクのみを自動設定の並列度で実行し、Phase 2 (実行フェーズ、ターゲット `_test_run`) はテストの実行順を維持するため `-j1` で実行します。  
+これにより、出力順序を保ったまま、支配的なコンパイルとリンクの所要を並列化します。  
 2 フェーズのエントリは `makemain.mk` の `test:` に一元化しており、「任意のディレクトリ単位 (`app/{name}` 単位、その test 配下のサブディレクトリ単位) の `make test` でもビルド並列・実行直列が成立すること」を制約とします。`test:` ターゲットを追加・変更するときはこの制約を維持してください。
 
 コマンド ラインで指定した値は自動算出より優先されます。
@@ -115,7 +115,7 @@ make JOBS=4 MAKEFW_MSBUILD_JOBS=3
 make -j4
 ```
 
-GNU Make の `-j` をジョブ数なしで指定した場合、make の並列度に上限がないため、MSVC と MSBuild の並列度は 1 とします。
+GNU Make の `-j` をジョブ数なしで指定した場合、make の並列度に上限がないため、MSVC と MSBuild の並列度は 1 とします。  
 `MAKEFW_CL_MP_JOBS` または `MAKEFW_MSBUILD_JOBS` を明示した場合は、その値を優先します。
 
 ## 運用上の注意
