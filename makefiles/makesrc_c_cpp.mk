@@ -40,7 +40,7 @@ ifeq ($(LINK_TEST), 1)
         #   -flto: リンク時最適化 (GCC の LTO)
         LDFLAGS := $(filter-out -flto,$(LDFLAGS))
         # TARGET_ARCH を使用してプラットフォーム固有のパスを指定
-        # Use TARGET_ARCH for platform-specific path (e.g., linux_el8_x64)
+        # Use TARGET_ARCH for platform-specific path (e.g., linux_el8_x64, linux_el9_x64, linux_el10_x64)
         LIBSDIR += $(TESTFW_HOME)/gtest/lib/$(TARGET_ARCH)
     else ifdef PLATFORM_WINDOWS
         # ステップ実行/カバレッジに支障となるオプションを除去

@@ -602,8 +602,8 @@ endif
 
 # TARGET_ARCH をコンパイル時定数として C/C++ コードに渡す
 # Pass TARGET_ARCH as a compile-time constant to C/C++ code
-# 値はアンダースコア区切り (例: windows_x64, linux_el8_x64) でクォート不要なシンプルな識別子
-# Value uses underscore separators (e.g. windows_x64, linux_el8_x64) — no quoting needed
+# 値はアンダースコア区切り (例: windows_x64, linux_el8_x64, linux_el9_x64, linux_el10_x64) でクォート不要なシンプルな識別子
+# Value uses underscore separators (e.g. windows_x64, linux_el8_x64, linux_el9_x64, linux_el10_x64) — no quoting needed
 # DEFINES に既存の TARGET_ARCH 定義 (代入・宣言のみを問わず) があれば除去してから追加
 # Remove any existing TARGET_ARCH definition from DEFINES (assignment or declaration) before adding
 DEFINES := $(filter-out TARGET_ARCH%,$(DEFINES)) TARGET_ARCH=$(TARGET_ARCH)
