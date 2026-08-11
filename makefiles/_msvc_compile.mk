@@ -11,10 +11,10 @@ CFLAGS   += $(MAKEFW_CL_MPFLAG)
 CXXFLAGS += $(MAKEFW_CL_MPFLAG)
 
 # MSVC コンパイル スクリプトのパス
-MSVC_COMPILE_SCRIPT := $(WORKSPACE_DIR)/framework/makefw/bin/msvc_compile.ps1
+MSVC_COMPILE_SCRIPT := $(MAKEFW_HOME)/bin/msvc_compile.ps1
 
 # 再コンパイルが必要なソースを抽出する外部スクリプト
-FIND_DIRTY_SRCS_SCRIPT := $(WORKSPACE_DIR)/framework/makefw/bin/find_dirty_srcs.sh
+FIND_DIRTY_SRCS_SCRIPT := $(MAKEFW_HOME)/bin/find_dirty_srcs.sh
 
 # 再コンパイルが必要なソースを抽出
 # - .obj が存在しない
@@ -66,7 +66,7 @@ define _run_msvc_compile
 		chunk=""; \
 		for src in $$srcs; do \
 			if [ $$(($${#chunk} + $${#src} + 1)) -gt 8000 ]; then \
-				powershell -ExecutionPolicy Bypass -File $(MSVC_COMPILE_SCRIPT) \
+				$(MAKEFW_POWERSHELL_COMMAND) -File "$(MSVC_COMPILE_SCRIPT)" \
 					-Compiler "$(1)" -Flags "$(2)" -ObjDir "$(3)" \
 					-Sources "$$chunk" -WorkspaceDir "$(WORKSPACE_DIR)" $(5) || exit $$?; \
 				chunk="$$src"; \
@@ -75,7 +75,7 @@ define _run_msvc_compile
 			fi; \
 		done; \
 		if [ -n "$$chunk" ]; then \
-			powershell -ExecutionPolicy Bypass -File $(MSVC_COMPILE_SCRIPT) \
+			$(MAKEFW_POWERSHELL_COMMAND) -File "$(MSVC_COMPILE_SCRIPT)" \
 				-Compiler "$(1)" -Flags "$(2)" -ObjDir "$(3)" \
 				-Sources "$$chunk" -WorkspaceDir "$(WORKSPACE_DIR)" $(5) || exit $$?; \
 		fi; \

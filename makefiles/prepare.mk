@@ -32,6 +32,12 @@ else
 endif
 export MAKEFW_HOME
 
+# Windows ネイティブ ツールの出力変換に使用する PowerShell 実装。
+# pwsh を使用する場合は make MAKEFW_POWERSHELL=pwsh のように指定する。
+MAKEFW_POWERSHELL ?= powershell
+MAKEFW_POWERSHELL_COMMAND := $(MAKEFW_POWERSHELL) -NoProfile -ExecutionPolicy Bypass
+MSVC_OUTPUT_FILTER_SCRIPT := $(MAKEFW_HOME)/bin/msvc_output_filter.ps1
+
 include $(MAKEFW_HOME)/makefiles/_parallel.mk
 
 # プラットフォーム判定

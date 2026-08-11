@@ -169,7 +169,7 @@ $(_IDENT_MANIFEST_OBJ): $(_IDENT_MANIFEST_C) | $(OBJDIR)
 
 else ifdef PLATFORM_WINDOWS
 $(_IDENT_MANIFEST_OBJ): $(_IDENT_MANIFEST_C) | $(OBJDIR)
-	@MSYS_NO_PATHCONV=1 $(CC) $(CFLAGS) /Fd:"$(OBJDIR)/_ident_manifest.pdb" /c /Fo"$@" "$<"
+	@set -o pipefail; MSYS_NO_PATHCONV=1 $(CC) $(CFLAGS) /Fd:"$(OBJDIR)/_ident_manifest.pdb" /c /Fo"$@" "$<" 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MSVC_OUTPUT_FILTER_SCRIPT)" -InputEncoding ConsoleOutput
 
 endif
 

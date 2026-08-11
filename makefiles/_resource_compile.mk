@@ -35,21 +35,21 @@ LINK_INPUTS += $(RES_OUTPUTS)
 # 生成物はすべて OBJDIR に置く。rc.exe は生成 .rc が参照する .bin を /i $(OBJDIR) で解決する。
 $(OBJDIR)/%.res: %.mc | $(OBJDIR)
 	@echo "mc.exe $(MCFLAGS) $<"
-	@MSYS_NO_PATHCONV=1 mc.exe $(MCFLAGS) -h $(OBJDIR) -r $(OBJDIR) $<
+	@set -o pipefail; MSYS_NO_PATHCONV=1 mc.exe $(MCFLAGS) -h $(OBJDIR) -r $(OBJDIR) $< 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MSVC_OUTPUT_FILTER_SCRIPT)" -InputEncoding Ansi
 	@echo "rc.exe $(OBJDIR)/$*.rc"
-	@MSYS_NO_PATHCONV=1 rc.exe /nologo $(RCFLAGS) /i $(OBJDIR) /fo $@ $(OBJDIR)/$*.rc
+	@set -o pipefail; MSYS_NO_PATHCONV=1 rc.exe /nologo $(RCFLAGS) /i $(OBJDIR) /fo $@ $(OBJDIR)/$*.rc 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MSVC_OUTPUT_FILTER_SCRIPT)" -InputEncoding Ansi
 
 # 単体 .rc -> (rc.exe) .res
 # インクルード解決は OBJDIR, カレント ディレクトリ, INCDIR を探索する。
 $(OBJDIR)/%.res: %.rc | $(OBJDIR)
 	@echo "rc.exe $<"
-	@MSYS_NO_PATHCONV=1 rc.exe /nologo $(RCFLAGS) /i $(OBJDIR) /i . $(addprefix /i ,$(INCDIR)) /fo $@ $<
+	@set -o pipefail; MSYS_NO_PATHCONV=1 rc.exe /nologo $(RCFLAGS) /i $(OBJDIR) /i . $(addprefix /i ,$(INCDIR)) /fo $@ $< 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MSVC_OUTPUT_FILTER_SCRIPT)" -InputEncoding Ansi
 
 # 同名 stem の .mc と .rc を同一ディレクトリに置かないこと (どちらも %.res を生成し衝突する)。
 
 $(OBJDIR)/%.res.obj: $(OBJDIR)/%.res | $(OBJDIR)
 	@echo "$(CVTRES) /MACHINE:$(MAKEFW_CVTRES_MACHINE) /OUT:$@ $<"
-	@MSYS_NO_PATHCONV=1 "$(CVTRES)" /MACHINE:$(MAKEFW_CVTRES_MACHINE) /OUT:$@ $<
+	@set -o pipefail; MSYS_NO_PATHCONV=1 "$(CVTRES)" /MACHINE:$(MAKEFW_CVTRES_MACHINE) /OUT:$@ $< 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MSVC_OUTPUT_FILTER_SCRIPT)" -InputEncoding Ansi
 
 endif # RES_OUTPUTS
 

@@ -3,4 +3,4 @@
 # Normalize MSVC lib.exe output to UTF-8 and pass it through unchanged
 
 . "$PSScriptRoot/_msvc_utils.ps1"
-Invoke-MsvcPassthroughWithMutex
+Invoke-NativeToolPassthroughWithMutex -InputEncoding ConsoleOutput

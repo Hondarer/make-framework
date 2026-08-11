@@ -4,7 +4,7 @@
 # Format MSVC command line: reads one line from stdin and prints with line-wrapping
 #
 # 使用方法 (Usage):
-#   echo "cl /W4 /c foo.c bar.c ..." | powershell -ExecutionPolicy Bypass -File msvc_format_cmd.ps1
+#   echo "cl /W4 /c foo.c bar.c ..." | powershell -NoProfile -ExecutionPolicy Bypass -File msvc_format_cmd.ps1
 
 . "$PSScriptRoot/_msvc_utils.ps1"
 

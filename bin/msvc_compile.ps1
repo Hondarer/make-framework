@@ -9,7 +9,7 @@
 # - Visual Studio 2022 以降が必須
 #
 # 使用方法:
-#   powershell -ExecutionPolicy Bypass -File msvc_compile.ps1 `
+#   powershell -NoProfile -ExecutionPolicy Bypass -File msvc_compile.ps1 `
 #       -Compiler "cl" -Flags "/EHsc /MP /FS" -ObjDir "obj/md" `
 #       -Sources "foo.c bar.c baz.c" [-ExtraFlags "-D_IN_TEST_SRC"]
 
@@ -25,10 +25,9 @@ param(
 
 . "$PSScriptRoot/_msvc_utils.ps1"
 
-# エンコード設定 (MSVC ツールの出力は ANSI コードページ)
-$enc          = Get-AnsiUtf8Encoding
-$ansiEncoding = $enc.Ansi
-$utf8NoBom    = $enc.Utf8NoBom
+# cl.exe の出力は現在のコンソール出力コード ページでデコードする。
+$consoleOutputEncoding = Get-ConsoleOutputEncoding
+$utf8NoBom = Get-Utf8NoBomEncoding
 
 # ソースファイルリストをパース
 $sourceList = $Sources -split '\s+' | Where-Object { $_ }
@@ -75,7 +74,7 @@ foreach ($record in (New-MsvcCommandDisplayRecords -Tokens @($Compiler, "@$rspFi
 }
 
 if ($DryRun) {
-    Write-MsvcOutputRecordsToStdout -Records $outputRecords.ToArray()
+    Write-MsvcOutputRecords -Records $outputRecords.ToArray()
     exit 0
 }
 
@@ -86,8 +85,8 @@ $psi.Arguments = "@$rspFile"
 $psi.UseShellExecute = $false
 $psi.RedirectStandardOutput = $true
 $psi.RedirectStandardError = $true
-$psi.StandardOutputEncoding = $ansiEncoding
-$psi.StandardErrorEncoding = $ansiEncoding
+$psi.StandardOutputEncoding = $consoleOutputEncoding
+$psi.StandardErrorEncoding = $consoleOutputEncoding
 $psi.WorkingDirectory = (Get-Location).Path
 
 $process = [System.Diagnostics.Process]::Start($psi)
@@ -212,6 +211,6 @@ if ($compileExitCode -ne 0) {
 # 一時ファイルの削除
 Remove-Item -Path $rspFile -Force -ErrorAction SilentlyContinue
 
-Write-MsvcOutputRecordsToStdout -Records $outputRecords.ToArray()
+Write-MsvcOutputRecords -Records $outputRecords.ToArray()
 
 exit $compileExitCode

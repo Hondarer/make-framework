@@ -8,6 +8,24 @@ $script:MsvcAnsiReset = [char]27 + '[0m'
 $script:MsvcAnsiRed = [char]27 + '[31m'
 $script:MsvcAnsiYellow = [char]27 + '[33m'
 
+if (-not ('Makefw.NativeMethods' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System.Runtime.InteropServices;
+
+namespace Makefw
+{
+    public static class NativeMethods
+    {
+        [DllImport("kernel32.dll")]
+        public static extern uint GetConsoleOutputCP();
+
+        [DllImport("kernel32.dll")]
+        public static extern uint GetACP();
+    }
+}
+'@
+}
+
 function Get-WrappedCommandLineLines {
     param(
         [string[]]$Tokens,
@@ -156,22 +174,35 @@ function ConvertTo-MsvcOutputRecord {
     return (New-MsvcOutputRecord -Text $Line -Kind $kind)
 }
 
-function Get-AnsiUtf8Encoding {
-    # MSVC ツール (cl.exe/lib.exe/link.exe) の出力は Windows の ANSI コードページ (GetACP()) に従う。
-    # .NET Core では Encoding.Default が UTF-8 になるため ANSICodePage から明示取得する。
+function Get-CodePageEncoding {
+    param([uint32]$CodePage)
+
     if ($PSVersionTable.PSEdition -eq 'Core') {
         [System.Text.Encoding]::RegisterProvider([System.Text.CodePagesEncodingProvider]::Instance)
-        $ansi = [System.Text.Encoding]::GetEncoding(
-            [System.Globalization.CultureInfo]::CurrentCulture.TextInfo.ANSICodePage
-        )
-    } else {
-        # .NET Framework: Encoding.Default が GetACP() ベースのシステム ANSI エンコーディング
-        $ansi = [System.Text.Encoding]::Default
     }
-    return @{
-        Ansi      = $ansi
-        Utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+    return [System.Text.Encoding]::GetEncoding([int]$CodePage)
+}
+
+function Get-WindowsAnsiEncoding {
+    $codePage = [Makefw.NativeMethods]::GetACP()
+    if ($codePage -eq 0) {
+        return [System.Text.Encoding]::Default
     }
+    return Get-CodePageEncoding -CodePage $codePage
+}
+
+function Get-ConsoleOutputEncoding {
+    # cl.exe、link.exe、lib.exe のリダイレクト出力は、現在のコンソール出力コード ページに従う。
+    # see: https://learn.microsoft.com/en-us/cpp/build/reference/unicode-support-in-the-compiler-and-linker
+    $codePage = [Makefw.NativeMethods]::GetConsoleOutputCP()
+    if ($codePage -eq 0) {
+        return Get-WindowsAnsiEncoding
+    }
+    return Get-CodePageEncoding -CodePage $codePage
+}
+
+function Get-Utf8NoBomEncoding {
+    return [System.Text.UTF8Encoding]::new($false)
 }
 
 function Resolve-MsvcDiagnosticPath {
@@ -204,8 +235,13 @@ function Write-MsvcOutputRecord {
 function Write-MsvcOutputRecordsUnlocked {
     param([object[]]$Records)
 
-    foreach ($record in $Records) {
-        Write-MsvcOutputRecord -Record $record
+    if ([Console]::IsOutputRedirected) {
+        Write-MsvcOutputRecordsToUtf8Unlocked -Records $Records
+    }
+    else {
+        foreach ($record in $Records) {
+            Write-MsvcOutputRecord -Record $record
+        }
     }
 }
 
@@ -259,13 +295,30 @@ function Get-MsvcAnsiColoredText {
     }
 }
 
-function Read-AnsiLinesFromStdIn {
-    $enc = Get-AnsiUtf8Encoding
+function Get-NativeToolInputEncoding {
+    param(
+        [ValidateSet('ConsoleOutput', 'Ansi')]
+        [string]$InputEncoding
+    )
+
+    if ($InputEncoding -eq 'ConsoleOutput') {
+        return Get-ConsoleOutputEncoding
+    }
+    return Get-WindowsAnsiEncoding
+}
+
+function Read-NativeToolLinesFromStdIn {
+    param(
+        [ValidateSet('ConsoleOutput', 'Ansi')]
+        [string]$InputEncoding
+    )
+
+    $encoding = Get-NativeToolInputEncoding -InputEncoding $InputEncoding
     $reader = $null
     $lines = [System.Collections.Generic.List[string]]::new()
     try {
         $reader = [System.IO.StreamReader]::new(
-            [Console]::OpenStandardInput(), $enc.Ansi, $false, 4096, $true
+            [Console]::OpenStandardInput(), $encoding, $false, 4096, $true
         )
 
         while ($true) {
@@ -280,14 +333,13 @@ function Read-AnsiLinesFromStdIn {
     return $lines.ToArray()
 }
 
-function Write-MsvcOutputRecordsToStdoutUnlocked {
+function Write-MsvcOutputRecordsToUtf8Unlocked {
     param([object[]]$Records)
 
-    $enc = Get-AnsiUtf8Encoding
     $writer = $null
     try {
         $writer = [System.IO.StreamWriter]::new(
-            [Console]::OpenStandardOutput(), $enc.Utf8NoBom, 4096, $true
+            [Console]::OpenStandardOutput(), (Get-Utf8NoBomEncoding), 4096, $true
         )
         $writer.NewLine = "`n"
         $writer.AutoFlush = $true
@@ -308,43 +360,21 @@ function Write-MsvcOutputRecordsToStdout {
         [int]$TimeoutMs = $script:MsvcConsoleMutexTimeoutMs
     )
 
-    if ($null -eq $Records -or $Records.Count -eq 0) {
-        return
-    }
+    Write-MsvcOutputRecords -Records $Records -MutexName $MutexName -TimeoutMs $TimeoutMs
+}
 
-    $mutex = $null
-    $lockTaken = $false
-    try {
-        $mutex = [System.Threading.Mutex]::new($false, $MutexName)
-        try {
-            $lockTaken = $mutex.WaitOne($TimeoutMs)
-        }
-        catch [System.Threading.AbandonedMutexException] {
-            $lockTaken = $true
-        }
+function Invoke-NativeToolPassthroughWithMutex {
+    param(
+        [ValidateSet('ConsoleOutput', 'Ansi')]
+        [string]$InputEncoding
+    )
 
-        if (-not $lockTaken) {
-            $warningRecord = New-MsvcOutputRecord -Text "Warning: Timed out waiting for MSVC console mutex after $TimeoutMs ms. Falling back to unlocked output." -Kind 'warning'
-            Write-MsvcOutputRecordsToStdoutUnlocked -Records @($warningRecord)
-            Write-MsvcOutputRecordsToStdoutUnlocked -Records $Records
-            return
-        }
-
-        Write-MsvcOutputRecordsToStdoutUnlocked -Records $Records
+    $records = foreach ($line in Read-NativeToolLinesFromStdIn -InputEncoding $InputEncoding) {
+        ConvertTo-MsvcOutputRecord -Line $line
     }
-    finally {
-        if ($lockTaken -and $null -ne $mutex) {
-            $mutex.ReleaseMutex()
-        }
-        if ($null -ne $mutex) {
-            $mutex.Dispose()
-        }
-    }
+    Write-MsvcOutputRecords -Records $records
 }
 
 function Invoke-MsvcPassthroughWithMutex {
-    $records = foreach ($line in Read-AnsiLinesFromStdIn) {
-        ConvertTo-MsvcOutputRecord -Line $line
-    }
-    Write-MsvcOutputRecordsToStdout -Records $records
+    Invoke-NativeToolPassthroughWithMutex -InputEncoding ConsoleOutput
 }

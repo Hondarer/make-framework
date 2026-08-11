@@ -5,7 +5,6 @@ import ctypes
 import sys
 from pathlib import Path
 
-CP_UTF8 = 65001
 STD_OUTPUT_HANDLE = -11
 CHUNK_BYTES = 1024 * 1024
 CHUNK_CHARS = 64 * 1024
@@ -39,10 +38,6 @@ def _kernel32():
         wintypes.LPVOID,
     ]
     kernel32.WriteConsoleW.restype = wintypes.BOOL
-    kernel32.GetConsoleOutputCP.argtypes = []
-    kernel32.GetConsoleOutputCP.restype = wintypes.UINT
-    kernel32.SetConsoleOutputCP.argtypes = [wintypes.UINT]
-    kernel32.SetConsoleOutputCP.restype = wintypes.BOOL
     return kernel32, wintypes
 
 
@@ -74,27 +69,16 @@ def emit_with_write_console(path: Path) -> bool:
     return True
 
 
-def emit_bytes_with_utf8_codepage(path: Path) -> int:
-    kernel32, _ = _kernel32()
-    original_cp = kernel32.GetConsoleOutputCP()
-    changed = False
-
-    try:
-        if original_cp and original_cp != CP_UTF8:
-            changed = bool(kernel32.SetConsoleOutputCP(CP_UTF8))
-        return emit_bytes(path)
-    finally:
-        if changed:
-            kernel32.SetConsoleOutputCP(original_cp)
-
-
 def emit_windows(path: Path) -> int:
     try:
         if emit_with_write_console(path):
             return 0
     except (OSError, UnicodeDecodeError):
         pass
-    return emit_bytes_with_utf8_codepage(path)
+    # リダイレクト先には UTF-8 バイト列をそのまま渡す。
+    # コンソールのコード ページはプロセス間で共有されるため変更しない。
+    # see: https://learn.microsoft.com/en-us/windows/console/console-code-pages
+    return emit_bytes(path)
 
 
 def main() -> int:

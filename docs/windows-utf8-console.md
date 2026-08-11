@@ -76,6 +76,33 @@ Linux では `com_util_console_init()` / `com_util_console_dispose()` は no-op 
 
 ## makefw での使い方
 
+### ビルド メッセージの文字コード
+
+makefw は、Windows ネイティブ ツールの出力を PowerShell 内で Unicode へ変換し、表示先に応じて出力方法を切り替えます。  
+`cl.exe`、`link.exe`、`lib.exe` の出力は、`GetConsoleOutputCP()` が返す現在のコンソール出力コード ページでデコードします。  
+コンソールに接続されていない場合は、`GetACP()` が返すシステム ANSI コード ページを代替値として使用します。  
+`mc.exe`、`rc.exe`、`cvtres.exe` の出力は、`GetACP()` が返すシステム ANSI コード ページでデコードします。
+
+変換後のメッセージを実際のコンソールへ表示するときは、PowerShell の Unicode 出力を使用します。  
+ファイル、パイプ、`tee` へリダイレクトするときは、BOM なし UTF-8 を出力します。  
+ルートの並列 make が収集した UTF-8 出力も、実際の Windows コンソールへは `WriteConsoleW` で表示し、リダイレクト先へは UTF-8 バイト列として出力します。  
+ビルド中に `SetConsoleOutputCP()` を呼び出さないため、並列実行中に別プロセスのコード ページ解釈を変更しません。
+
+この処理は、呼び出し元が `cmd.exe`、Windows PowerShell、PowerShell 7 のいずれであるかには依存しません。  
+コンソール出力コード ページが 932 と 65001 のどちらであっても、MSVC が選択した文字コードで診断を読み取り、Unicode として表示します。  
+PowerShell 7 をフィルター処理に使用する場合は、次のように指定します。
+
+```bat
+make MAKEFW_POWERSHELL=pwsh
+```
+
+CodeBlock: PowerShell 7 を使用する場合
+
+この対応はビルド ツールの出力経路に限定されます。  
+生成したコンソール アプリケーション自身の入出力には、後述する UTF-8 マニフェストと `com_util_console_init()` の方針を適用します。
+
+### マニフェストの指定
+
 makefw は `WIN32_MANIFEST` 変数を使ったマニフェスト埋め込み機能を提供します。MSVC の `link.exe` に `/MANIFEST:EMBED /MANIFESTINPUT:` オプションを渡してリンク時に直接 EXE へ埋め込みます。
 
 `makepart.mk` に以下を追加します。
@@ -150,3 +177,6 @@ CodeBlock: dumpbin でマニフェスト リソースを確認
 - Microsoft Learn: Application manifests  
   https://learn.microsoft.com/en-us/windows/win32/sbscs/application-manifests  
   確認日: 2026-06-01。アプリケーション マニフェストの `activeCodePage` 要素と、マニフェスト埋め込みの前提を確認。
+- Microsoft Learn: Unicode support in the compiler and linker  
+  https://learn.microsoft.com/en-us/cpp/build/reference/unicode-support-in-the-compiler-and-linker  
+  確認日: 2026-08-11。コンパイラとリンカーのリダイレクト出力がコンソールの現在のコード ページに従うことを確認。
