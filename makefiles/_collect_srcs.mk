@@ -115,9 +115,12 @@ GCOVR_SRCS := $(foreach src,$(TEST_SRCS), \
 		 $(notdir $(src))))
 
 # コンパイル対象のソース ファイル (カレント ディレクトリから自動収集 + 指定ファイル)
+# *.inject.* は対象ソースの末尾へ結合されるだけの断片であり、単独の翻訳単位としては成立しないため除外する
 # Collect source files for compilation (auto-detect + specified files)
-SRCS_C := $(sort $(wildcard *.c) $(notdir $(filter %.c,$(CP_SRCS) $(LINK_SRCS))))
-SRCS_CPP := $(sort $(wildcard *.cc) $(wildcard *.cpp) $(notdir $(filter %.cc,$(CP_SRCS) $(LINK_SRCS)) $(filter %.cpp,$(CP_SRCS) $(LINK_SRCS))))
+# *.inject.* files are only meant to be appended into their target source; they are not
+# valid standalone translation units, so exclude them here
+SRCS_C := $(sort $(filter-out %.inject.c,$(wildcard *.c)) $(notdir $(filter %.c,$(CP_SRCS) $(LINK_SRCS))))
+SRCS_CPP := $(sort $(filter-out %.inject.cc %.inject.cpp,$(wildcard *.cc) $(wildcard *.cpp)) $(notdir $(filter %.cc,$(CP_SRCS) $(LINK_SRCS)) $(filter %.cpp,$(CP_SRCS) $(LINK_SRCS))))
 
 # Windows リソース ソース (.mc メッセージ テーブル / .rc) の自動収集
 # Auto-collect Windows resource sources (.mc message table / .rc)
