@@ -51,6 +51,12 @@ MSVC では `/GL` と `/LTCG` を組み合わせます。
 
 本番性能の確認には、`test` 配下ではなく `prod` 配下を `CONFIG=Release` でビルドした成果物を使用します。
 
+`make test` は、app 単位 (`make_test.stamp`) と leaf ディレクトリ単位 (`test.stamp`) の 2 段階で、
+依存関係が変化していない場合にテスト実行を省略します。  
+app 単位は途中で 1 つでも失敗すると次回は全体を再実行しますが、leaf 単位のスタンプはテスト対象フォルダーごとに個別へ維持されるため、
+失敗箇所を修正した後の再実行では、変更されていない leaf だけが引き続きスキップされます。  
+詳細は `framework/testfw/docs/how-to-test.md` の「再テストのスキップ」を参照してください。
+
 ## Windows のランタイム指定
 
 Windows/MSVC では、`MSVC_CRT` で C ランタイムのリンク方式を指定できます。  

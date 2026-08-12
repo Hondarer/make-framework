@@ -568,7 +568,7 @@ endif
 
 MAKEFW_CLEAN_IMPORTED_SRCS := $(strip $(sort $(notdir $(CP_SRCS) $(LINK_SRCS)) $(MAKEFW_CLEAN_GITIGNORE_SRCS)))
 
-CLEAN_COMMON := $(strip $(call _relpath,$(OUTPUT_DIR)/$(TARGET)) $(call _relpath,$(OUTPUT_DIR)/$(TARGET).warn) $(OBJDIR) $(GCOVDIR) $(COVERAGEDIR) $(MAKEFW_CLEAN_IMPORTED_SRCS) results)
+CLEAN_COMMON := $(strip $(call _relpath,$(OUTPUT_DIR)/$(TARGET)) $(call _relpath,$(OUTPUT_DIR)/$(TARGET).warn) $(OBJDIR) $(GCOVDIR) $(COVERAGEDIR) $(MAKEFW_CLEAN_IMPORTED_SRCS) results test.stamp)
 ifdef PLATFORM_LINUX
     CLEAN_OS := core $(LCOVDIR)
 else ifdef PLATFORM_WINDOWS
@@ -643,7 +643,7 @@ _test_main: $(TESTSH)
 					exit 1; \
 				fi; \
 				status=0; \
-				export TEST_SRCS="$(TEST_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(ICONV)) 2> >($(ICONV) >&2) || status=$$?; \
+				export TEST_SRCS="$(TEST_SRCS)" && export ADD_SRCS="$(ADD_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(ICONV)) 2> >($(ICONV) >&2) || status=$$?; \
 				exit $$status
     else
         # コンパイルのみ (実行するテストはない)
