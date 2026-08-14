@@ -36,7 +36,7 @@ C ランタイム ライブラリのコードが、最終的な実行ファイ�
 - 実行ファイルのサイズが大きくなる (ランタイム コードが埋め込まれるため)
 - 実行時に追加の DLL (`vcruntime140.dll` など) が不要
 - 配布が簡単 (実行ファイル単体で動作)
-- 各モジュール (exe, dll) が独立したランタイム ライブラリのコピーを持つ
+- 各モジュール (exe, dll) が独立したランタイム ライブラリのコピーを持ちます。
 
 ### /MD (動的ランタイム ライブラリ)
 
@@ -88,14 +88,14 @@ C ランタイム ライブラリのコードは実行ファイルには埋め�
 **特徴**
 
 - アサートやデバッグ ヒープなどの追加チェックが有効になるため、問題を早期に見つけやすい
-- 実行ファイルがさらに大きくなり、処理も遅くなる
+- 実行ファイルがさらに大きくなり、処理も遅くなります。
 - 配布用途には不適切。開発環境内での実行に限る
 - `/MT` や `/MD`、`/MDd` との混在は不可
 
 **ビルド設定例**
 
 ```makefile
-CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MTd /Fd:$(OUTPUT_DIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_DIR)/app/calc/prod/include
+CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MTd /Fd:$(OUTPUT_DIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_DIR)/app/example/prod/include
 ```
 
 CodeBlock: デバッグ構成の例 (静的)
@@ -124,16 +124,16 @@ CodeBlock: デバッグ構成の例 (静的)
 **ビルド設定例**
 
 ```makefile
-CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MDd /Fd:$(OUTPUT_DIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_DIR)/app/calc/prod/include
+CFLAGS := /W4 /Zi /TC /nologo /utf-8 /FS /MDd /Fd:$(OUTPUT_DIR)/$(TARGET_BASE).pdb /I$(WORKSPACE_DIR)/app/example/prod/include
 ```
 
 CodeBlock: デバッグ構成の例 (動的)
 
 ### デバッグ CRT 利用時の注意
 
-- デバッグとリリースを混在させない。プロジェクト内で、デバッグは一貫して `/MTd` または `/MDd` に統一し、リリースは `/MT` または `/MD` に統一する
+- デバッグとリリースを混在させない。プロジェクト内で、デバッグは一貫して `/MTd` または `/MDd` に統一し、リリースは `/MT` または `/MD` に統一します。
 - 混在時は LNK4098 の警告が `MSVCRTD` などを含む形で出ることがある。必ず原因を直す
-- デバッグ CRT の挙動 (イテレータ検証など) に依存したコードを書かない。リリースでは無効になる
+- デバッグ CRT の挙動 (イテレータ検証など) に依存したコードを書かない。リリースでは無効になります。
 
 ## 混在時の問題
 

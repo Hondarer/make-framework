@@ -70,10 +70,10 @@ endif
 
 ## 注意: PLATFORM 条件との組み合わせ
 
-フック検出は `makelocal.mk` のテキストを走査し、`ifdef` は解釈しない。  
-そのため、`pre-build:` などのターゲット定義行を `ifdef PLATFORM_LINUX` のような条件の内側に置くと、検出結果と実ターゲット定義が食い違い、`No rule to make target 'pre-clean'` などのエラーになる。
+フック検出は `makelocal.mk` のテキストを走査し、`ifdef` は解釈しません。  
+そのため、`pre-build:` などのターゲット定義行を `ifdef PLATFORM_LINUX` のような条件の内側に置くと、検出結果と実ターゲット定義が食い違い、`No rule to make target 'pre-clean'` などのエラーになります。
 
-OS 専用処理が必要な場合は、ターゲット定義自体は条件の外に置き、レシピ内で分岐する。
+OS 専用処理が必要な場合は、ターゲット定義自体は条件の外に置き、レシピ内で分岐します。
 
 ```makefile
 .PHONY: pre-clean

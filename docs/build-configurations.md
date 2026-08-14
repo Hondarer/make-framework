@@ -22,8 +22,8 @@ make CONFIG=RelWithDebInfo
 `CONFIG` は再帰 make に引き継がれるため、app 直下や prod/test 直下で指定すれば、その配下のビルドに同じ構成が適用されます。
 
 ```bash
-make -C app/calc/prod CONFIG=Release
-make -C app/calc/test CONFIG=Debug test
+make -C app/example/prod CONFIG=Release
+make -C app/example/test CONFIG=Debug test
 ```
 
 ## 構成ごとの用途
@@ -46,14 +46,14 @@ MSVC では `/GL` と `/LTCG` を組み合わせます。
 `LINK_TEST=1` のテスト対象では、ステップ実行とカバレッジ計測を優先します。  
 そのため、通常の `CONFIG` が `RelWithDebInfo` や `Release` であっても、テスト対象ソースには最適化抑制とカバレッジ用の設定が適用されます。
 
-- Linux: `-O0 -g -coverage` を使用し、`-flto` はリンク オプションから除外する
-- MSVC: `/Od /Ob0 /Zi` を使用し、`/LTCG` はリンク オプションから除外する
+- Linux: `-O0 -g -coverage` を使用し、`-flto` はリンク オプションから除外します。
+- MSVC: `/Od /Ob0 /Zi` を使用し、`/LTCG` はリンク オプションから除外します。
 
 本番性能の確認には、`test` 配下ではなく `prod` 配下を `CONFIG=Release` でビルドした成果物を使用します。
 
-`make test` は、app 単位 (`make_test.stamp`) と leaf ディレクトリ単位 (`test.stamp`) の 2 段階で、
+`make test` は、app 単位 (`make_test.stamp`) と leaf ディレクトリ単位 (`test.stamp`) の 2 段階で、  
 依存関係が変化していない場合にテスト実行を省略します。  
-app 単位は途中で 1 つでも失敗すると次回は全体を再実行しますが、leaf 単位のスタンプはテスト対象フォルダーごとに個別へ維持されるため、
+app 単位は途中で 1 つでも失敗すると次回は全体を再実行しますが、leaf 単位のスタンプはテスト対象フォルダーごとに個別へ維持されるため、  
 失敗箇所を修正した後の再実行では、変更されていない leaf だけが引き続きスキップされます。  
 詳細は `framework/testfw/docs/how-to-test.md` の「再テストのスキップ」を参照してください。
 

@@ -14,8 +14,8 @@ Windows 10 1903 以降では、アプリケーション マニフェストの `a
 このため、本リポジトリでは次の方針を採用します。
 
 - Windows 10 1903 以降をサポート対象とし、`activeCodePage=UTF-8` マニフェストを必ず埋め込む
-- `argv`、CRT narrow API、Win32 `-A` API は UTF-8 前提で扱う
-- コンソール入出力については、`com_util_console_init()` で `SetConsoleCP(CP_UTF8)` / `SetConsoleOutputCP(CP_UTF8)` と VT 処理の有効化を行う
+- `argv`、CRT narrow API、Win32 `-A` API は UTF-8 前提で扱います。
+- コンソール入出力については、`com_util_console_init()` で `SetConsoleCP(CP_UTF8)` / `SetConsoleOutputCP(CP_UTF8)` と VT 処理の有効化を行います。
 
 ## プロセス ACP と activeCodePage
 
@@ -41,7 +41,7 @@ CodeBlock: utf8_manifest.manifest
 | `GetACP()` | `65001` (`CP_UTF8`) を返す |
 | `main(int argc, char *argv[])` | UTF-8 として扱える |
 | CRT narrow API | ACP を参照する API では UTF-8 前提で扱える |
-| Win32 `-A` API | ANSI コード ページが UTF-8 の場合、通常 UTF-8 として動作する |
+| Win32 `-A` API | ANSI コード ページが UTF-8 の場合、通常 UTF-8 として動作します。 |
 
 Microsoft Learn は、Windows 10 1903 以降で `activeCodePage` によりプロセスのコード ページを UTF-8 にできること、また ANSI コード ページが UTF-8 の場合は `-A` API が通常 UTF-8 として動作することを説明しています。
 
@@ -53,8 +53,8 @@ Microsoft Learn は、Windows 10 1903 以降で `activeCodePage` によりプロ
 
 | 対象 | 役割 |
 |:-----|:-----|
-| 入力コード ページ | キーボード入力を文字値へ変換する |
-| 出力コード ページ | A 系コンソール出力の文字値を表示文字へ変換する |
+| 入力コード ページ | キーボード入力を文字値へ変換します。 |
+| 出力コード ページ | A 系コンソール出力の文字値を表示文字へ変換します。 |
 
 Microsoft Learn の Console Code Pages 文書では、UTF-8 文字列を A 系コンソール API へ送る場合、事前に `SetConsoleCP` と `SetConsoleOutputCP` でコード ページを `65001` (`CP_UTF8`) に設定する、と説明されています。
 
@@ -64,11 +64,11 @@ Microsoft Learn の Console Code Pages 文書では、UTF-8 文字列を A 系�
 
 `com_util_console_init()` は Windows で次の処理を行います。
 
-- stdout がコンソールである場合に限り、初期化処理を行う
+- stdout がコンソールである場合に限り、初期化処理を行います。
 - コンソール入力コード ページが UTF-8 でなければ `SetConsoleCP(CP_UTF8)` を呼ぶ
 - コンソール出力コード ページが UTF-8 でなければ `SetConsoleOutputCP(CP_UTF8)` を呼ぶ
-- stdout / stderr の `ENABLE_VIRTUAL_TERMINAL_PROCESSING` を有効化する
-- 通常終了時に、変更前のコンソール コード ページとコンソール モードを復元する
+- stdout / stderr の `ENABLE_VIRTUAL_TERMINAL_PROCESSING` を有効化します。
+- 通常終了時に、変更前のコンソール コード ページとコンソール モードを復元します。
 
 Linux では `com_util_console_init()` / `com_util_console_dispose()` は no-op です。
 
@@ -156,10 +156,10 @@ CodeBlock: dumpbin でマニフェスト リソースを確認
 
 | 対処 | 役割 |
 |:-----|:-----|
-| `activeCodePage=UTF-8` マニフェスト | プロセス ACP を UTF-8 にし、`argv`、CRT narrow API、Win32 `-A` API を UTF-8 前提で扱えるようにする |
-| `SetConsoleCP(CP_UTF8)` | 接続先コンソールの入力コード ページを UTF-8 にする |
-| `SetConsoleOutputCP(CP_UTF8)` | 接続先コンソールの出力コード ページを UTF-8 にする |
-| `ENABLE_VIRTUAL_TERMINAL_PROCESSING` | ANSI エスケープ シーケンスによる色やカーソル制御を有効化する |
+| `activeCodePage=UTF-8` マニフェスト | プロセス ACP を UTF-8 にし、`argv`、CRT narrow API、Win32 `-A` API を UTF-8 前提で扱えるようにします。 |
+| `SetConsoleCP(CP_UTF8)` | 接続先コンソールの入力コード ページを UTF-8 にします。 |
+| `SetConsoleOutputCP(CP_UTF8)` | 接続先コンソールの出力コード ページを UTF-8 にします。 |
+| `ENABLE_VIRTUAL_TERMINAL_PROCESSING` | ANSI エスケープ シーケンスによる色やカーソル制御を有効化します。 |
 
 推奨構成は、`WIN32_MANIFEST = utf8` で UTF-8 マニフェストを埋め込み、コンソール アプリケーションの開始時に `com_util_console_init()` を呼び出すことです。
 

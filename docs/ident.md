@@ -32,8 +32,8 @@ build で 4% 程度、clean から build まで含めた場合で 3% 程度が�
 
 ## 確認方法
 
-IDENT は `make IDENT=1` を指定したときだけ、`prod/` 配下の C/C++ ビルドで有効になる。  
-`IDENT=0`、空文字、その他の値では有効にならない。  
+IDENT は `make IDENT=1` を指定したときだけ、`prod/` 配下の C/C++ ビルドで有効になります。  
+`IDENT=0`、空文字、その他の値では有効になりません。  
 確認では、以下を順に見る。
 
 1. 各 `.c` に対応する `.ident` JSON が `obj/` 配下に生成されること
@@ -44,19 +44,19 @@ IDENT は `make IDENT=1` を指定したときだけ、`prod/` 配下の C/C++ �
 
 ### Windows での確認例
 
-Windows では、MSVC と GNU Make を利用できるシェルで実行する。  
-この repo では `Start-VSCode-With-Env.cmd` から起動したターミナルを想定する。
+Windows では、MSVC と GNU Make を利用できるシェルで実行します。  
+この repo では `Start-VSCode-With-Env.cmd` から起動したターミナルを想定します。
 
 ```powershell
 # repo ルートで実行
-make -C app/calc/prod/libsrc/calcbase IDENT=1
+make -C app/example/prod/libsrc/examplebase IDENT=1
 
 # static lib のトレース情報
 Get-ChildItem app\calc\prod\libsrc\calcbase\obj -Filter *.ident
 Get-Content app\calc\prod\lib\calcbase.ident_srcs
 
 # static lib を利用する DLL をビルド
-make -C app/calc/prod/libsrc/calc IDENT=1
+make -C app/example/prod/libsrc/example IDENT=1
 
 # DLL に埋め込まれる manifest の生成物
 Get-ChildItem app\calc\prod\libsrc\calc\obj -Filter _ident_manifest.*
@@ -71,75 +71,75 @@ $text = [Text.Encoding]::ASCII.GetString($bytes)
 出力に、`IDENT-BEGIN`、`IDENT-C`、`IDENT-CH`、`IDENT-END` が含まれていれば、  
 ソースとヘッダーのハッシュが最終成果物へ埋め込まれている。
 
-exe で確認する場合は、`prod/src/cmd/` 配下のターゲットを使う。
+exe で確認する場合は、`prod/src/cmd/` 配下のターゲットを使用します。
 
 ```powershell
-make -C app/calc/prod/src/cmd/calc IDENT=1
+make -C app/example/prod/src/cmd/example IDENT=1
 $bytes = [IO.File]::ReadAllBytes('app\calc\prod\cbin\calc.exe')
 $text = [Text.Encoding]::ASCII.GetString($bytes)
 [regex]::Matches($text, '@\(#\)IDENT-[^\x00\r\n]*') | ForEach-Object { $_.Value }
 ```
 
-`test/` 配下では `IDENT_ENABLED` が設定されないため、同じ指定をしても IDENT の生成物は追加されない。
+`test/` 配下では `IDENT_ENABLED` が設定されないため、同じ指定をしても IDENT の生成物は追加されません。
 
 ```powershell
-make -C app/calc/test/src/main/calcTest IDENT=1
+make -C app/example/test/src/main/exampleTest IDENT=1
 Get-ChildItem app\calc\test -Recurse -Filter *.ident
 ```
 
-この確認で `.ident` が表示されないことを確認する。
+この確認で `.ident` が表示されないことを確認します。
 
 ### Linux での確認例
 
-Linux では GCC を利用するビルド環境で実行する。
+Linux では GCC を利用するビルド環境で実行します。
 
 ```bash
 # repo ルートで実行
-make -C app/calc/prod/libsrc/calcbase IDENT=1
+make -C app/example/prod/libsrc/examplebase IDENT=1
 
 # static lib のトレース情報
-find app/calc/prod/libsrc/calcbase/obj -name '*.ident' -print
-cat app/calc/prod/lib/calcbase.ident_srcs
+find app/example/prod/libsrc/examplebase/obj -name '*.ident' -print
+cat app/example/prod/lib/examplebase.ident_srcs
 
 # static lib を利用する shared library をビルド
-make -C app/calc/prod/libsrc/calc IDENT=1
+make -C app/example/prod/libsrc/example IDENT=1
 
 # shared library に埋め込まれる manifest の生成物
-ls app/calc/prod/libsrc/calc/obj/_ident_manifest.*
-sed -n '1,80p' app/calc/prod/libsrc/calc/obj/_ident_manifest.c
+ls app/example/prod/libsrc/example/obj/_ident_manifest.*
+sed -n '1,80p' app/example/prod/libsrc/example/obj/_ident_manifest.c
 
 # shared library から manifest 文字列を抽出
-strings app/calc/prod/lib/libcalc.so | grep -F '@(#)IDENT-'
+strings app/example/prod/lib/libexample.so | grep -F '@(#)IDENT-'
 
 # GCC では .ident セクションとしても確認できる
-readelf -p .ident app/calc/prod/lib/libcalc.so
+readelf -p .ident app/example/prod/lib/libexample.so
 ```
 
-exe で確認する場合は、`prod/src/cmd/` 配下のターゲットを使う。
+exe で確認する場合は、`prod/src/cmd/` 配下のターゲットを使用します。
 
 ```bash
-make -C app/calc/prod/src/cmd/calc IDENT=1
-strings app/calc/prod/cbin/calc | grep -F '@(#)IDENT-'
+make -C app/example/prod/src/cmd/example IDENT=1
+strings app/example/prod/cbin/example | grep -F '@(#)IDENT-'
 ```
 
-`test/` 配下の自動除外を確認する場合は、次のように実行する。
+`test/` 配下の自動除外を確認する場合は、次のように実行します。
 
 ```bash
-make -C app/calc/test/src/main/calcTest IDENT=1
-find app/calc/test -name '*.ident' -print
+make -C app/example/test/src/main/exampleTest IDENT=1
+find app/example/test -name '*.ident' -print
 ```
 
-この確認で `.ident` が表示されないことを確認する。
+この確認で `.ident` が表示されないことを確認します。
 
 ## 出力フォーマット
 
 ```text
 @(#)IDENT-BEGIN target=libcalc.so rev=abc1234 arch=linux_ubuntu_x64
-@(#)IDENT-C app/calc/prod/libsrc/calcbase/add.c sha256=ec84e4...
-@(#)IDENT-CH  app/calc/prod/include/calc/calc_const.h sha256=667021...
-@(#)IDENT-CH  app/calc/prod/include/calcbase/calcbase_spec.h sha256=e7661b...
-@(#)IDENT-C app/calc/prod/libsrc/calc/calcHandler.c sha256=def456...
-@(#)IDENT-CH  app/calc/prod/include/calc/calc.h sha256=111222...
+@(#)IDENT-C app/example/prod/libsrc/examplebase/add.c sha256=ec84e4...
+@(#)IDENT-CH  app/example/prod/include/example/example_const.h sha256=667021...
+@(#)IDENT-CH  app/example/prod/include/examplebase/examplebase_spec.h sha256=e7661b...
+@(#)IDENT-C app/example/prod/libsrc/example/example_handler.c sha256=def456...
+@(#)IDENT-CH  app/example/prod/include/example/example.h sha256=111222...
 @(#)IDENT-END
 ```
 
@@ -161,20 +161,20 @@ find app/calc/test -name '*.ident' -print
 
 ```json
 {
-  "source": "app/calc/prod/libsrc/calcbase/add.c",
+  "source": "app/example/prod/libsrc/examplebase/add.c",
   "source_sha256": "ec84e4...",
   "headers": [
-    { "path": "app/calc/prod/include/calc/calc_const.h", "sha256": "667021..." }
+    { "path": "app/example/prod/include/example/example_const.h", "sha256": "667021..." }
   ]
 }
 ```
 
 パスはすべて `WORKSPACE_DIR` からの相対パス。  
-Make の依存ファイル内で `\` としてエスケープされた空白は、実際の空白として扱う。
+Make の依存ファイル内で `\` としてエスケープされた空白は、実際の空白として扱います。
 
 ### static lib 完成時
 
-`.ident_srcs` ファイルを生成し、どのディレクトリに `.ident` ファイルがあるかを記録する。  
+`.ident_srcs` ファイルを生成し、どのディレクトリに `.ident` ファイルがあるかを記録します。  
 `LIB_TYPE=both` の場合も、static 側の成果物名に対応する `.ident_srcs` を生成する (例: `libcom_util_static.lib` → `com_util_static.ident_srcs`)。
 
 ```text
@@ -206,7 +206,7 @@ Make の依存ファイル内で `\` としてエスケープされた空白は�
 make clean IDENT=1
 ```
 
-`make clean` のみ (IDENT=1 指定なし) では `obj/` 配下の `.ident` ファイルは削除されるが、`lib/` 配下の `.ident_srcs` ファイルは残る。完全削除は `make clean IDENT=1` を使用すること。
+`make clean` のみ (IDENT=1 指定なし) では `obj/` 配下の `.ident` ファイルは削除されますが、`lib/` 配下の `.ident_srcs` ファイルは残ります。完全に削除する場合は `make clean IDENT=1` を使用してください。
 
 ## 関連ファイル
 
@@ -221,8 +221,8 @@ make clean IDENT=1
 ## 既知の制限
 
 - **LTO (`-flto`, Release ビルド)**: GCC の `__attribute__((used))` が LTO 下で有効かどうかは環境依存。  
-  動作確認が必要な場合は `readelf -p .ident <file>` で .ident セクションの有無を確認すること。
-- **git hash**: `.git/HEAD` の変更時のみ rev ファイルを再生成する。  
-  新しいコミット後にハッシュを最新にするには `make IDENT=1` を再実行すること。
+  動作確認が必要な場合は `readelf -p .ident <file>` で .ident セクションの有無を確認してください。
+- **git hash**: `.git/HEAD` の変更時のみ rev ファイルを再生成します。  
+  新しいコミット後にハッシュを最新にするには `make IDENT=1` を再実行してください。
 - **IDENT なし → `IDENT=1` 切り替え**: 過去に IDENT なしでビルドした場合、  
-  `make clean IDENT=1 && make IDENT=1` でフル リビルドすること。
+  `make clean IDENT=1 && make IDENT=1` でフル リビルドしてください。

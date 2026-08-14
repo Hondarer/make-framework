@@ -23,7 +23,7 @@ makemain.mk では、サブディレクトリの再帰的 make 処理に先立�
 ## ディレクトリ構成例
 
 ```text
-app/calc/prod/src/calcapp/
+app/example/prod/src/exampleapp/
 +-- makefile
 +-- shared/          # 両 OS で有効 (明示的)
 |   +-- makefile
@@ -58,7 +58,7 @@ SUBDIRS = shared/ utils/ windows/
 サブディレクトリが複数階層にまたがる場合、各階層で個別にフィルタリングが適用されます。最終ディレクトリ名のみで判定されるため、中間階層の名前は影響しません。
 
 ```text
-app/calc/prod/src/calcapp/
+app/example/prod/src/exampleapp/
 +-- platform/           # "platform" → 両 OS で有効
     +-- makefile
     +-- linux/           # "linux" → Linux でのみ有効

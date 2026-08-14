@@ -91,7 +91,7 @@ cov-build --append-log --dir app/idir make -C prod
 `app/<appname>/makefile` の `with-cov` は通常の `make` と同じ署名比較を使います。
 
 - `make_build.stamp` が一致する場合は build を skip
-- build が skip された app では Coverity 収集も追加実行しない
+- build が skip された app では Coverity 収集も追加実行しません。
 - `make test` の skip 判定は既存どおり `make_test.stamp`
 
 このため、依存関係が未変更で clean な状態では、`with-cov` は追加のビルド コストを発生させません。
@@ -122,7 +122,7 @@ cov-build --append-log --dir app/idir make -C prod
 
 ### Linux での事前登録手順
 
-Linux で `app/calc` などの C/C++ app を `with-cov` 対象にする場合は、まず GCC 系の設定を登録します。
+Linux で `app/example` などの C/C++ app を `with-cov` 対象にする場合は、まず GCC 系の設定を登録します。
 
 ```bash
 export COVERITY_HOME=/opt/coverity
@@ -197,14 +197,14 @@ Windows で C と C# を対象にする場合は、少なくとも MSVC 系と C
 
 ### 迷ったときの整理
 
-- Linux で `app/calc` だけ解析する
+- Linux で `app/example` だけ解析します。
     - `cov-configure --gcc`
-- Linux で `app/calc` と `app/calc.net` の両方を解析する
+- Linux で `app/example` と `app/example.net` の両方を解析します。
     - `cov-configure --gcc`
     - `cov-configure --cs`
-- Windows で `app/calc` だけ解析する
+- Windows で `app/example` だけ解析します。
     - `cov-configure --msvc`
-- Windows で `app/calc` と `app/calc.net` の両方を解析する
+- Windows で `app/example` と `app/example.net` の両方を解析します。
     - `cov-configure --msvc`
     - `cov-configure --cs`
 

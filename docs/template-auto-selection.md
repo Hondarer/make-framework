@@ -8,7 +8,7 @@ makefw では、`app/makefile` 用の app 直下テンプレート (`__app_templ
 
 これにより、以下のメリットが得られます:
 
-- **役割ごとの統一**: app 直下用・各 app 直下用・配下用でテンプレートを固定し、メンテナンスを容易にする
+- **役割ごとの統一**: app 直下用・各 app 直下用・配下用でテンプレートを固定し、メンテナンスを容易にします。
 - **ビルド/走査の自動分離**: 直下のソース有無で自動判定し、新規ディレクトリへの明示設定が不要
 - **自動判定**: ディレクトリ パスと .csproj の有無で自動的に適切なビルド テンプレートを選択
 - **柔軟性**: プロジェクト固有の設定は makepart.mk で管理
@@ -189,8 +189,8 @@ endif  # MAKEFW_BUILD
 
 | 条件 | 判定結果 |
 |------|---------|
-| パスに `/libsrc/` または `/src/` を含み、かつ直下に `*.c` / `*.cc` / `*.cpp` / `*.csproj` が存在する | `1` (ビルド実行) |
-| パスに `/libsrc/` または `/src/` を含み、Windows で直下に `*.mc` / `*.rc` が存在する | `1` (ビルド実行) |
+| パスに `/libsrc/` または `/src/` を含み、かつ直下に `*.c` / `*.cc` / `*.cpp` / `*.csproj` が存在します。 | `1` (ビルド実行) |
+| パスに `/libsrc/` または `/src/` を含み、Windows で直下に `*.mc` / `*.rc` が存在します。 | `1` (ビルド実行) |
 | パスに `/libsrc/` または `/src/` を含み、かつ `TEST_SRCS` / `ADD_SRCS` が指定されている | `1` (ビルド実行) |
 | 上記以外 | `0` (走査のみ) |
 
@@ -198,10 +198,10 @@ endif  # MAKEFW_BUILD
 
 | ディレクトリ パス | .csproj | 選択されるテンプレート |
 |--------------|---------|-------------------|
-| `/libsrc/` を含む | 無し | `makelibsrc_c_cpp.mk` |
-| `/libsrc/` を含む | 有り | `makelibsrc_dotnet.mk` |
-| `/src/` を含む | 無し | `makesrc_c_cpp.mk` |
-| `/src/` を含む | 有り | `makesrc_dotnet.mk` |
+| `/libsrc/` を含みます。 | 無し | `makelibsrc_c_cpp.mk` |
+| `/libsrc/` を含みます。 | 有り | `makelibsrc_dotnet.mk` |
+| `/src/` を含みます。 | 無し | `makesrc_c_cpp.mk` |
+| `/src/` を含みます。 | 有り | `makesrc_dotnet.mk` |
 | 上記以外 | - | エラー |
 
 ### MAKEFW_BUILD の明示設定が必要なケース
@@ -224,7 +224,7 @@ endif  # MAKEFW_BUILD
 ### C/C++ ライブラリ
 
 ```text
-ディレクトリ: app/calc/prod/libsrc/calc/
+ディレクトリ: app/example/prod/libsrc/example/
 ファイル構成:
   - makefile (__template.mk の内容)
   - add.c, subtract.c, multiply.c, divide.c
@@ -240,7 +240,7 @@ endif  # MAKEFW_BUILD
 ### .NET ライブラリ
 
 ```text
-ディレクトリ: app/calc.net/prod/libsrc/CalcLib/
+ディレクトリ: app/example.net/prod/libsrc/ExampleLib/
 ファイル構成:
   - makefile (__template.mk の内容)
   - CalcLib.csproj
@@ -257,7 +257,7 @@ endif  # MAKEFW_BUILD
 ### C/C++ 実行体
 
 ```text
-ディレクトリ: app/calc/prod/src/add/
+ディレクトリ: app/example/prod/src/example-command/
 ファイル構成:
   - makefile (__template.mk の内容)
   - add.c
@@ -273,7 +273,7 @@ endif  # MAKEFW_BUILD
 ### .NET 実行体
 
 ```text
-ディレクトリ: app/calc.net/prod/src/CalcApp/
+ディレクトリ: app/example.net/prod/src/ExampleApp/
 ファイル構成:
   - makefile (__template.mk の内容)
   - CalcApp.csproj
@@ -312,7 +312,7 @@ makepart.mk は、以下の階層に配置できます:
 **例 1: 動的ライブラリの指定**
 
 ```makefile
-# app/calc/prod/libsrc/calc/makepart.mk
+# app/example/prod/libsrc/example/makepart.mk
 
 # ライブラリの追加
 LIBS += calcbase
@@ -332,7 +332,7 @@ LIB_TYPE = shared
 **例 2: テスト共通設定**
 
 ```makefile
-# app/calc/test/makepart.mk
+# app/example/test/makepart.mk
 
 # テスト関連ライブラリは、すべて静的リンクとする
 ifeq ($(OS),Windows_NT)
@@ -356,8 +356,8 @@ endif
 すべての makefile を `__template.mk` の内容で置き換えます。
 
 ```bash
-# 例: app/calc/prod/libsrc/calc/makefile を更新
-cp framework/makefw/makefiles/__template.mk app/calc/prod/libsrc/calc/makefile
+# 例: app/example/prod/libsrc/example/makefile を更新
+cp framework/makefw/makefiles/__template.mk app/example/prod/libsrc/example/makefile
 
 # 一括更新には保守コマンドを使用
 python framework/makefw/bin/update_template_makefiles.py
@@ -371,7 +371,7 @@ python framework/makefw/bin/update_template_makefiles.py
 ただし、サブフォルダーのみにソースを置くライブラリ ルート (サブフォルダー コンパイル方式) は直下ソースがゼロのため自動判定では走査のみになります。このケースのみ `makelocal.mk` に明示設定が必要です。
 
 ```makefile
-# app/com_util/prod/libsrc/com_util/makelocal.mk
+# app/example/prod/libsrc/example/makelocal.mk
 # サブフォルダーのみにソースを持つライブラリ ルート。
 # 自動判定では 0 と誤判定されるため、ビルド対象として明示する。
 MAKEFW_BUILD := 1
@@ -421,7 +421,7 @@ LIB_TYPE = shared
 ### 動作確認
 
 ```bash
-cd app/calc/prod/libsrc/calc
+cd app/example/prod/libsrc/example
 make clean
 make
 ```
@@ -434,7 +434,7 @@ make
 
 **解決策**:
 
-1. ディレクトリ構造を見直し、`libsrc` または `src` の下に配置する
+1. ディレクトリ構造を見直し、`libsrc` または `src` の下に配置します。
 2. または、当該ディレクトリの `makelocal.mk` に `MAKEFW_BUILD := 0` を設定して走査のみに戻す
 
 ### ビルドが実行されない (サブディレクトリ走査のみになる)

@@ -90,7 +90,7 @@ MAKE_INCLUDE_MK += $(wildcard $(CURDIR)/makepart.mk)
 **例 1: 動的ライブラリの指定**
 
 ```makefile
-# app/calc/prod/libsrc/calc/makepart.mk
+# app/example/prod/libsrc/example/makepart.mk
 LIBS += calcbase
 
 ifeq ($(OS),Windows_NT)
@@ -106,7 +106,7 @@ LIB_TYPE = shared
 **例 1b: shared と static の両方を生成する**
 
 ```makefile
-# app/calc/prod/libsrc/calc/makepart.mk
+# app/example/prod/libsrc/example/makepart.mk
 LIBS += calcbase
 
 ifeq ($(OS),Windows_NT)
@@ -124,14 +124,14 @@ LIB_TYPE = both
 **例 2: 実行体の出力先統一**
 
 ```makefile
-# app/calc/prod/src/makepart.mk
+# app/example/prod/src/makepart.mk
 OUTPUT_DIR := $(MYAPP_DIR)/prod/cbin
 ```
 
 **例 3: テスト共通設定**
 
 ```makefile
-# app/calc/test/makepart.mk
+# app/example/test/makepart.mk
 
 ifeq ($(OS),Windows_NT)
     CFLAGS   += /DCALC_STATIC
@@ -144,7 +144,7 @@ endif
 **例 4: テスト対象ソースの指定**
 
 ```makefile
-# app/calc/test/src/libcalcbaseTest/addTest/makepart.mk
+# app/example/test/src/libexamplebaseTest/addTest/makepart.mk
 TEST_SRCS := \
     $(MYAPP_DIR)/prod/libsrc/calcbase/add.c
 ```
@@ -180,7 +180,7 @@ LINK_INPUTS += path/to/prebuilt.res
 **例 6: app 直下で IntelliSense 用の正本を持つ**
 
 ```makefile
-# app/calc/makepart.mk
+# app/example/makepart.mk
 # インクルードの検索パス
 INCDIR += \
     $(MYAPP_DIR)/../com_util/prod/include \
@@ -198,7 +198,7 @@ INCDIR += \
 `appdeps.mk` は `app/<name>/` 直下に置く app 間依存の一次情報です。`APP_DEPS` に直接依存する app 名を列挙します。
 
 ```makefile
-# app/porter/appdeps.mk
+# app/example/appdeps.mk
 APP_DEPS := com_util
 ```
 
@@ -305,14 +305,14 @@ OUTPUT_DIR := $(WORKSPACE_DIR)/bin/myapp
 **例 3: サブフォルダー コンパイル方式の設定**
 
 ```makefile
-# app/subfolder-sample/prod/libsrc/libsubfolder-sample/makechild.mk
+# app/example/prod/libsrc/libexample/makechild.mk
 # 各サブフォルダーはコンパイルのみとし、リンクはライブラリルートで行う
 NO_LINK = 1
 ```
 
 `NO_LINK = 1` を `makechild.mk` に設定することで、カレント ディレクトリ (`libsubfolder-sample/`) は  
 全サブフォルダーのオブジェクトを収集してリンクし、子ディレクトリ (`audio/` 等) はコンパイルのみとなります。  
-詳細は [サブフォルダー コンパイル](../../../app/general/docs/subfolder-compilation.md) を参照してください。
+詳細は [サブフォルダー コンパイル](subfolder-compilation.md) を参照してください。
 
 ## makelocal.mk
 
@@ -387,9 +387,9 @@ SUBDIRS := \
 
 | 場所 | MYAPP_DIR | APP_DIR | 説明 |
 |------|:---:|:---:|------|
-| `app/calc/makepart.mk` | ✓ | ✓ | `MYAPP_DIR=/path/to/workspace/app/calc`, `APP_DIR=/path/to/workspace/app` |
-| `app/calc/prod/libsrc/calcbase/makepart.mk` | ✓ | ✓ | `MYAPP_DIR=/path/to/workspace/app/calc`, `APP_DIR=/path/to/workspace/app` |
-| `app/com_util/test/src/.../makepart.mk` | ✓ | ✓ | `MYAPP_DIR=/path/to/workspace/app/com_util`, `APP_DIR=/path/to/workspace/app` |
+| `app/example/makepart.mk` | ✓ | ✓ | `MYAPP_DIR=/path/to/workspace/app/example`, `APP_DIR=/path/to/workspace/app` |
+| `app/example/prod/libsrc/examplebase/makepart.mk` | ✓ | ✓ | `MYAPP_DIR=/path/to/workspace/app/example`, `APP_DIR=/path/to/workspace/app` |
+| `app/another/test/src/.../makepart.mk` | ✓ | ✓ | `MYAPP_DIR=/path/to/workspace/app/another`, `APP_DIR=/path/to/workspace/app` |
 | `app/makepart.mk` | ✗ | ✗ | app/ 直下 — `$(WORKSPACE_DIR)` を使用 |
 | `makepart.mk` (ルート) | ✗ | ✗ | ルート — `$(WORKSPACE_DIR)` を使用 |
 | `framework/` 配下 | ✗ | ✗ | フレームワーク — 対象外 |
@@ -401,7 +401,7 @@ SUBDIRS := \
 #### 自 app 内の参照
 
 ```makefile
-# app/calc/makepart.mk
+# app/example/makepart.mk
 INCDIR += $(MYAPP_DIR)/prod/include
 OUTPUT_DIR := $(MYAPP_DIR)/prod/cbin
 ```
@@ -409,7 +409,7 @@ OUTPUT_DIR := $(MYAPP_DIR)/prod/cbin
 #### 他 app の参照 (cross-app)
 
 ```makefile
-# app/calc/makepart.mk
+# app/example/makepart.mk
 INCDIR += $(APP_DIR)/com_util/prod/include
 ```
 
@@ -508,7 +508,7 @@ MY_LOCAL_VAR := 1
 ガードがないと、対象プラットフォームのコマンドやライブラリが存在しないホストでの同期評価が `$(error)` で失敗し、ビルド後の同期チェック全体がエラー終了します。
 
 ```makefile
-# app/service-sample/prod/src/cmd/makepart.mk
+# app/example/prod/src/cmd/makepart.mk
 ifdef PLATFORM_LINUX
     # libsystemd を直接リンクする
     # ホスト環境のプローブは実ビルド時 (MAKEFW_SYNC_EVAL 未定義時) のみ行う
@@ -557,7 +557,7 @@ ADD_SRCS := \
 
 **ソース コードを変更する場合は、`prod/` にある実体ファイルを変更してください。**
 
-例として `app/calc/test/src/libcalcbaseTest/addTest/add.c` は `app/calc/prod/libsrc/calcbase/add.c` へのシンボリック リンクです。このファイルを変更したい場合は `app/calc/prod/libsrc/calcbase/add.c` を変更します。
+例として `app/example/test/src/libexamplebaseTest/addTest/add.c` は `app/example/prod/libsrc/examplebase/add.c` へのシンボリック リンクです。このファイルを変更したい場合は `app/example/prod/libsrc/examplebase/add.c` を変更します。
 
 ### TEST_SRCS からソースを除去したときの残存成果物
 
