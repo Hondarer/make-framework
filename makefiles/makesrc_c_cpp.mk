@@ -646,7 +646,7 @@ _test_main: $(TESTSH)
 					exit 1; \
 				fi; \
 				status=0; \
-				export TEST_SRCS="$(TEST_SRCS)" && export ADD_SRCS="$(ADD_SRCS)" && "$(SHELL)" "$(TESTSH)" > >($(ICONV)) 2> >($(ICONV) >&2) || status=$$?; \
+				export TEST_SRCS="$(TEST_SRCS)" && export ADD_SRCS="$(ADD_SRCS)" && export MAKEFW_TEST_LIBS="$(LIBSFILES)" && "$(SHELL)" "$(TESTSH)" > >($(ICONV)) 2> >($(ICONV) >&2) || status=$$?; \
 				exit $$status
     else
         # コンパイルのみ (実行するテストはない)
