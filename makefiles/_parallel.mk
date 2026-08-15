@@ -1,5 +1,14 @@
 # make とコンパイラに割り当てる並列度を解決する共通処理。
 # recipe 内で評価し、解決した CPU 予算を子 make へ引き継ぐ。
+#
+# Windows の MSVC は 1 つの app 内で _msvc_compile_c_normal / _msvc_compile_c_test /
+# _msvc_compile_cpp_normal / _msvc_compile_cpp_test の最大 4 サブターゲットが
+# make -j の並列スロットを消費する。
+# 単純に floor(CPU / make_j) を /MP に割り当てると、複数 app の並列ビルド時に
+# 瞬間的な cl.exe プロセス数が想定を超え、メモリ不足を引き起こしやすい。
+# そのため Windows では /MP を floor(inner_jobs / 2) に抑制することで
+# ピーク時のメモリ圧力を下げている。
+# MAKEFW_CL_MP_JOBS を明示指定した場合はその値を優先する。
 
 ifndef _MAKEFW_PARALLEL_MK
 _MAKEFW_PARALLEL_MK := 1
@@ -20,7 +29,8 @@ MAKEFW_ALLOW_JOB_FALLBACK := $(or $(MAKEFW_AUTO_DEFAULT_PARALLEL),$(MAKEFW_HAS_U
 # makeflags、明示設定、自動設定の順で外側と内側の並列度を解決する。
 # Linux の make は CPU 数と 16 の小さい方を使う。
 # Windows の make は ceil(sqrt(CPU 数)) と 8 の小さい方を使う。
-# MSVC と MSBuild は floor(CPU 数 / make 並列度) を 1 から 16 の範囲で使う。
+# MSVC は floor(floor(CPU 数 / make 並列度) / 2) を 1 から 16 の範囲で使う。
+# MSBuild は floor(CPU 数 / make 並列度) を 1 から 16 の範囲で使う。
 define _MAKEFW_RESOLVE_PARALLEL_SHELL
 	makeflags="$${MAKEFLAGS:-} $${MFLAGS:-}"; \
 	jobs=""; \
@@ -70,7 +80,14 @@ define _MAKEFW_RESOLVE_PARALLEL_SHELL
 		inner_jobs=1; \
 	fi; \
 	if [ "$(MAKEFW_HAS_USER_CL_MP_JOBS)" = "1" ]; then cl_jobs="$(MAKEFW_CL_MP_JOBS)"; fi; \
-	if [ -z "$$cl_jobs" ]; then cl_jobs="$$inner_jobs"; fi; \
+	if [ -z "$$cl_jobs" ]; then \
+		if [ "$(OS)" = "Windows_NT" ]; then \
+			cl_jobs=$$((inner_jobs / 2)); \
+			if [ $$cl_jobs -lt 1 ]; then cl_jobs=1; fi; \
+		else \
+			cl_jobs="$$inner_jobs"; \
+		fi; \
+	fi; \
 	if [ "$(MAKEFW_HAS_USER_MSBUILD_JOBS)" = "1" ]; then msbuild_jobs="$(MAKEFW_MSBUILD_JOBS)"; fi; \
 	if [ -z "$$msbuild_jobs" ]; then msbuild_jobs="$$inner_jobs"; fi; \
 	case "$$cl_jobs" in *[!0-9]*|0|'') echo "ERROR: MAKEFW_CL_MP_JOBS must be a positive integer: $$cl_jobs" >&2; exit 2 ;; esac; \
