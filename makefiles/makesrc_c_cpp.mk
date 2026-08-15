@@ -544,6 +544,9 @@ $(OUTPUT_DIR):
 $(OBJDIR):
 	mkdir -p $@
 
+$(GENDIR):
+	mkdir -p $@
+
 # 削除対象の定義
 # Define files/directories to clean
 # カレント ディレクトリ配下の絶対パスを相対パスに変換する (make の出力を読みやすくする)
@@ -568,7 +571,7 @@ endif
 
 MAKEFW_CLEAN_IMPORTED_SRCS := $(strip $(sort $(notdir $(CP_SRCS) $(LINK_SRCS)) $(MAKEFW_CLEAN_GITIGNORE_SRCS)))
 
-CLEAN_COMMON := $(strip $(call _relpath,$(OUTPUT_DIR)/$(TARGET)) $(call _relpath,$(OUTPUT_DIR)/$(TARGET).warn) $(OBJDIR) $(GCOVDIR) $(COVERAGEDIR) $(MAKEFW_CLEAN_IMPORTED_SRCS) results test.stamp)
+CLEAN_COMMON := $(strip $(call _relpath,$(OUTPUT_DIR)/$(TARGET)) $(call _relpath,$(OUTPUT_DIR)/$(TARGET).warn) $(OBJDIR) $(GENDIR) $(GCOVDIR) $(COVERAGEDIR) $(MAKEFW_CLEAN_IMPORTED_SRCS) results test.stamp)
 ifdef PLATFORM_LINUX
     CLEAN_OS := core $(LCOVDIR)
 else ifdef PLATFORM_WINDOWS

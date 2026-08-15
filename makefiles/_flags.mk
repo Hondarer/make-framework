@@ -225,6 +225,12 @@ else ifdef PLATFORM_WINDOWS
     OBJDIR  := obj/$(MSVC_CRT_SUBDIR)
 endif
 
+# コード生成ツール (mc.exe / 将来の flex, bison 等) の中間出力専用ディレクトリ。
+# コンパイル前のソース相当物 (.h, .c, .rc など) を置き、コンパイル結果 (.o/.obj/.res) の
+# OBJDIR とは区別する。生成物自体は CRT 設定に依存しないため、OBJDIR と異なり
+# CRT ごとのサブディレクトリは持たず、単一の gen を共有する。
+GENDIR := gen
+
 # 警告キャプチャ スクリプト (コンパイラ/リンカー出力から .warn ファイルを生成)
 # Warning capture script (generates .warn files from compiler/linker output)
 CAPTURE_WARNINGS := "$(SHELL)" "$(WORKSPACE_DIR)/framework/makefw/bin/capture_warnings.sh"
