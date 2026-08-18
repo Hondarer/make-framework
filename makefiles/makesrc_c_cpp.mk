@@ -4,6 +4,7 @@ include $(WORKSPACE_DIR)/framework/makefw/makefiles/_should_skip.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_hooks.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_msvc_compile.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_resource_compile.mk
+include $(WORKSPACE_DIR)/framework/makefw/makefiles/_flex_bison_compile.mk
 
 # テスト ライブラリの設定
 # Set test libraries
@@ -273,6 +274,13 @@ ifdef PLATFORM_LINUX
     SUBDIR_OBJS := $(shell bash "$(MAKEFW_HOME)/bin/filter_existing_source_objs.sh" linux subdirs)
 endif
 OBJS += $(SUBDIR_OBJS)
+
+# flex/bison (および GENDIR_EXTRA_C 経由のアプリ独自コード生成) 由来のオブジェクトを、
+# ビルド対象として Make の依存グラフへ組み込む (_flex_bison_compile.mk)。
+# 実際のリンク コマンドへの合流は同ファイルが MAKEFW_EXTRA_OBJS 経由で別途行う
+# (filter_existing_source_objs.sh は SRCS_C 由来のオブジェクトしか検出しないため)。
+# GENDIR_OBJS は常に .o 拡張子で計算されるため、Windows では他の OBJS と同様に .obj へ変換する。
+OBJS += $(if $(PLATFORM_WINDOWS),$(patsubst %.o,%.obj,$(GENDIR_OBJS)),$(GENDIR_OBJS))
 
 MAKEFW_ARTIFACT_ROOT := $(shell \
 	dir="$(CURDIR)"; \

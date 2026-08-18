@@ -178,7 +178,40 @@ LINK_INPUTS += path/to/prebuilt.res
 
 `LINK_INPUTS` は EXE / DLL リンク時の依存関係と再リンク判定に使われ、リンカー入力として直接渡されます。
 
-**例 6: app 直下で IntelliSense 用の正本を持つ**
+**例 6: flex/bison (.l/.y) を埋め込む**
+
+ソース ディレクトリに `.l` (flex) または `.y` (bison) を置くだけで、makefw が自動的に `flex`/`bison` で C ソースへ変換し、実行体 (EXE) または共有ライブラリ (DLL) のコンパイル対象に含めます。makepart.mk / makelocal.mk への記述は不要です。
+
+```text
+src/cmd/mytool/
+  mytool_main.c
+  mytool.l   <- 置くだけで自動変換・コンパイル
+  mytool.y   <- 置くだけで自動変換・コンパイル
+```
+
+- `flex`/`bison` は Linux/Windows 共通の外部コマンドとして扱います。`.mc`/`.rc` (Windows SDK 専用ツール) と異なり `PLATFORM_*` による出し分けは行いません。Windows では `win_flex`/`win_bison` を `flex.exe`/`bison.exe` という名前で PATH に配置済みであることを前提とします。
+- `.y` は `bison -d` で `$(GENDIR)/<stem>.tab.c` と `$(GENDIR)/<stem>.tab.h` を、`.l` は `flex` で `$(GENDIR)/<stem>.lex.c` を生成します。生成された C ソースはコンパイル対象に近い中間ファイルとして `GENDIR` (`gen/`) に置きます。コンパイル結果 (`.o`/`.obj`) は他の `.o`/`.obj` と同様に `OBJDIR` (`obj/`) に置きます。`GENDIR` は `OBJDIR` と異なり CRT (ランタイム ライブラリ) ごとのサブディレクトリを持たず、単一の `gen/` を共有します。
+- flex/bison のコマンドは `BISON` (既定 `bison`) / `FLEX` (既定 `flex`)、フラグは `BISONFLAGS` / `FLEXFLAGS` で上書きできます。
+- `.l`/`.y` はビルドのスキップ判定 (署名) の対象です。これらを変更すると次回ビルドで再変換・再コンパイル・再リンクが走ります。
+
+**GENDIR_EXTRA_C: flex/bison 以外の手段で `gen/` に C ソースを生成する場合**
+
+ヘッダー解析ツールなど、flex/bison 自体ではなく `.l`/`.y` から生成した独自ツールが `gen/` へ C ソースを生成するケースでは、`GENDIR_EXTRA_C` にそのファイルのパスを追加し、対応する Make ルールをアプリ側の `makepart.mk` で定義します。コンパイル (`gen/*.c` → `obj/*.o`/`.obj`) は上記と同じ機構がそのまま扱います。
+
+```makefile
+# app/example/prod/src/cmd/mytool/makepart.mk
+# GENDIR は _flags.mk (このファイルより後に読み込まれる) で定義されるため、
+# ここでは変数を参照できない。GENDIR は常にワークスペース共通の "gen" なので、
+# リテラルを直接使う。
+gen/example_meta.gen.c: example_types.h $(MYAPP_DIR)/prod/cbin/mytool-gen | gen
+	$(MYAPP_DIR)/prod/cbin/mytool-gen --header $< --out $@
+
+GENDIR_EXTRA_C += gen/example_meta.gen.c
+```
+
+具体例は `app/struct-json-sample` (flex/bison でヘッダーを解析し、構造体のメタデータ C ソースを生成する PoC) を参照してください。
+
+**例 7: app 直下で IntelliSense 用の正本を持つ**
 
 ```makefile
 # app/example/makepart.mk

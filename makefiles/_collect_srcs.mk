@@ -130,6 +130,13 @@ ifdef PLATFORM_WINDOWS
     SRCS_RC := $(sort $(wildcard *.rc))
 endif
 
+# flex (.l) / bison (.y) ソースの自動収集
+# Auto-collect flex (.l) / bison (.y) sources
+# flex/bison はクロスプラットフォームな外部コマンドとして扱うため、
+# .mc/.rc と異なり PLATFORM_* 分岐は行わない。コンパイルは _flex_bison_compile.mk が担当する。
+SRCS_L := $(sort $(wildcard *.l))
+SRCS_Y := $(sort $(wildcard *.y))
+
 # INCDIR は prepare.mk で正規化済み (realpath -m + sort による重複除去)
 # INCDIR is already normalized in prepare.mk (realpath -m + sort for dedup)
 
