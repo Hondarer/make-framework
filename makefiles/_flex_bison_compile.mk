@@ -2,8 +2,8 @@
 #
 # flex / bison はクロスプラットフォームな外部コマンドとして扱い、mc.exe/rc.exe の
 # ような Windows 専用ツールと異なり PLATFORM_* によるコンパイル対象の出し分けは
-# 行わない。Windows では win_flex/win_bison を flex.exe / bison.exe という名前で
-# PATH に配置済みであることを前提とする。
+# 行わない。Windows で win_flex/win_bison を使う場合は、BISON / FLEX で実行する
+# コマンド名を指定する。
 #
 # bison の生成物 (.tab.c / .tab.h) と flex の生成物 (.lex.c) はコンパイル対象に近い
 # 中間ファイルであり、$(GENDIR) に置く。コンパイル結果 (.o/.obj) は他の .o/.obj と
@@ -22,7 +22,14 @@
 BISON ?= bison
 FLEX ?= flex
 BISONFLAGS ?=
+ifdef PLATFORM_WINDOWS
+# win_flex の生成コードを MSVC でコンパイルできるように、unistd.h ではなく
+# Windows 互換 API を使用させる。
+# see: https://github.com/lexxmark/winflexbison
+FLEXFLAGS ?= --wincompat
+else ifdef PLATFORM_LINUX
 FLEXFLAGS ?=
+endif
 
 GEN_TAB_C := $(addprefix $(GENDIR)/,$(SRCS_Y:.y=.tab.c))
 GEN_TAB_H := $(addprefix $(GENDIR)/,$(SRCS_Y:.y=.tab.h))
@@ -64,9 +71,9 @@ MAKEFW_EXTRA_OBJS += $(if $(PLATFORM_WINDOWS),$(patsubst %.o,%.obj,$(GENDIR_OBJS
 # (see: app/cjson/makepart.mk)、生成コードに起因する警告に限り例外的に抑制する。
 # GENDIR_EXTRA_C 経由でアプリが自前生成する .c (flex/bison 由来ではない) は、
 # アプリ側のコード品質に責任があるため、ここでの抑制対象に含めない。
+ifdef PLATFORM_LINUX
 MAKEFW_FLEXBISON_WARN_SUPPRESS := -Wno-conversion -Wno-sign-conversion -Wno-switch-default -Wno-padded
 
-ifdef PLATFORM_LINUX
 $(OBJDIR)/%.o: $(GENDIR)/%.c $(GEN_TAB_H) | $(OBJDIR)
 	@echo "$(CC) -I. -I$(GENDIR) -c -o $@ $<"
 	@$(CC) $(CFLAGS) -I. -I$(GENDIR) $(if $(filter $(GEN_TAB_C) $(GEN_LEX_C),$<),$(MAKEFW_FLEXBISON_WARN_SUPPRESS)) -c -o $@ $<
@@ -77,6 +84,8 @@ endif # PLATFORM_LINUX
 # 指定すればソース側のサブディレクトリを問わず基底ファイル名で .obj を出力するため、
 # gen/ 配下のソースをそのまま渡せる。
 ifdef PLATFORM_WINDOWS
+MAKEFW_FLEXBISON_WARN_SUPPRESS := /wd4702
+
 .PHONY: _flex_bison_msvc_compile
 _msvc_compile: _flex_bison_msvc_compile
 _flex_bison_msvc_compile: $(GENDIR_C) | $(OBJDIR) $(OUTPUT_DIR)

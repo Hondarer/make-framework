@@ -189,9 +189,9 @@ src/cmd/mytool/
   mytool.y   <- 置くだけで自動変換・コンパイル
 ```
 
-- `flex`/`bison` は Linux/Windows 共通の外部コマンドとして扱います。`.mc`/`.rc` (Windows SDK 専用ツール) と異なり `PLATFORM_*` による出し分けは行いません。Windows では `win_flex`/`win_bison` を `flex.exe`/`bison.exe` という名前で PATH に配置済みであることを前提とします。
+- `flex`/`bison` は Linux/Windows 共通の外部コマンドとして扱います。`.mc`/`.rc` (Windows SDK 専用ツール) と異なり、変換対象を `PLATFORM_*` で出し分けません。Windows で WinFlexBison を使う場合は、`BISON=win_bison` と `FLEX=win_flex` を指定します。
 - `.y` は `bison -d` で `$(GENDIR)/<stem>.tab.c` と `$(GENDIR)/<stem>.tab.h` を、`.l` は `flex` で `$(GENDIR)/<stem>.lex.c` を生成します。生成された C ソースはコンパイル対象に近い中間ファイルとして `GENDIR` (`gen/`) に置きます。コンパイル結果 (`.o`/`.obj`) は他の `.o`/`.obj` と同様に `OBJDIR` (`obj/`) に置きます。`GENDIR` は `OBJDIR` と異なり CRT (ランタイム ライブラリ) ごとのサブディレクトリを持たず、単一の `gen/` を共有します。
-- flex/bison のコマンドは `BISON` (既定 `bison`) / `FLEX` (既定 `flex`)、フラグは `BISONFLAGS` / `FLEXFLAGS` で上書きできます。
+- flex/bison のコマンドは `BISON` (既定 `bison`) / `FLEX` (既定 `flex`)、フラグは `BISONFLAGS` / `FLEXFLAGS` で上書きできます。Windows の `FLEXFLAGS` は、WinFlexBison の生成コードが MSVC で利用できるように `--wincompat` を既定値とします。
 - `.l`/`.y` はビルドのスキップ判定 (署名) の対象です。これらを変更すると次回ビルドで再変換・再コンパイル・再リンクが走ります。
 
 **GENDIR_EXTRA_C: flex/bison 以外の手段で `gen/` に C ソースを生成する場合**
