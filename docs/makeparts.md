@@ -209,8 +209,6 @@ gen/example_meta.gen.c: example_types.h $(MYAPP_DIR)/prod/cbin/mytool-gen | gen
 GENDIR_EXTRA_C += gen/example_meta.gen.c
 ```
 
-具体例は `app/struct-json-sample` (flex/bison でヘッダーを解析し、構造体のメタデータ C ソースを生成する PoC) を参照してください。
-
 **例 7: app 直下で IntelliSense 用の正本を持つ**
 
 ```makefile
