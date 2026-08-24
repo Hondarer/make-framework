@@ -86,16 +86,17 @@ Linux では `nproc`、Windows では `NUMBER_OF_PROCESSORS` から CPU 予算�
 `MAKEFW_CPU_BUDGET` に正の整数を指定すると、自動検出した CPU 予算を上書きできます。
 
 Linux の make には CPU 予算と 16 の小さい方を割り当てます。  
-Windows の make には CPU 予算の平方根を切り上げた値を割り当て、上限を 8 とします。  
-MSVC の `/MP` と MSBuild の `-m` には、CPU 予算を make の並列度で割った値を割り当て、1 から 16 の範囲に制限します。  
-この配分により、GNU Make とコンパイラによる二重の並列化が CPU 予算を超えないようにします。
+Windows の make には `ceil(sqrt(2 * CPU 数))` を割り当て、上限を 12 とします。  
+MSBuild の `-m` には `floor(CPU 数 / make の並列度)` を割り当て、1 から 16 の範囲に制限します。  
+MSVC の `/MP` にはその値をさらに 2 で割った `floor(floor(CPU 数 / make の並列度) / 2)` を割り当て、1 から 16 の範囲に制限します。  
+Windows では make の外側の並列度を増やしつつ、1 つの `cl.exe` が生成する子プロセス数を抑えることで、CPU の利用効率とコンパイル時のスタック・メモリ使用量を調整します。
 
 論理 CPU が 72 個ある場合の自動設定は次のとおりです。
 
 | OS | make | GCC | MSVC | MSBuild |
 |---|---:|---:|---:|---:|
 | Linux | `-j16` | make の並列度を使用 | - | `-m:4` |
-| Windows | `-j8` | - | `/MP9` | `-m:9` |
+| Windows | `-j12` | - | `/MP3` | `-m:6` |
 
 引数なし、`default`、`build`、`clean`、`rebuild`、`test` では自動設定を使用します。  
 `make test` は内部で 2 フェーズに分かれます。Phase 1 (ビルド フェーズ、ターゲット `_test_build`) はテスト バイナリのコンパイルとリンクのみを自動設定の並列度で実行し、Phase 2 (実行フェーズ、ターゲット `_test_run`) はテストの実行順を維持するため `-j1` で実行します。  
@@ -123,6 +124,10 @@ make -j4
 
 GNU Make の `-j` をジョブ数なしで指定した場合、make の並列度に上限がないため、MSVC と MSBuild の並列度は 1 とします。  
 `MAKEFW_CL_MP_JOBS` または `MAKEFW_MSBUILD_JOBS` を明示した場合は、その値を優先します。
+
+Windows の MSVC コンパイルは、1 回の `cl.exe` に渡すソース本数を既定で 32 本に制限します。  
+`MAKEFW_MSVC_SOURCES_PER_BATCH` で本数を変更でき、`MAKEFW_MSVC_BATCH_MAX_CHARS` で既存のコマンド文字数上限 (既定 8000) も変更できます。  
+ソース本数を分割しても各ソースの `.obj` は同じ場所へ生成されるため、リンク入力と依存関係の扱いは変わりません。
 
 ## 運用上の注意
 

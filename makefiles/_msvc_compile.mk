@@ -13,6 +13,15 @@ CXXFLAGS += $(MAKEFW_CL_MPFLAG)
 # MSVC コンパイル スクリプトのパス
 MSVC_COMPILE_SCRIPT := $(MAKEFW_HOME)/bin/msvc_compile.ps1
 
+# 1 回の cl.exe に渡すソース本数の上限。
+# 大きな C/C++ ソース群を 1 プロセスへ渡すと、/MP の子プロセスごとの
+# メモリ・スタック使用量が増え、Windows の多コア環境でビルドが不安定になる。
+# 文字数上限も併用するため、長いパスのワークスペースでも安全側に分割される。
+MAKEFW_MSVC_SOURCES_PER_BATCH ?= 32
+MAKEFW_MSVC_BATCH_MAX_CHARS ?= 8000
+# runner が MAKEFLAGS を消して再帰 make を起動しても、ユーザー指定値を維持する。
+export MAKEFW_MSVC_SOURCES_PER_BATCH MAKEFW_MSVC_BATCH_MAX_CHARS
+
 # 再コンパイルが必要なソースを抽出する外部スクリプト
 FIND_DIRTY_SRCS_SCRIPT := $(MAKEFW_HOME)/bin/find_dirty_srcs.sh
 
@@ -58,27 +67,32 @@ MSVC_CXXFLAGS_TEST = $(filter-out /Fd:%,$(CXXFLAGS_TEST)) /Fd:$(MSVC_PDB)
 
 _msvc_compile: _msvc_compile_c_normal _msvc_compile_c_test _msvc_compile_cpp_normal _msvc_compile_cpp_test
 
-# 8192 バイト単位に分割して MSVC コンパイルを実行するヘルパー
+# ソース本数とコマンド文字数の上限で分割して MSVC コンパイルを実行するヘルパー
 # 引数: compiler, flags, objdir, sources, extra_flags (optional)
 define _run_msvc_compile
 	@srcs="$(4)"; \
 	if [ -n "$$srcs" ]; then \
-		chunk=""; \
-		for src in $$srcs; do \
-			if [ $$(($${#chunk} + $${#src} + 1)) -gt 8000 ]; then \
+		max_sources="$(MAKEFW_MSVC_SOURCES_PER_BATCH)"; \
+		max_chars="$(MAKEFW_MSVC_BATCH_MAX_CHARS)"; \
+		case "$$max_sources" in *[!0-9]*|0|'') echo "ERROR: MAKEFW_MSVC_SOURCES_PER_BATCH must be a positive integer: $$max_sources" >&2; exit 2 ;; esac; \
+		case "$$max_chars" in *[!0-9]*|0|'') echo "ERROR: MAKEFW_MSVC_BATCH_MAX_CHARS must be a positive integer: $$max_chars" >&2; exit 2 ;; esac; \
+		chunk=""; chunk_sources=0; \
+		flush_chunk() { \
+			if [ -n "$$chunk" ]; then \
 				$(MAKEFW_POWERSHELL_COMMAND) -File "$(MSVC_COMPILE_SCRIPT)" \
 					-Compiler "$(1)" -Flags "$(2)" -ObjDir "$(3)" \
-					-Sources "$$chunk" -WorkspaceDir "$(WORKSPACE_DIR)" $(5) || exit $$?; \
-				chunk="$$src"; \
-			else \
-				if [ -n "$$chunk" ]; then chunk="$$chunk $$src"; else chunk="$$src"; fi; \
+					-Sources "$$chunk" -WorkspaceDir "$(WORKSPACE_DIR)" $(5) || return $$?; \
+				chunk=""; chunk_sources=0; \
 			fi; \
+		}; \
+		for src in $$srcs; do \
+			if [ -n "$$chunk" ] && { [ "$$chunk_sources" -ge "$$max_sources" ] || [ $$(($${#chunk} + $${#src} + 1)) -gt "$$max_chars" ]; }; then \
+				flush_chunk || exit $$?; \
+			fi; \
+			if [ -n "$$chunk" ]; then chunk="$$chunk $$src"; else chunk="$$src"; fi; \
+			chunk_sources=$$((chunk_sources + 1)); \
 		done; \
-		if [ -n "$$chunk" ]; then \
-			$(MAKEFW_POWERSHELL_COMMAND) -File "$(MSVC_COMPILE_SCRIPT)" \
-				-Compiler "$(1)" -Flags "$(2)" -ObjDir "$(3)" \
-				-Sources "$$chunk" -WorkspaceDir "$(WORKSPACE_DIR)" $(5) || exit $$?; \
-		fi; \
+		flush_chunk || exit $$?; \
 	fi
 endef
 

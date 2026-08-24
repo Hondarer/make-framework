@@ -27,8 +27,11 @@ MAKEFW_AUTO_DEFAULT_PARALLEL := $(if $(strip $(MAKECMDGOALS)),$(if $(filter 1,$(
 MAKEFW_ALLOW_JOB_FALLBACK := $(or $(MAKEFW_AUTO_DEFAULT_PARALLEL),$(MAKEFW_HAS_USER_JOBS),$(MAKEFW_HAS_USER_JOBS_EFFECTIVE))
 
 # makeflags、明示設定、自動設定の順で外側と内側の並列度を解決する。
+# runner が MAKEFLAGS を消して再帰 make を起動しても、解決済みの並列度を維持するため、
+# recipe 内で MAKEFW_CPU_BUDGET / MAKEFW_CL_MP_JOBS / MAKEFW_MSBUILD_JOBS を export する。
 # Linux の make は CPU 数と 16 の小さい方を使う。
-# Windows の make は ceil(sqrt(CPU 数)) と 8 の小さい方を使う。
+# Windows の make は ceil(sqrt(2 * CPU 数)) と 12 の小さい方を使う。
+# 72 論理 CPU では -j12 となり、inner_jobs=6、/MP3、MSBuild -m:6 になる。
 # MSVC は floor(floor(CPU 数 / make 並列度) / 2) を 1 から 16 の範囲で使う。
 # MSBuild は floor(CPU 数 / make 並列度) を 1 から 16 の範囲で使う。
 define _MAKEFW_RESOLVE_PARALLEL_SHELL
@@ -61,7 +64,7 @@ define _MAKEFW_RESOLVE_PARALLEL_SHELL
 	if [ -z "$$jobs" ] && [ -z "$$unlimited_parallel" ] && [ -n "$$allow_job_fallback" ]; then \
 		if [ "$(OS)" = "Windows_NT" ]; then \
 			jobs=1; \
-			while [ $$((jobs * jobs)) -lt $$cpu ] && [ $$jobs -lt 8 ]; do jobs=$$((jobs + 1)); done; \
+			while [ $$((jobs * jobs)) -lt $$((cpu * 2)) ] && [ $$jobs -lt 12 ]; do jobs=$$((jobs + 1)); done; \
 		else \
 			jobs=$$cpu; \
 			if [ $$jobs -gt 16 ]; then jobs=16; fi; \
@@ -94,7 +97,9 @@ define _MAKEFW_RESOLVE_PARALLEL_SHELL
 	case "$$msbuild_jobs" in *[!0-9]*|0|'') echo "ERROR: MAKEFW_MSBUILD_JOBS must be a positive integer: $$msbuild_jobs" >&2; exit 2 ;; esac; \
 	parallel_make_args="MAKEFW_CPU_BUDGET=$$cpu MAKEFW_CL_MP_JOBS=$$cl_jobs MAKEFW_MSBUILD_JOBS=$$msbuild_jobs"; \
 	if [ -n "$$jobs" ]; then parallel_make_args="JOBS_EFFECTIVE=$$jobs $$parallel_make_args"; fi; \
-	if [ -z "$$has_parallel" ] && [ -n "$$jobs" ] && [ -n "$$allow_job_fallback" ]; then parallel_make_args="-j$$jobs $$parallel_make_args"; fi;
+	if [ -z "$$has_parallel" ] && [ -n "$$jobs" ] && [ -n "$$allow_job_fallback" ]; then parallel_make_args="-j$$jobs $$parallel_make_args"; fi; \
+	export MAKEFW_CPU_BUDGET="$$cpu" MAKEFW_CL_MP_JOBS="$$cl_jobs" MAKEFW_MSBUILD_JOBS="$$msbuild_jobs"; \
+	if [ -n "$$jobs" ]; then export JOBS_EFFECTIVE="$$jobs"; fi;
 endef
 
 endif
