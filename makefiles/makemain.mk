@@ -71,6 +71,23 @@ ifeq ($(MAKEFW_BUILD),)
     endif
 endif
 
+# app 直下 make が MAKEFW_SKIP_TEST_SRC=1 を渡した test/ でのみ src を外す。
+# Drop src only at test/ when the app-root make passed MAKEFW_SKIP_TEST_SRC=1.
+# Direct make under test/ or test/src is not skipped (escape hatch).
+_MAKEFW_SKIP_TEST_SRC_NOTICE :=
+ifeq ($(MAKEFW_SKIP_TEST_SRC),1)
+ifeq ($(_MYAPP_IS_VALID),1)
+ifeq ($(filter clean,$(MAKECMDGOALS)),)
+    ifeq ($(CURDIR),$(MYAPP_DIR)/test)
+        ifneq ($(filter src src/,$(SUBDIRS)),)
+            SUBDIRS := $(filter-out src src/,$(SUBDIRS))
+            _MAKEFW_SKIP_TEST_SRC_NOTICE := 1
+        endif
+    endif
+endif
+endif
+endif
+
 ifeq ($(MAKEFW_BUILD),1)
 
 # パスに /libsrc/ を含む場合はライブラリ用テンプレート
@@ -186,3 +203,20 @@ _test_run:
 .PHONY: _makefw_is_test_leaf
 _makefw_is_test_leaf:
 	@if [ "$(MAKEFW_TEST_LEAF)" = "1" ]; then echo 1; else echo 0; fi
+
+# app 直下 make から test/ へ降りたときだけ INFO を 1 回出す。
+ifeq ($(_MAKEFW_SKIP_TEST_SRC_NOTICE),1)
+.PHONY: _makefw_skip_test_src
+_makefw_skip_test_src:
+	@echo "INFO: Skipping test/src (assured.stamp is present)"
+.PHONY: default build _test_build _test_run
+default: _makefw_skip_test_src
+build: _makefw_skip_test_src
+_test_build: _makefw_skip_test_src
+_test_run: _makefw_skip_test_src
+    ifeq ($(MAKEFW_BUILD),0)
+        ifeq ($(SUBDIRS),)
+            .DEFAULT_GOAL := default
+        endif
+    endif
+endif

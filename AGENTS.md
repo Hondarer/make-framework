@@ -23,6 +23,7 @@ C/C++ と .NET のビルドを支える Make テンプレート、補助スク�
 - `docs/makeparts.md` - `makepart.mk`、`makechild.mk`、`makelocal.mk` の役割
 - `docs/hooks.md` - `makelocal.mk` の pre/post フック
 - `docs/library-search-paths.md` - Linux の `-L` / `-rpath-link` / `-rpath` の使い分け
+- `docs/build-configurations.md` - ビルド構成、`assured.stamp` による保証済み app の扱い
 
 ## 注意点
 

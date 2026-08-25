@@ -57,6 +57,53 @@ app 単位は途中で 1 つでも失敗すると次回は全体を再実行し�
 失敗箇所を修正した後の再実行では、変更されていない leaf だけが引き続きスキップされます。  
 詳細は `framework/testfw/docs/how-to-test.md` の「再テストのスキップ」を参照してください。
 
+## assured.stamp による保証済み app の扱い
+
+`app/example/assured.stamp` は、その app が品質保証済みであることを表します。  
+ルートからのビルド確認に保証済み app を含めたまま、確認時間を短くするために使います。
+
+```text
+app/example/assured.stamp
+```
+
+ファイルがあれば有効です。  
+中身は見ません。  
+make はこのファイルを生成しません。  
+Git の無視対象にもしません。方針としてコミットできます。
+
+効果は `app/example` 直下の `make` / `make test` / `make clean` に限ります。  
+`prod/` や `test/`、`test/src` 配下での直接 make は妨げません。  
+保証済みでも個別のテスト実行や、`prod` 直下の `make clean` といった救済は、配下で従来どおり実行できます。
+
+### test/src の省略
+
+app 直下の `make` と `make test`、および `make with-cov` の `test` 側は、製品とモックだけをコンパイルし、`test/src` のコンパイルとテスト実行を行いません。
+
+```text
+INFO: Skipping test/src (assured.stamp is present)
+```
+
+`MAKEFW_TEST_FORCE=1` では解除しません。  
+app 直下でテストを再開するときは stamp を外します。
+
+stamp を置いたときと外したときは、`make_build.stamp` の署名が変わるため、次回の app 直下 `make` は再ビルドします。  
+stamp があるあいだは、ビルド署名から `test/src` を外すため、テスト ソースの変更では製品とモックを再ビルドしません。  
+app 直下の `make test` は `make_test.stamp` を更新しません。
+
+### 成功時の clean 省略
+
+直近の app 直下 `make` が成功しているとき (`make_build.stamp` があるとき)、app 直下の `make clean` は成果物も `make_build.stamp` も消しません。
+
+```text
+INFO: Skipping clean (assured.stamp is present and make succeeded)
+```
+
+`make_build.stamp` を残すため、ソースを更新したあとの app 直下 `make` は、署名比較により必要な再ビルドだけを行います。  
+`make_build.stamp` が無いとき (失敗途中など) は、app 直下の `make clean` も従来どおり消します。
+
+構成切り替えのように、本来 `make clean` が必要な操作では、app 直下の `clean` が省略されます。  
+その場合は stamp を外してから `make clean` するか、`prod/` や `test/` 直下で `make clean` します。
+
 ## Windows のランタイム指定
 
 Windows/MSVC では、`MSVC_CRT` で C ランタイムのリンク方式を指定できます。  

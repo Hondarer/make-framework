@@ -353,6 +353,7 @@ emit_signature() {
     local app_dir="$1"
     local mode="${2:-build}"
     local root_app
+    local assured
     local app
     local tmp_entries
     local tmp_paths
@@ -378,6 +379,10 @@ emit_signature() {
     esac
 
     root_app=$(resolve_root_app "$app_dir")
+    assured=0
+    if [[ -f "$APP_ROOT_DIR/$root_app/assured.stamp" ]]; then
+        assured=1
+    fi
     tmp_entries=$(mktemp)
     tmp_paths=$(mktemp)
 
@@ -404,6 +409,9 @@ emit_signature() {
 
     {
         printf 'MODE\t%s\n' "$mode"
+        if [[ "$assured" == "1" ]]; then
+            printf 'ASSURED\t1\n'
+        fi
         printf 'CONFIG\t%s\n' "$config"
         printf 'MSVC_CRT\t%s\n' "$msvc_crt"
         printf 'TARGET_ARCH\t%s\n' "$target_arch"
@@ -419,6 +427,9 @@ emit_signature() {
     digest=$(sha256sum "$tmp_entries" | awk '{ print $1 }')
 
     printf 'CLEAN=1\n'
+    if [[ "$assured" == "1" ]]; then
+        printf 'ASSURED=1\n'
+    fi
     printf 'SIGNATURE_MODE=%s\n' "$mode"
     printf 'BUILD_SIGNATURE=v1:%s\n' "$digest"
     if [[ -n "$config" ]]; then
@@ -583,14 +594,24 @@ collect_signature_files() {
     # `make` (default) は app 配下の test/ も SUBDIRS として再帰しビルドするため、
     # build 署名にも test/ を含める。これにより test/ の変更が `make` の BUILD_STAMP
     # 短絡をすり抜けることがなくなる。
+    # assured.stamp がある対象 app では app 直下 make が test/src をビルドしないため、
+    # そのツリーを署名から外し、モック (test/libsrc) と test/ 直下の設定だけ残す。
     if [[ -d "$app_path/test" ]]; then
-        collect_tree_signature_files "$app_path/test"
+        if [[ "$app" == "$root_app" && -f "$app_path/assured.stamp" ]]; then
+            add_signature_file "$app_path/test/makefile"
+            add_signature_file "$app_path/test/makepart.mk"
+            add_signature_file "$app_path/test/makelocal.mk"
+            add_signature_file "$app_path/test/makechild.mk"
+            collect_tree_signature_files "$app_path/test/libsrc"
+        else
+            collect_tree_signature_files "$app_path/test"
+        fi
     fi
 
     add_signature_file "$WORKSPACE_DIR/Directory.Build.props"
     add_signature_file "$WORKSPACE_DIR/Directory.Build.targets"
 
-    if [[ "$mode" == "test" && "$app" == "$root_app" ]]; then
+    if [[ "$mode" == "test" && "$app" == "$root_app" && ! -f "$app_path/assured.stamp" ]]; then
         while IFS= read -r extra; do
             [[ -z "$extra" ]] && continue
             add_signature_file "$extra"

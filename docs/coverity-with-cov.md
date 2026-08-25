@@ -93,6 +93,7 @@ cov-build --append-log --dir app/idir make -C prod
 - `make_build.stamp` が一致する場合は build を skip
 - build が skip された app では Coverity 収集も追加実行しません。
 - `make test` の skip 判定は既存どおり `make_test.stamp`
+- `assured.stamp` がある app では、app 直下の `with-cov` でも通常の `make` と同じく `test/src` のコンパイルとテスト実行を省略します。`prod` の Coverity 収集と `test/libsrc` のモック コンパイルは行います。
 
 このため、依存関係が未変更で clean な状態では、`with-cov` は追加のビルド コストを発生させません。
 
