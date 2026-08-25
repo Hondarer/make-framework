@@ -529,6 +529,11 @@ ifneq ($(MAKEFW_AUTO_INCDIR),)
     INCDIR += $(MAKEFW_AUTO_INCDIR)
 endif
 
+MAKEFW_AUTO_SYSTEM_INCDIR := $(patsubst SYSTEM_INCLUDE:%,%,$(filter SYSTEM_INCLUDE:%,$(_MAKEFW_PATHS_ALL)))
+ifneq ($(MAKEFW_AUTO_SYSTEM_INCDIR),)
+    SYSTEM_INCDIR += $(MAKEFW_AUTO_SYSTEM_INCDIR)
+endif
+
 MAKEFW_AUTO_INCLUDE_INTERNAL := $(patsubst INTERNAL:%,%,$(filter INTERNAL:%,$(_MAKEFW_PATHS_ALL)))
 ifneq ($(MAKEFW_AUTO_INCLUDE_INTERNAL),)
     INCDIR += $(MAKEFW_AUTO_INCLUDE_INTERNAL)
@@ -545,8 +550,10 @@ ifneq (,$(findstring /test/,$(CURDIR)))
         INCDIR += $(MAKEFW_AUTO_TEST_INCDIR)
     endif
 
-    MAKEFW_AUTO_TESTFW_INCDIR := $(TESTFW_HOME)/gtest/include $(TESTFW_HOME)/include
+    MAKEFW_AUTO_TESTFW_INCDIR := $(TESTFW_HOME)/include
+    MAKEFW_AUTO_GTEST_SYSTEM_INCDIR := $(TESTFW_HOME)/gtest/include
     INCDIR += $(MAKEFW_AUTO_TESTFW_INCDIR)
+    SYSTEM_INCDIR += $(MAKEFW_AUTO_GTEST_SYSTEM_INCDIR)
 
     MAKEFW_AUTO_TEST_LIBSDIR := $(patsubst TESTLIB:%,%,$(filter TESTLIB:%,$(_MAKEFW_PATHS_ALL)))
     ifneq ($(MAKEFW_AUTO_TEST_LIBSDIR),)
@@ -558,12 +565,12 @@ endif # _MYAPP_IS_VALID
 
 # パス系変数の一括正規化
 # Normalize path variables to absolute paths after all makepart/makechild/makelocal are loaded
-# - INCDIR: sort で重複除去 (既存動作維持)
+# - INCDIR, SYSTEM_INCDIR: sort で重複除去
 # - LIBSDIR, OUTPUT_DIR: sort で重複除去
 # - TEST_SRCS, ADD_SRCS: 順序保持 (strip のみ)
 # GNU Make の abspath を使い、通常の変数値では Bash 起動を避ける。
 # MSYS 形式の絶対パスが明示された場合だけ、従来の正規化へフォールバックする。
-# - INCDIR, LIBSDIR: sort で重複除去
+# - INCDIR, SYSTEM_INCDIR, LIBSDIR: sort で重複除去
 # - OUTPUT_DIR: 単一パス
 # - TEST_SRCS, ADD_SRCS: 順序保持
 MAKEFW_NORMALIZE_PATHS := $(MAKEFW_HOME)/bin/normalize_paths.sh
@@ -577,6 +584,15 @@ ifneq ($(INCDIR),)
         INCDIR := $(sort $(call _makefw_normalize_paths,$(INCDIR)))
     endif
 endif
+ifneq ($(SYSTEM_INCDIR),)
+    ifneq ($(filter /%,$(SYSTEM_INCDIR)),)
+        SYSTEM_INCDIR := $(sort $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(SYSTEM_INCDIR)))
+    else
+        SYSTEM_INCDIR := $(sort $(call _makefw_normalize_paths,$(SYSTEM_INCDIR)))
+    endif
+    # 同じパスを両方へ指定した場合は system 扱いを優先する。
+    INCDIR := $(filter-out $(SYSTEM_INCDIR),$(INCDIR))
+endif
 ifneq ($(LIBSDIR),)
     ifneq ($(filter /%,$(LIBSDIR)),)
         LIBSDIR := $(sort $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(LIBSDIR)))
@@ -584,6 +600,13 @@ ifneq ($(LIBSDIR),)
         LIBSDIR := $(sort $(call _makefw_normalize_paths,$(LIBSDIR)))
     endif
 endif
+
+ifdef PLATFORM_LINUX
+    MAKEFW_SYSTEM_INCLUDE_FLAGS := $(foreach dir,$(SYSTEM_INCDIR),-isystem $(dir))
+else ifdef PLATFORM_WINDOWS
+    MAKEFW_SYSTEM_INCLUDE_FLAGS := $(foreach dir,$(SYSTEM_INCDIR),/external:I$(dir)) $(if $(strip $(SYSTEM_INCDIR)),/external:W0)
+endif
+
 ifneq ($(OUTPUT_DIR),)
     ifneq ($(filter /%,$(OUTPUT_DIR)),)
         OUTPUT_DIR := $(strip $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(OUTPUT_DIR)))

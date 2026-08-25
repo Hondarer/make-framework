@@ -49,10 +49,10 @@ $(OBJDIR)/%.res: %.mc | $(GENDIR) $(OBJDIR)
 	@set -o pipefail; MSYS_NO_PATHCONV=1 rc.exe /nologo $(RCFLAGS) /i $(GENDIR) /fo $@ $(GENDIR)/$*.rc 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MSVC_OUTPUT_FILTER_SCRIPT)" -InputEncoding Ansi
 
 # 単体 .rc -> (rc.exe) .res
-# インクルード解決は OBJDIR, カレント ディレクトリ, INCDIR を探索する。
+# インクルード解決は OBJDIR、カレント ディレクトリ、INCDIR、SYSTEM_INCDIR を探索する。
 $(OBJDIR)/%.res: %.rc | $(OBJDIR)
 	@echo "rc.exe $<"
-	@set -o pipefail; MSYS_NO_PATHCONV=1 rc.exe /nologo $(RCFLAGS) /i $(OBJDIR) /i . $(addprefix /i ,$(INCDIR)) /fo $@ $< 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MSVC_OUTPUT_FILTER_SCRIPT)" -InputEncoding Ansi
+	@set -o pipefail; MSYS_NO_PATHCONV=1 rc.exe /nologo $(RCFLAGS) /i $(OBJDIR) /i . $(addprefix /i ,$(INCDIR) $(SYSTEM_INCDIR)) /fo $@ $< 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MSVC_OUTPUT_FILTER_SCRIPT)" -InputEncoding Ansi
 
 # 同名 stem の .mc と .rc を同一ディレクトリに置かないこと (どちらも %.res を生成し衝突する)。
 

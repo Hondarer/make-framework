@@ -149,8 +149,8 @@ CXXFLAGS += $(addprefix -D,$(DEFINES))
 
 # テスト対象
 # For test targets
-CFLAGS_TEST := $(CFLAGS) $(TESTFW_INCLUDE_OVERRIDE) $(MYAPP_INCLUDE_OVERRIDE) $(addprefix -I, $(INCDIR))
-CXXFLAGS_TEST := $(CXXFLAGS) $(TESTFW_INCLUDE_OVERRIDE) $(MYAPP_INCLUDE_OVERRIDE) $(addprefix -I, $(INCDIR))
+CFLAGS_TEST := $(CFLAGS) $(TESTFW_INCLUDE_OVERRIDE) $(MYAPP_INCLUDE_OVERRIDE) $(addprefix -I, $(INCDIR)) $(MAKEFW_SYSTEM_INCLUDE_FLAGS)
+CXXFLAGS_TEST := $(CXXFLAGS) $(TESTFW_INCLUDE_OVERRIDE) $(MYAPP_INCLUDE_OVERRIDE) $(addprefix -I, $(INCDIR)) $(MAKEFW_SYSTEM_INCLUDE_FLAGS)
 ifdef PLATFORM_LINUX
     # ステップ実行/カバレッジに支障となるオプションを除去
     #   -O1, -O2, -O3, -Os, -Ofast: 最適化レベル
@@ -222,6 +222,8 @@ endif
 # For non-test targets
 CFLAGS   += $(addprefix -I, $(INCDIR))
 CXXFLAGS += $(addprefix -I, $(INCDIR))
+CFLAGS   += $(MAKEFW_SYSTEM_INCLUDE_FLAGS)
+CXXFLAGS += $(MAKEFW_SYSTEM_INCLUDE_FLAGS)
 
 # リンク ライブラリ ファイル名の解決
 ifdef PLATFORM_LINUX

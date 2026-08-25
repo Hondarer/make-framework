@@ -10,7 +10,7 @@ makefw フレームワークでは、ビルド設定のカスタマイズに 3 �
 | `makepart.mk` | 階層継承 (親→子に伝播) | 自ディレクトリ + 子階層すべて |
 | `makechild.mk` | 子階層限定 (自身は除く) | 子階層以降のみ (自ディレクトリは除く) |
 | `makelocal.mk` | 自ディレクトリ限定 | 自ディレクトリのみ |
-| `appdeps.mk` | app 直下依存宣言 | 自 app と依存 app の `prod/include` / `prod/lib` / `test/include` / `test/lib` 自動解決 |
+| `appdeps.mk` | app 直下の省略可能な依存・公開ヘッダー分類 | 自 app と依存 app の `prod/include` / `prod/lib` / `test/include` / `test/lib` 自動解決 |
 
 これらのファイルは、記述する内容がある場合にだけ作成すれば十分です。  
 設定が不要なときは、空のファイルを作成する必要はありません。
@@ -72,6 +72,7 @@ MAKE_INCLUDE_MK += $(wildcard $(CURDIR)/makepart.mk)
 | `LIBS` | リンクするライブラリ | `LIBS += calcbase` |
 | `LIBSDIR` | ライブラリ検索パス | `LIBSDIR += path/to/prebuilt/lib` |
 | `INCDIR` | インクルード検索パス | `INCDIR += $(MYAPP_DIR)/prod/include` |
+| `SYSTEM_INCDIR` | 警告を分離する外来ヘッダーの検索パス | `SYSTEM_INCDIR += path/to/oss/include` |
 | `DEFINES` | `-D` に変換される define 群 | `DEFINES += FEATURE_X` |
 | `CFLAGS` | C コンパイラ フラグ | `CFLAGS += -DMYAPP_VERSION=\"1.0.0\"` |
 | `CXXFLAGS` | C++ コンパイラ フラグ | `CXXFLAGS += -std=c++17` |
@@ -219,18 +220,23 @@ INCDIR += \
     $(MYAPP_DIR)/prod/include
 ```
 
-この `INCDIR` / `DEFINES` は make のビルド設定だけでなく、`.vscode/c_cpp_properties.json` を更新する際の正本としても扱います。  
-ただし同期対象の範囲は同一ではありません。`INCDIR` は `app/<name>` 配下のすべての `makepart.mk` が対象で、下位 `makepart.mk` の追加 include も `.vscode/c_cpp_properties.json` に反映されます。  
+この `INCDIR` / `SYSTEM_INCDIR` / `DEFINES` は make のビルド設定だけでなく、`.vscode/c_cpp_properties.json` を更新する際の正本としても扱います。  
+ただし同期対象の範囲は同一ではありません。`INCDIR` と `SYSTEM_INCDIR` は `app/<name>` 配下のすべての `makepart.mk` が対象で、下位 `makepart.mk` の追加 include も `.vscode/c_cpp_properties.json` に反映されます。  
 `DEFINES` は `makepart.mk`、`app/makepart.mk`、`app/<name>/makepart.mk` を正本として扱い、`.vscode` の `defines` には `TARGET_ARCH=target_arch` の特殊条件があるため、実ビルド時の値ではなく同期スクリプト側の dummy 値が使われます。
 
 ## appdeps.mk
 
 ### 役割
 
-`appdeps.mk` は `app/<name>/` 直下に置く app 間依存の一次情報です。`APP_DEPS` に直接依存する app 名を列挙します。
+`appdeps.mk` は `app/<name>/` 直下に置く app 間依存と公開ヘッダー分類の一次情報です。  
+`APP_DEPS` と `APP_PROD_INCLUDE_CLASS` のどちらも不要な場合は、空ファイルを置かず `appdeps.mk` 自体を省略します。  
+利用側の定義である `APP_DEPS` には、直接依存する app 名を列挙します。  
+`APP_DEPS` は省略可能であり、依存先がない場合は原則として記載しません。  
+提供側の定義である `APP_PROD_INCLUDE_CLASS` には、自 app の `prod/include` を通常ヘッダーと外来ヘッダーのどちらとして提供するかを指定します。
 
 ```makefile
 # app/example/appdeps.mk
+# 利用側の定義: この app が直接利用する app を列挙する。
 APP_DEPS := com_util
 ```
 
@@ -242,11 +248,22 @@ APP_DEPS := \
     calc
 ```
 
+`APP_PROD_INCLUDE_CLASS` は省略可能であり、未指定時は `normal` として扱います。  
+通常ヘッダーを提供する app では原則として記載しません。  
+明示する場合は `normal` または `system` を指定し、これら以外の値は定義エラーになります。  
+自 app が外来 OSS の公開ヘッダーをそのまま提供する場合は `system` を指定します。
+
+```makefile
+# 提供側の定義: この app の prod/include を外来ヘッダーとして提供する。
+APP_PROD_INCLUDE_CLASS := system
+```
+
 ### 挙動
 
 - `prepare.mk` は自 app と `APP_DEPS` の再帰依存を解決します
 - `app/makefile` は `APP_DEPS` を使って `SUBDIRS` の build 順序を自動決定します
 - 解決済み app ごとに `app/<name>/prod/include` と `app/<name>/prod/lib` を自動追加します
+- `APP_PROD_INCLUDE_CLASS := system` の `prod/include` は `SYSTEM_INCDIR` に追加し、それ以外は `INCDIR` に追加します
 - `/test/` 配下では同じ依存閉包に対して `app/<name>/test/include` と `app/<name>/test/lib` を自動追加します
 - 自 app の `app/<name>/prod/include_internal` を自動追加します
 - `app/makepart.mk` が `/test/` 配下のビルドに対して `framework/testfw/lib` と `LINK_TEST = 1` を付与します
@@ -256,10 +273,24 @@ APP_DEPS := \
 
 ### 運用ルール
 
-- `APP_DEPS` には直接依存だけを書きます
+- `APP_DEPS` は依存先がある場合だけ記載し、直接依存だけを書きます
 - build 順だけに必要な依存も `APP_DEPS` に書きます
 - `../otherapp/prod/include` や `../otherapp/prod/lib` を `makepart.mk` に手書きしません
 - 自 app の `prod/include`、`prod/include_internal`、`prod/lib` は自動追加されるため、app 直下 `makepart.mk` には通常書きません
+- `APP_DEPS` を記載する場合は、その前に「利用側の定義」と分かるコメントを書きます
+- `APP_PROD_INCLUDE_CLASS` を記載する場合は、その前に「提供側の定義」と分かるコメントを書きます
+
+### 外来ヘッダーのコンパイラ指定
+
+Linux では `SYSTEM_INCDIR` の各パスを `-isystem` で指定します。  
+MSVC では各パスを `/external:I` で指定し、対応するコンパイラでは `/external:W0` も指定します。  
+通常の `INCDIR` は従来どおり Linux の `-I` または MSVC の `/I` で指定します。  
+同じ正規化済みパスが両方に存在する場合は `SYSTEM_INCDIR` を優先し、二重指定を避けます。  
+リソース コンパイラと VS Code IntelliSense には警告クラスの区別がないため、双方のパスを通常の include 検索パスとして渡します。
+
+`SYSTEM_INCDIR` は外来ヘッダー内部の診断を分離するための設定です。  
+そのヘッダーを利用する第一者コードで発生した警告や、OSS の一次ソースを直接コンパイルしたときの警告は抑制しません。  
+OSS の一次ソースに必要な警告抑制は、そのソースをコンパイルする末端の `makepart.mk` に限定します。
 
 ## makechild.mk
 
@@ -458,7 +489,7 @@ INCDIR += $(WORKSPACE_DIR)/framework/testfw/include
 ### 内部動作
 
 1. `prepare.mk` が `CURDIR` から `app/<appname>` を抽出し、`APP_DIR` と `MYAPP_DIR` に絶対パスを設定します
-2. `makepart.mk` / `makechild.mk` / `makelocal.mk` の読み込み後、パス系変数 (`INCDIR`, `LIBSDIR`, `OUTPUT_DIR`, `TEST_SRCS`, `ADD_SRCS`) を一括正規化します
+2. `makepart.mk` / `makechild.mk` / `makelocal.mk` の読み込み後、パス系変数 (`INCDIR`, `SYSTEM_INCDIR`, `LIBSDIR`, `OUTPUT_DIR`, `TEST_SRCS`, `ADD_SRCS`) を一括正規化します
 3. 正規化は `realpath -m` (Linux) / `realpath -m` + `cygpath -m` (Windows) で実行します
 4. コンパイラに渡されるパスは常に `..` を含まない絶対パスになります
 

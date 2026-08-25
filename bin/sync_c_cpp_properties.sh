@@ -64,7 +64,9 @@ esac
 
 mapfile -t APPS < <(
     bash "$APP_ORDER_RESOLVER" --app-order | tr ' ' '\n' | while IFS= read -r app; do
-        if find "$APP_DIR/$app" -name makepart.mk -print -quit | grep -q . || [[ -f "$APP_DIR/$app/appdeps.mk" ]]; then
+        if find "$APP_DIR/$app" -name makepart.mk -print -quit | grep -q . \
+            || [[ -f "$APP_DIR/$app/appdeps.mk" ]] \
+            || [[ -d "$APP_DIR/$app/prod/include" ]]; then
             printf '%s\n' "$app"
         fi
     done
@@ -181,6 +183,7 @@ $platform_flag
 TARGET_ARCH := $target_arch
 MAKEFW_SYNC_EVAL := 1
 INCDIR :=
+SYSTEM_INCDIR :=
 LIBSDIR :=
 DEFINES :=
 EOF
@@ -203,6 +206,7 @@ $(error Failed to resolve app test include dependencies for $(MYAPP_DIR))
 endif
 INCDIR += $(AUTO_APPDEPS_TEST_INCDIR)
 INCDIR += $(TESTFW_DIR)/gtest/include $(TESTFW_DIR)/include
+INCDIR += $(SYSTEM_INCDIR)
 EOF
         fi
         cat <<'EOF'
@@ -381,7 +385,7 @@ compare_and_write_warn() {
 
     {
         printf 'c_cpp_properties.json is out of sync with sync sources.\n'
-        printf '  INCDIR  : makepart.mk, app/makepart.mk, app/*/**/makepart.mk, and app/*/appdeps.mk\n'
+        printf '  INCDIR / SYSTEM_INCDIR: makepart.mk, app/makepart.mk, app/*/**/makepart.mk, and app/*/appdeps.mk\n'
         printf '  DEFINES : makepart.mk, app/makepart.mk, and app/*/makepart.mk\n'
         printf 'Run from workspace root:\n'
         printf '  bash framework/makefw/bin/sync_c_cpp_properties.sh --write\n'

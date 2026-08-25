@@ -23,6 +23,8 @@ CXXFLAGS += $(addprefix -D,$(DEFINES))
 
 CFLAGS   += $(addprefix -I, $(INCDIR))
 CXXFLAGS += $(addprefix -I, $(INCDIR))
+CFLAGS   += $(MAKEFW_SYSTEM_INCLUDE_FLAGS)
+CXXFLAGS += $(MAKEFW_SYSTEM_INCLUDE_FLAGS)
 
 # OBJS
 # 直下の obj ディレクトリのオブジェクト ファイル

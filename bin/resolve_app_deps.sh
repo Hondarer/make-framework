@@ -127,6 +127,65 @@ read_direct_deps() {
     fi
 }
 
+read_prod_include_class_via_make() {
+    local app_name="$1"
+    local deps_file="$APP_ROOT_DIR/$app_name/appdeps.mk"
+    local deps_makefile_path
+    local tmp_makefile
+
+    deps_makefile_path=$(to_make_include_path "$deps_file")
+    tmp_makefile=$(mktemp)
+    {
+        printf 'APP_PROD_INCLUDE_CLASS := normal\n'
+        printf -- '-include %s\n' "$deps_makefile_path"
+        cat <<'EOF'
+print:
+	@printf '%s\n' "$(APP_PROD_INCLUDE_CLASS)"
+EOF
+    } > "$tmp_makefile"
+
+    MAKEFLAGS= MFLAGS= make --no-print-directory -f "$tmp_makefile" print
+    rm -f "$tmp_makefile"
+}
+
+read_prod_include_class() {
+    local app_name="$1"
+    local deps_file="$APP_ROOT_DIR/$app_name/appdeps.mk"
+    local include_class="normal"
+
+    if [[ -f "$deps_file" ]]; then
+        if grep -Eq '\$\(|`' "$deps_file"; then
+            include_class=$(read_prod_include_class_via_make "$app_name")
+        else
+            include_class=$(awk '
+                {
+                    line = $0
+                    sub(/#.*/, "", line)
+                    if (line ~ /^[[:space:]]*APP_PROD_INCLUDE_CLASS[[:space:]]*[:?+]?=/) {
+                        sub(/^[[:space:]]*APP_PROD_INCLUDE_CLASS[[:space:]]*[:?+]?=/, "", line)
+                        gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+                        value = line
+                    }
+                }
+                END {
+                    if (value != "") print value
+                }
+            ' "$deps_file")
+            include_class="${include_class:-normal}"
+        fi
+    fi
+
+    case "$include_class" in
+        normal|system)
+            printf '%s\n' "$include_class"
+            ;;
+        *)
+            echo "ERROR: APP_PROD_INCLUDE_CLASS for '$app_name' must be normal or system: $include_class" >&2
+            return 1
+            ;;
+    esac
+}
+
 list_apps() {
     find "$APP_ROOT_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | LC_ALL=C sort
 }
@@ -237,7 +296,8 @@ emit_paths() {
 # 重複するため、それを 1 回の呼び出しに集約する。
 # 出力は 1 行 1 トークン "KIND:path" 形式。KIND は呼び出し側 (Make) が
 # $(filter)/$(patsubst) で種別ごとに展開する。
-#   INCLUDE   : prod/include      (閉包全体)
+#   INCLUDE   : 通常扱いの prod/include (閉包全体)
+#   SYSTEM_INCLUDE: system 扱いの prod/include (閉包全体)
 #   INTERNAL  : prod/include_internal (root app のみ。emit_paths と同じ扱い)
 #   LIB       : prod/lib          (閉包全体)
 #   TESTINC   : test/include      (want_test=test のときのみ、閉包全体)
@@ -247,6 +307,7 @@ emit_paths_all() {
     local want_test="${2:-}"
     local root_app
     local app
+    local include_kind
     local path
     local -a closure=()
 
@@ -258,7 +319,12 @@ emit_paths_all() {
 
     for app in "${closure[@]}"; do
         path="$APP_ROOT_DIR/$app/prod/include"
-        printf 'INCLUDE:%s\n' "$(to_make_include_path "$path")"
+        if [[ "$(read_prod_include_class "$app")" == "system" ]]; then
+            include_kind="SYSTEM_INCLUDE"
+        else
+            include_kind="INCLUDE"
+        fi
+        printf '%s:%s\n' "$include_kind" "$(to_make_include_path "$path")"
     done
 
     path="$APP_ROOT_DIR/$root_app/prod/include_internal"
