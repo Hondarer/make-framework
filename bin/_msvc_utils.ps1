@@ -378,3 +378,240 @@ function Invoke-NativeToolPassthroughWithMutex {
 function Invoke-MsvcPassthroughWithMutex {
     Invoke-NativeToolPassthroughWithMutex -InputEncoding ConsoleOutput
 }
+
+# cl.exe の fatal error C1060 (compiler is out of heap space) は、並列 make の
+# 一時的なメモリ競合でも発生する。同じ待ち時間で一斉に再開すると再発しやすい。
+# see: https://learn.microsoft.com/en-us/cpp/error-messages/compiler-errors-1/fatal-error-c1060
+$script:MsvcHeapRetryMaxDefault = 3
+$script:MsvcHeapRetryBaseMsDefault = 2000
+$script:MsvcHeapRetryCapMsDefault = 16000
+$script:MsvcHeapRetryFloorMsDefault = 500
+
+function Get-MsvcEnvInt {
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][int]$Default,
+        [Parameter(Mandatory)][int]$Minimum
+    )
+
+    $raw = [System.Environment]::GetEnvironmentVariable($Name)
+    if ([string]::IsNullOrWhiteSpace($raw)) {
+        return $Default
+    }
+
+    $parsed = 0
+    if (-not [int]::TryParse($raw.Trim(), [ref]$parsed)) {
+        throw "ERROR: $Name must be an integer: $raw"
+    }
+    if ($parsed -lt $Minimum) {
+        throw "ERROR: $Name must be >= $Minimum : $raw"
+    }
+    return $parsed
+}
+
+function Get-MsvcHeapRetrySettings {
+    $maxRetries = Get-MsvcEnvInt -Name 'MAKEFW_MSVC_HEAP_RETRY_MAX' -Default $script:MsvcHeapRetryMaxDefault -Minimum 0
+    $baseMs = Get-MsvcEnvInt -Name 'MAKEFW_MSVC_HEAP_RETRY_BASE_MS' -Default $script:MsvcHeapRetryBaseMsDefault -Minimum 1
+    $capMs = Get-MsvcEnvInt -Name 'MAKEFW_MSVC_HEAP_RETRY_CAP_MS' -Default $script:MsvcHeapRetryCapMsDefault -Minimum 1
+    if ($capMs -lt $baseMs) {
+        $capMs = $baseMs
+    }
+
+    return [PSCustomObject]@{
+        MaxRetries = $maxRetries
+        BaseMs     = $baseMs
+        CapMs      = $capMs
+        FloorMs    = $script:MsvcHeapRetryFloorMsDefault
+    }
+}
+
+function Test-MsvcRetryableHeapExhaustion {
+    param([string]$Output)
+
+    if ([string]::IsNullOrEmpty($Output)) {
+        return $false
+    }
+    return [bool]($Output -match 'fatal error C1060:')
+}
+
+function Get-MsvcHeapRetryDelayMs {
+    param(
+        [Parameter(Mandatory)][int]$RetryIndex,
+        [int]$BaseMs = 2000,
+        [int]$CapMs = 16000,
+        [int]$FloorMs = 500,
+        [scriptblock]$Randomizer = $null
+    )
+
+    if ($RetryIndex -lt 1) {
+        throw "RetryIndex must be >= 1"
+    }
+
+    $exp = [int][Math]::Min($CapMs, $BaseMs * [Math]::Pow(2, $RetryIndex - 1))
+    if ($exp -lt 1) {
+        $exp = 1
+    }
+
+    $floor = $FloorMs
+    if ($floor -gt $exp) {
+        $floor = $exp
+    }
+    $exclusiveMax = $exp + 1
+
+    if ($null -eq $Randomizer) {
+        return Get-Random -Minimum $floor -Maximum $exclusiveMax
+    }
+    return [int](& $Randomizer $floor $exclusiveMax)
+}
+
+function Get-MsvcHeapRetrySourceLabel {
+    param([string[]]$SourceList)
+
+    if ($null -eq $SourceList -or $SourceList.Count -eq 0) {
+        return 'cl'
+    }
+
+    $first = [System.IO.Path]::GetFileName($SourceList[0])
+    if ($SourceList.Count -eq 1) {
+        return $first
+    }
+    $others = $SourceList.Count - 1
+    return "$first (+$others more)"
+}
+
+function New-MsvcHeapRetryInfoText {
+    param(
+        [string[]]$SourceList,
+        [Parameter(Mandatory)][int]$DelayMs,
+        [Parameter(Mandatory)][int]$NextAttempt,
+        [Parameter(Mandatory)][int]$MaxAttempts
+    )
+
+    # 本文に error / fatal error を含めない。問題マッチャーが成功した再試行を失敗と誤認しないため。
+    $label = Get-MsvcHeapRetrySourceLabel -SourceList $SourceList
+    $delaySec = ([Math]::Round($DelayMs / 1000.0, 1)).ToString(
+        '0.0',
+        [System.Globalization.CultureInfo]::InvariantCulture
+    )
+    return "${label}: MSVC C1060 compiler heap exhausted; waiting ${delaySec}s then retrying (${NextAttempt}/${MaxAttempts})"
+}
+
+function New-MsvcCompilerRunResult {
+    param(
+        [Parameter(Mandatory)][int]$ExitCode,
+        [string]$Output = ""
+    )
+
+    if ($null -eq $Output) {
+        $Output = ""
+    }
+    return [PSCustomObject]@{
+        ExitCode = $ExitCode
+        Output   = $Output
+    }
+}
+
+function Invoke-MsvcCompilerProcess {
+    param(
+        [Parameter(Mandatory)][string]$FileName,
+        [string]$Arguments = "",
+        [Parameter(Mandatory)][System.Text.Encoding]$OutputEncoding,
+        [string]$WorkingDirectory = ""
+    )
+
+    $psi = [System.Diagnostics.ProcessStartInfo]::new()
+    $psi.FileName = $FileName
+    $psi.Arguments = $Arguments
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.StandardOutputEncoding = $OutputEncoding
+    $psi.StandardErrorEncoding = $OutputEncoding
+    if (-not [string]::IsNullOrEmpty($WorkingDirectory)) {
+        $psi.WorkingDirectory = $WorkingDirectory
+    }
+
+    $process = [System.Diagnostics.Process]::Start($psi)
+    try {
+        $stdout = $process.StandardOutput.ReadToEnd()
+        $stderr = $process.StandardError.ReadToEnd()
+        $process.WaitForExit()
+        return (New-MsvcCompilerRunResult -ExitCode $process.ExitCode -Output ($stdout + $stderr))
+    }
+    finally {
+        if ($null -ne $process) {
+            $process.Dispose()
+        }
+    }
+}
+
+function Invoke-MsvcCompilerWithHeapRetry {
+    param(
+        [Parameter(Mandatory)][scriptblock]$CompileOnce,
+        [string[]]$SourceList = @(),
+        [int]$MaxRetries = -1,
+        [int]$BaseMs = -1,
+        [int]$CapMs = -1,
+        [scriptblock]$Sleep = $null,
+        [scriptblock]$WriteInfo = $null,
+        [scriptblock]$Randomizer = $null
+    )
+
+    $settings = Get-MsvcHeapRetrySettings
+    if ($MaxRetries -ge 0) {
+        $settings.MaxRetries = $MaxRetries
+    }
+    if ($BaseMs -ge 1) {
+        $settings.BaseMs = $BaseMs
+        if ($settings.CapMs -lt $settings.BaseMs) {
+            $settings.CapMs = $settings.BaseMs
+        }
+    }
+    if ($CapMs -ge 1) {
+        $settings.CapMs = $CapMs
+        if ($settings.CapMs -lt $settings.BaseMs) {
+            $settings.CapMs = $settings.BaseMs
+        }
+    }
+    if ($null -eq $Sleep) {
+        $Sleep = { param([int]$Milliseconds) Start-Sleep -Milliseconds $Milliseconds }
+    }
+    if ($null -eq $WriteInfo) {
+        $WriteInfo = {
+            param($Record)
+            Write-MsvcOutputRecords -Records @($Record)
+        }
+    }
+
+    $maxAttempts = 1 + $settings.MaxRetries
+    $last = $null
+    for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+        $last = & $CompileOnce
+        if ($null -eq $last) {
+            throw "CompileOnce returned null"
+        }
+        $output = [string]$last.Output
+        if ($last.ExitCode -eq 0 -or -not (Test-MsvcRetryableHeapExhaustion -Output $output)) {
+            return $last
+        }
+        if ($attempt -ge $maxAttempts) {
+            return $last
+        }
+
+        $delayMs = Get-MsvcHeapRetryDelayMs `
+            -RetryIndex $attempt `
+            -BaseMs $settings.BaseMs `
+            -CapMs $settings.CapMs `
+            -FloorMs $settings.FloorMs `
+            -Randomizer $Randomizer
+        $infoText = New-MsvcHeapRetryInfoText `
+            -SourceList $SourceList `
+            -DelayMs $delayMs `
+            -NextAttempt ($attempt + 1) `
+            -MaxAttempts $maxAttempts
+        & $WriteInfo (New-MsvcOutputRecord -Text $infoText -Kind 'info')
+        & $Sleep $delayMs
+    }
+
+    return $last
+}

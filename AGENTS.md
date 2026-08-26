@@ -18,6 +18,7 @@ C/C++ と .NET のビルドを支える Make テンプレート、補助スク�
 - `makefiles/makemain.mk` - パスと言語に基づくテンプレート自動選択
 - `makefiles/makelibsrc_*.mk`, `makefiles/makesrc_*.mk` - ライブラリ / 実行体用テンプレート
 - `bin/update_template_makefiles.py` - テンプレート由来の makefile を最新版に同期するスクリプト
+- `bin/msvc_compile.ps1` - Windows の MSVC 一括コンパイルと C1060 時の内部再試行
 - `bin/` - その他の補助スクリプト
 - `docs/template-auto-selection.md` - 自動選択ルール
 - `docs/makeparts.md` - `makepart.mk`、`makechild.mk`、`makelocal.mk` の役割

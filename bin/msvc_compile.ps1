@@ -79,26 +79,17 @@ if ($DryRun) {
 }
 
 # コンパイル実行して出力をキャプチャ
-$psi = [System.Diagnostics.ProcessStartInfo]::new()
-$psi.FileName = $Compiler
-$psi.Arguments = "@$rspFile"
-$psi.UseShellExecute = $false
-$psi.RedirectStandardOutput = $true
-$psi.RedirectStandardError = $true
-$psi.StandardOutputEncoding = $consoleOutputEncoding
-$psi.StandardErrorEncoding = $consoleOutputEncoding
-$psi.WorkingDirectory = (Get-Location).Path
-
-$process = [System.Diagnostics.Process]::Start($psi)
-
-# 出力を読み取り
-$stdout = $process.StandardOutput.ReadToEnd()
-$stderr = $process.StandardError.ReadToEnd()
-$process.WaitForExit()
-$compileExitCode = $process.ExitCode
-
-# 全出力を結合 (cl.exe は stdout と stderr の両方に出力する可能性がある)
-$output = $stdout + $stderr
+# fatal error C1060: のときは内部で待ち時間をずらして再試行する。
+# 最後の試行の出力だけを以降の診断処理へ渡す。
+$run = Invoke-MsvcCompilerWithHeapRetry -SourceList $sourceList -CompileOnce {
+    Invoke-MsvcCompilerProcess `
+        -FileName $Compiler `
+        -Arguments "@$rspFile" `
+        -OutputEncoding $consoleOutputEncoding `
+        -WorkingDirectory (Get-Location).Path
+}
+$compileExitCode = $run.ExitCode
+$output = $run.Output
 
 # ソースファイルごとに警告を収集
 # /sourceDependencies 使用時は "Note: including file:" 行が出ないため、
