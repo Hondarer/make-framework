@@ -169,7 +169,7 @@ $(SUBDIRS) :
 
 # app 間の依存関係 (appdeps.mk の APP_DEPS) に基づき、並列ビルド (-j) 下でも
 # 依存先 app の先行完了を保証する。1 段鎖ではなく実際の依存グラフを使うため、
-# 依存関係のない app 同士は並列に実行できる (com_util を経由した複数 app の同時実行など)。
+# 依存関係のない app 同士は並列に実行できる (cplat を経由した複数 app の同時実行など)。
 # Honor per-app dependencies (appdeps.mk APP_DEPS) under parallel make (-j):
 # add order-only prerequisites along the actual dep graph so independent apps
 # build/test in parallel.

@@ -216,7 +216,7 @@ GENDIR_EXTRA_C += gen/example_meta.gen.c
 # app/example/makepart.mk
 # インクルードの検索パス
 INCDIR += \
-    $(MYAPP_DIR)/../com_util/prod/include \
+    $(MYAPP_DIR)/../c-platform/prod/include \
     $(MYAPP_DIR)/prod/include
 ```
 
@@ -237,14 +237,14 @@ INCDIR += \
 ```makefile
 # app/example/appdeps.mk
 # 利用側の定義: この app が直接利用する app を列挙する。
-APP_DEPS := com_util
+APP_DEPS := c-platform
 ```
 
 依存先が複数ある場合は、行末の `\` で `APP_DEPS` の定義を継続できます。
 
 ```makefile
 APP_DEPS := \
-    com_util \
+    cplat \
     calc
 ```
 
@@ -473,10 +473,10 @@ OUTPUT_DIR := $(MYAPP_DIR)/prod/cbin
 
 ```makefile
 # app/example/makepart.mk
-INCDIR += $(APP_DIR)/com_util/prod/include
+INCDIR += $(APP_DIR)/c-platform/prod/include
 ```
 
-既存の `$(MYAPP_DIR)/../com_util/...` もビルド時に `realpath -m` で正規化されますが、新規記述では `$(APP_DIR)/com_util/...` を使用します。
+既存の `$(MYAPP_DIR)/../c-platform/...` もビルド時に `realpath -m` で正規化されますが、新規記述では `$(APP_DIR)/c-platform/...` を使用します。
 
 #### repo 全体の参照
 

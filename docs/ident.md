@@ -175,7 +175,7 @@ Make の依存ファイル内で `\` としてエスケープされた空白は�
 ### static lib 完成時
 
 `.ident_srcs` ファイルを生成し、どのディレクトリに `.ident` ファイルがあるかを記録します。  
-`LIB_TYPE=both` の場合も、static 側の成果物名に対応する `.ident_srcs` を生成する (例: `libcom_util_static.lib` → `com_util_static.ident_srcs`)。
+`LIB_TYPE=both` の場合も、static 側の成果物名に対応する `.ident_srcs` を生成する (例: `libcplat_static.lib` → `cplat_static.ident_srcs`)。
 
 ```text
 [ident_dir]

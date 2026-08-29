@@ -15,7 +15,7 @@ Windows 10 1903 以降では、アプリケーション マニフェストの `a
 
 - Windows 10 1903 以降をサポート対象とし、`activeCodePage=UTF-8` マニフェストを必ず埋め込む
 - `argv`、CRT narrow API、Win32 `-A` API は UTF-8 前提で扱います。
-- コンソール入出力については、`com_util_console_init()` で `SetConsoleCP(CP_UTF8)` / `SetConsoleOutputCP(CP_UTF8)` と VT 処理の有効化を行います。
+- コンソール入出力については、`cplat_console_init()` で `SetConsoleCP(CP_UTF8)` / `SetConsoleOutputCP(CP_UTF8)` と VT 処理の有効化を行います。
 
 ## プロセス ACP と activeCodePage
 
@@ -58,11 +58,11 @@ Microsoft Learn は、Windows 10 1903 以降で `activeCodePage` によりプロ
 
 Microsoft Learn の Console Code Pages 文書では、UTF-8 文字列を A 系コンソール API へ送る場合、事前に `SetConsoleCP` と `SetConsoleOutputCP` でコード ページを `65001` (`CP_UTF8`) に設定する、と説明されています。
 
-`activeCodePage=UTF-8` はプロセス ACP を UTF-8 にする設定です。公式文書では、これにより接続先コンソールの入力コード ページ / 出力コード ページも必ず UTF-8 になる、とは説明されていません。そのため、本リポジトリでは Windows 10 1903 以降に限定した場合でも、コンソール側のコード ページ設定を `com_util_console_init()` に残します。
+`activeCodePage=UTF-8` はプロセス ACP を UTF-8 にする設定です。公式文書では、これにより接続先コンソールの入力コード ページ / 出力コード ページも必ず UTF-8 になる、とは説明されていません。そのため、本リポジトリでは Windows 10 1903 以降に限定した場合でも、コンソール側のコード ページ設定を `cplat_console_init()` に残します。
 
-## com_util_console_init の役割
+## cplat_console_init の役割
 
-`com_util_console_init()` は Windows で次の処理を行います。
+`cplat_console_init()` は Windows で次の処理を行います。
 
 - stdout がコンソールである場合に限り、初期化処理を行います。
 - コンソール入力コード ページが UTF-8 でなければ `SetConsoleCP(CP_UTF8)` を呼ぶ
@@ -70,9 +70,9 @@ Microsoft Learn の Console Code Pages 文書では、UTF-8 文字列を A 系�
 - stdout / stderr の `ENABLE_VIRTUAL_TERMINAL_PROCESSING` を有効化します。
 - 通常終了時に、変更前のコンソール コード ページとコンソール モードを復元します。
 
-Linux では `com_util_console_init()` / `com_util_console_dispose()` は no-op です。
+Linux では `cplat_console_init()` / `cplat_console_dispose()` は no-op です。
 
-この関数は、UTF-8 マニフェストを置き換えるものではありません。UTF-8 マニフェストはプロセス ACP を UTF-8 にするために必要であり、`com_util_console_init()` は接続先コンソールの状態をアプリケーションの前提に合わせるための補助処理です。
+この関数は、UTF-8 マニフェストを置き換えるものではありません。UTF-8 マニフェストはプロセス ACP を UTF-8 にするために必要であり、`cplat_console_init()` は接続先コンソールの状態をアプリケーションの前提に合わせるための補助処理です。
 
 ## makefw での使い方
 
@@ -99,7 +99,7 @@ make MAKEFW_POWERSHELL=pwsh
 CodeBlock: PowerShell 7 を使用する場合
 
 この対応はビルド ツールの出力経路に限定されます。  
-生成したコンソール アプリケーション自身の入出力には、後述する UTF-8 マニフェストと `com_util_console_init()` の方針を適用します。
+生成したコンソール アプリケーション自身の入出力には、後述する UTF-8 マニフェストと `cplat_console_init()` の方針を適用します。
 
 ### マニフェストの指定
 
@@ -161,7 +161,7 @@ CodeBlock: dumpbin でマニフェスト リソースを確認
 | `SetConsoleOutputCP(CP_UTF8)` | 接続先コンソールの出力コード ページを UTF-8 にします。 |
 | `ENABLE_VIRTUAL_TERMINAL_PROCESSING` | ANSI エスケープ シーケンスによる色やカーソル制御を有効化します。 |
 
-推奨構成は、`WIN32_MANIFEST = utf8` で UTF-8 マニフェストを埋め込み、コンソール アプリケーションの開始時に `com_util_console_init()` を呼び出すことです。
+推奨構成は、`WIN32_MANIFEST = utf8` で UTF-8 マニフェストを埋め込み、コンソール アプリケーションの開始時に `cplat_console_init()` を呼び出すことです。
 
 ## 参考リンク
 
