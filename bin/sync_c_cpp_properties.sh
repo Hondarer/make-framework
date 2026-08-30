@@ -62,6 +62,11 @@ case "$MODE" in
         ;;
 esac
 
+progress() {
+    printf 'INFO: %s  elapsed %ss\n' "$*" "$SECONDS" >&2
+}
+
+progress "resolving app list"
 mapfile -t APPS < <(
     bash "$APP_ORDER_RESOLVER" --app-order | tr ' ' '\n' | while IFS= read -r app; do
         if find "$APP_DIR/$app" -name makepart.mk -print -quit | grep -q . \
@@ -71,6 +76,7 @@ mapfile -t APPS < <(
         fi
     done
 )
+progress "found ${#APPS[@]} apps"
 
 normalize_path() {
     local path="$1"
@@ -236,8 +242,19 @@ collect_expected() {
     local normalized
     local -A seen=()
     local -a items=()
+    local idx=0
+    local total=${#APPS[@]}
+    local label
+
+    if [[ "$var_name" == "INCDIR" ]]; then
+        label="includePath"
+    else
+        label="defines"
+    fi
 
     for app in "${APPS[@]}"; do
+        idx=$((idx + 1))
+        progress "collecting $platform $label ($idx/$total) $app"
         if ! raw=$(eval_makepart_var "$app" "$platform" "$var_name"); then
             printf 'Error: eval_makepart_var failed for app "%s" (platform: %s, var: %s)\n' \
                 "$app" "$platform" "$var_name" >&2
@@ -474,6 +491,7 @@ read_current_array Win32 includePath > "$tmp_win_inc_current"
 read_current_array Win32 defines > "$tmp_win_def_current"
 
 if [[ "$MODE" == "--check" ]]; then
+    progress "comparing .vscode/c_cpp_properties.json"
     compare_and_write_warn \
         "$tmp_linux_inc_current" "$tmp_linux_inc_expected" \
         "$tmp_linux_def_current" "$tmp_linux_def_expected" \
@@ -482,6 +500,7 @@ if [[ "$MODE" == "--check" ]]; then
     exit $?
 fi
 
+progress "writing .vscode/c_cpp_properties.json"
 tmp_linux_inc_block=$(mktemp)
 tmp_linux_def_block=$(mktemp)
 tmp_win_inc_block=$(mktemp)
