@@ -57,6 +57,38 @@ app 単位は途中で 1 つでも失敗すると次回は全体を再実行し�
 失敗箇所を修正した後の再実行では、変更されていない leaf だけが引き続きスキップされます。  
 詳細は `framework/testfw/docs/how-to-test.md` の「再テストのスキップ」を参照してください。
 
+## ビルド署名に含まれる入力
+
+app 直下の `make` / `make test` / `make with-cov` は、実行のたびに `framework/makefw/bin/resolve_app_deps.sh --signature` でビルド署名 (`BUILD_SIGNATURE`) を計算し、直前の実行時の値と比較します。  
+`make` と `make with-cov` は `make_build.stamp` と、`make test` は `make_test.stamp` と突き合わせます。  
+署名が前回と一致し、かつ直近のビルドが成功していれば、サブディレクトリへの再帰そのものを省略します。
+
+```text
+INFO: Skipping build (dependencies are unchanged and clean)
+```
+
+署名には次が含まれます。
+
+- app 直下の `makefile` / `makepart.mk` / `makelocal.mk` / `appdeps.mk`
+- 依存閉包に含まれる各 app の `prod/` 配下のソース、ヘッダー、make ファイル
+- `test/` 配下 (`assured.stamp` がある app では `test/libsrc` のモックだけ)
+- ワークスペース直下の `Directory.Build.props` / `Directory.Build.targets`
+- `CONFIG` / `MSVC_CRT` / `TARGET_ARCH` / `CFLAGS` / `CXXFLAGS` / `LDFLAGS` / `DEFINES` / `LIBS` の値
+
+サブディレクトリへの再帰が省略されると、`makepart.mk` の `$(shell)` でサブディレクトリの make 読み込み時に走る処理も実行されません。  
+`app/cjson` / `app/sqlite` / `app/lua` のように、`packages/` の配布アーカイブを `bin/extract_package.py` で展開し、`patches/` のパッチを適用してから prod/ を構成する app では、展開処理自体がこの `$(shell)` の中で起きます。  
+そのため、これら 3 つの入力そのものが変化してもビルド署名には反映されない、という欠陥がかつて存在しました。
+
+これを避けるため、ビルド署名には次も明示的に含めます (対象 app にのみ存在する分だけが加わります)。
+
+- `patches/*.patch`
+- `packages/` 配下の配布アーカイブ (`*.zip`, `*.tar.gz`, `*.tgz`, `*.tar.xz`, `*.tar.bz2`, `*.tbz2`)
+- `bin/*.py`, `bin/*.sh`
+
+`packages/README.md` や `patches/README.md` のような運用手順の文書は対象に含めません。  
+`bin/extract_package.py` と `framework/makefw/bin/apply_patches.py` はいずれも README.md を参照せず、実際の展開・パッチ適用に使うのはファイル名を正規表現やファイル名昇順で選んだアーカイブ本体・パッチ本体だけだからです。  
+署名は「ビルド入力かどうか」を基準に含めるため、文書だけを変更しても再ビルドは走りません。
+
 ## assured.stamp による保証済み app の扱い
 
 `app/example/assured.stamp` は、その app が品質保証済みであることを表します。  

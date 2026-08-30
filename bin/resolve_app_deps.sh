@@ -520,6 +520,75 @@ add_signature_file() {
     printf '%s\0' "$path" >> "$tmp_paths"
 }
 
+# is_signature_file()/is_excluded_signature_path() のフィルターを経由せず、
+# ファイルを直接署名対象へ加える。
+#
+# 両フィルターは prod/ と test/ のツリー走査 (collect_tree_signature_files)
+# のための規則であり、出力ディレクトリ (prod/cbin、test/.../bin など) を
+# 除外するために拡張子を .c/.h 系などへ絞り込み、bin/ 配下を丸ごと除外する。
+# しかし app/cjson・app/sqlite・app/lua のように外来 OSS を取り込む app では、
+# patches/*.patch、packages/ 配下の配布アーカイブ、bin/*.py・bin/*.sh
+# (展開スクリプト) 自体がビルド入力であり、これらは上記フィルターの対象外
+# 拡張子であるか、bin/ 配下であるために全滅してしまう。
+# そのため、この関数はワークスペース内かどうかと実在確認だけを行い、
+# 呼び出し側 (collect_vendor_import_signature_files) が対象ディレクトリと
+# 拡張子をあらかじめ絞り込んだうえで直接追加する。
+add_signature_file_direct() {
+    local path="$1"
+    local rel
+
+    if [[ ! -f "$path" ]]; then
+        return 0
+    fi
+
+    rel="${path#$WORKSPACE_DIR/}"
+    if [[ "$rel" == "$path" ]]; then
+        return 0
+    fi
+
+    printf '%s\0' "$path" >> "$tmp_paths"
+}
+
+# 外来 OSS を取り込む app (app/cjson, app/sqlite, app/lua) の取り込み入力を
+# 署名へ加える。展開処理は makepart.mk の $(shell) でサブディレクトリの
+# make 読み込み時に走るため、app 直下 make が署名一致でサブディレクトリへの
+# 再帰を省くと、展開もパッチ適用も一切実行されなくなる。
+# それを防ぐため、実際に展開・パッチ適用へ使われる入力だけを対象にする。
+#   - patches/*.patch      : framework/makefw/bin/apply_patches.py が
+#                             ファイル名昇順に適用するパッチ本体。
+#   - packages/ 配下のアーカイブ : 各 app の bin/extract_package.py が
+#                             正規表現でファイル名を照合して選ぶ配布アーカイブ。
+#   - bin/*.py, bin/*.sh   : 展開処理そのものを行うスクリプト。
+# いずれのディレクトリにも運用手順を記した README.md が置かれることがあるが
+# (例: app/cjson/packages/README.md, app/cjson/patches/README.md)、
+# extract_package.py・apply_patches.py のどちらも README.md を一切参照しない
+# ため、これらは実際のビルド入力ではない。署名へ含めると文書だけの変更でも
+# 不要な再展開・再ビルドを招くため、対象から除外する。
+collect_vendor_import_signature_files() {
+    local app_path="$1"
+    local f
+
+    if [[ -d "$app_path/patches" ]]; then
+        for f in "$app_path"/patches/*.patch; do
+            add_signature_file_direct "$f"
+        done
+    fi
+
+    if [[ -d "$app_path/packages" ]]; then
+        for f in "$app_path"/packages/*.zip "$app_path"/packages/*.tar.gz \
+                 "$app_path"/packages/*.tgz "$app_path"/packages/*.tar.xz \
+                 "$app_path"/packages/*.tar.bz2 "$app_path"/packages/*.tbz2; do
+            add_signature_file_direct "$f"
+        done
+    fi
+
+    if [[ -d "$app_path/bin" ]]; then
+        for f in "$app_path"/bin/*.py "$app_path"/bin/*.sh; do
+            add_signature_file_direct "$f"
+        done
+    fi
+}
+
 collect_tree_signature_files() {
     local dir="$1"
 
@@ -589,6 +658,7 @@ collect_signature_files() {
     add_signature_file "$app_path/makepart.mk"
     add_signature_file "$app_path/makelocal.mk"
     add_signature_file "$app_path/appdeps.mk"
+    collect_vendor_import_signature_files "$app_path"
     collect_tree_signature_files "$app_path/prod"
 
     # `make` (default) は app 配下の test/ も SUBDIRS として再帰しビルドするため、
