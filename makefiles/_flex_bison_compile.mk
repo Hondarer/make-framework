@@ -50,6 +50,13 @@ $(GENDIR)/%.lex.c: %.l | $(GENDIR)
 	@echo "flex $(FLEXFLAGS) $<"
 	$(FLEX) $(FLEXFLAGS) -o $@ $<
 
+# bison/flex の生成物は、obj/*.o の生成過程でだけ作られる中間ファイルと見なされ、
+# GNU Make の既定では make の終了時に削除される。削除されると、サブディレクトリの
+# オブジェクト収集 (bin/filter_existing_source_objs.sh) が生成元のソースを見失い、
+# リンクを行う親ディレクトリまでオブジェクトが届かない。
+# 再生成の無駄も省けるため、明示的に残す。
+.SECONDARY: $(GEN_TAB_C) $(GEN_TAB_H) $(GEN_LEX_C)
+
 endif # GEN_TAB_C / GEN_LEX_C
 
 ifneq ($(strip $(GENDIR_C)),)
@@ -72,7 +79,7 @@ MAKEFW_EXTRA_OBJS += $(if $(PLATFORM_WINDOWS),$(patsubst %.o,%.obj,$(GENDIR_OBJS
 # GENDIR_EXTRA_C 経由でアプリが自前生成する .c (flex/bison 由来ではない) は、
 # アプリ側のコード品質に責任があるため、ここでの抑制対象に含めない。
 ifdef PLATFORM_LINUX
-MAKEFW_FLEXBISON_WARN_SUPPRESS := -Wno-conversion -Wno-sign-conversion -Wno-switch-default -Wno-padded
+MAKEFW_FLEXBISON_WARN_SUPPRESS := -Wno-conversion -Wno-sign-conversion -Wno-sign-compare -Wno-switch-default -Wno-padded
 
 $(OBJDIR)/%.o: $(GENDIR)/%.c $(GEN_TAB_H) | $(OBJDIR)
 	@echo "$(CC) -I. -I$(GENDIR) -c -o $@ $<"

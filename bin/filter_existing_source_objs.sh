@@ -6,11 +6,28 @@ platform="$1"
 scope="$2"
 crt_subdir="${3:-}"
 
+# オブジェクトの生成元となるソースが残っているかを判定する。
+#
+# 手書きのソース (<dir>/<stem>.c) に加えて、flex/bison やアプリ独自のコード生成器が
+# <dir>/gen/ へ出力したソースも根拠として認める。認めない場合、ライブラリや実行体の
+# サブディレクトリへ .l / .y を置いたときに、そこから作られたオブジェクトが
+# リンクを行うディレクトリまで届かない。
+#
+# ただし gen/ を根拠にできるのはサブディレクトリだけとする。リンクを行う
+# ディレクトリ自身 (src_dir が ".") の gen/ 由来オブジェクトは、
+# _flex_bison_compile.mk が MAKEFW_EXTRA_OBJS 経由でリンク入力へ加えるため、
+# ここでも拾うと同じオブジェクトを二重にリンクしてしまう。
 has_source() {
     local src_dir="$1"
     local stem="$2"
 
-    [ -f "$src_dir/$stem.c" ] || [ -f "$src_dir/$stem.cc" ] || [ -f "$src_dir/$stem.cpp" ]
+    if [ -f "$src_dir/$stem.c" ] || [ -f "$src_dir/$stem.cc" ] || [ -f "$src_dir/$stem.cpp" ]; then
+        return 0
+    fi
+    if [ "$src_dir" = "." ]; then
+        return 1
+    fi
+    [ -f "$src_dir/gen/$stem.c" ] || [ -f "$src_dir/gen/$stem.cc" ] || [ -f "$src_dir/gen/$stem.cpp" ]
 }
 
 if [ "$platform" = "linux" ]; then

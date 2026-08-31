@@ -46,16 +46,30 @@ NO_LINK = 1
 **makelibsrc_c_cpp.mk / makesrc_c_cpp.mk より:**
 
 ```makefile
-# サブディレクトリの obj ディレクトリを再帰的に検索して、オブジェクト ファイルを収集
-ifeq ($(OS),Windows_NT)
-    SUBDIR_OBJS := $(shell find . -type d -name obj -not -path "./obj" -exec find {} -maxdepth 1 -type f -name "*.obj" \; 2>/dev/null)
-else
-    SUBDIR_OBJS := $(shell find . -type d -name obj -not -path "./obj" -exec find {} -maxdepth 1 -type f -name "*.o" \; 2>/dev/null)
+# サブディレクトリの obj ディレクトリを再帰的に検索して、対応するソースがある
+# オブジェクト ファイルだけを収集する。
+ifdef PLATFORM_LINUX
+    SUBDIR_OBJS := $(shell bash "$(MAKEFW_HOME)/bin/filter_existing_source_objs.sh" linux subdirs)
 endif
 OBJS += $(SUBDIR_OBJS)
 ```
 
 これにより、親ディレクトリでリンクを実行すると、サブディレクトリのオブジェクト ファイルも含めてリンクされます。
+
+収集の対象は `bin/filter_existing_source_objs.sh` が判定します。  
+削除済みのソースに対応する古いオブジェクトを混ぜないため、生成元のソースが残っているものだけを通します。  
+判定の根拠は次のいずれかです。
+
+- 手書きのソース `<サブディレクトリ>/<ステム>.c` (`.cc`、`.cpp` も同様)
+- コード生成の出力 `<サブディレクトリ>/gen/<ステム>.c` (`.cc`、`.cpp` も同様)
+
+2 番目により、ライブラリや実行体のサブディレクトリへ `.l` / `.y` を置いた場合でも、  
+そこから作られたオブジェクトがリンクを行う親ディレクトリまで届きます。
+
+`gen/` を根拠にできるのはサブディレクトリだけです。  
+リンクを行うディレクトリ自身の `gen/` 由来オブジェクトは、このスクリプトではなく  
+`_flex_bison_compile.mk` が `MAKEFW_EXTRA_OBJS` 経由でリンク入力へ加えます。  
+両方で拾うと、同じオブジェクトを二重にリンクしてしまいます。
 
 ### 再帰的 make 処理
 
