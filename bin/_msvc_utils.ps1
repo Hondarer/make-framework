@@ -2,7 +2,32 @@
 # MSVC ビルド スクリプト共有ユーティリティ
 # Shared utility functions for MSVC build scripts
 
-$script:MsvcConsoleMutexName = 'Local\c-modernization-kit.makefw.msvc.console'
+function Get-MsvcConsoleMutexName {
+    # MSVC の出力を並列 make の間で直列化するための Mutex 名を決める。
+    # 利用側ワークスペースの名前は持たず、MAKEFW_HOME が指す実体で排他を分ける。
+    # Mutex 名は名前空間の接頭辞以外に \ を含められないため、パスはハッシュ化する。
+    # see: https://learn.microsoft.com/en-us/windows/win32/sync/object-names
+    $baseName = 'Local\makefw.msvc.console'
+
+    $makefwHome = [System.Environment]::GetEnvironmentVariable('MAKEFW_HOME')
+    if ([string]::IsNullOrWhiteSpace($makefwHome)) {
+        return $baseName
+    }
+
+    # パス区切りと大文字小文字の差を吸収してから、安定した接尾辞を作る
+    $normalized = $makefwHome.Replace('\', '/').TrimEnd('/').ToLowerInvariant()
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($normalized))
+    }
+    finally {
+        $sha.Dispose()
+    }
+
+    return '{0}.{1}' -f $baseName, (-join ($hash[0..7] | ForEach-Object { $_.ToString('x2') }))
+}
+
+$script:MsvcConsoleMutexName = Get-MsvcConsoleMutexName
 $script:MsvcConsoleMutexTimeoutMs = 60000
 $script:MsvcAnsiReset = [char]27 + '[0m'
 $script:MsvcAnsiRed = [char]27 + '[31m'
