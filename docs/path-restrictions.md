@@ -34,21 +34,21 @@ C:/Users/tetsuo/repos/c-modernization-kit/
 
 `prepare.mk` では `$(shell)` を使用してパスを取得しています。
 
-- `$(shell)` が呼び出す bash(Git for Windows) は UTF-8 でパスを返す
+- `$(shell)` が呼び出す bash (Git for Windows) は UTF-8 でパスを返します。
 - GNU Make (Windows ネイティブ版) は `$(shell)` の出力をシステム コード ページ (CP932) として解釈します。
-- UTF-8 の日本語バイト列が CP932 として誤解釈され、文字化け (mojibake) が生じる
-- 文字化けの結果にスペースが混入することがあり、`include` がパスを誤って分割します。
+- UTF-8 の日本語バイト列が CP932 として誤解釈され、文字化けが生じます。
+- 文字化けした結果にスペースが混入することがあり、`include` がパスを誤って分割します。
 
 ### 実際のエラー例
 
-日本語フォルダー名 `新しいフォルダー` が以下のように化けて、ファイルが見つからないエラーになります。
+日本語フォルダー名「新しいフォルダー」が次のように文字化けし、ファイルが見つからないエラーが発生します。
 
 ```text
 prepare.mk:292: C:/Users/tetsuo/Desktop/譁ｰ縺励＞ 繝輔か繝ｫ繝繝ｼ/c-modernization-kit/makepart.mk: No such file or directory
 make: *** No rule to make target '...'.  Stop.
 ```
 
-`譁ｰ縺励＞ 繝輔か繝ｫ繝繝ｼ` は `新しいフォルダー` の UTF-8 バイト列を CP932 として読んだ結果です。
+`譁ｰ縺励＞ 繝輔か繝ｫ繝繝ｼ` は「新しいフォルダー」の UTF-8 バイト列を CP932 として解釈した結果です。
 
 ## 推奨する配置パスの例
 

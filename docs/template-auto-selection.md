@@ -189,8 +189,8 @@ endif  # MAKEFW_BUILD
 
 | 条件 | 判定結果 |
 |------|---------|
-| パスに `/libsrc/` または `/src/` を含み、かつ直下に `*.c` / `*.cc` / `*.cpp` / `*.csproj` が存在します。 | `1` (ビルド実行) |
-| パスに `/libsrc/` または `/src/` を含み、Windows で直下に `*.mc` / `*.rc` が存在します。 | `1` (ビルド実行) |
+| パスに `/libsrc/` または `/src/` を含み、かつ直下に `*.c` / `*.cc` / `*.cpp` / `*.csproj` が存在 | `1` (ビルド実行) |
+| パスに `/libsrc/` または `/src/` を含み、Windows で直下に `*.mc` / `*.rc` が存在 | `1` (ビルド実行) |
 | パスに `/libsrc/` または `/src/` を含み、かつ `TEST_SRCS` / `ADD_SRCS` が指定されている | `1` (ビルド実行) |
 | 上記以外 | `0` (走査のみ) |
 
@@ -198,10 +198,10 @@ endif  # MAKEFW_BUILD
 
 | ディレクトリ パス | .csproj | 選択されるテンプレート |
 |--------------|---------|-------------------|
-| `/libsrc/` を含みます。 | 無し | `makelibsrc_c_cpp.mk` |
-| `/libsrc/` を含みます。 | 有り | `makelibsrc_dotnet.mk` |
-| `/src/` を含みます。 | 無し | `makesrc_c_cpp.mk` |
-| `/src/` を含みます。 | 有り | `makesrc_dotnet.mk` |
+| `/libsrc/` を含む | 無し | `makelibsrc_c_cpp.mk` |
+| `/libsrc/` を含む | 有り | `makelibsrc_dotnet.mk` |
+| `/src/` を含む | 無し | `makesrc_c_cpp.mk` |
+| `/src/` を含む | 有り | `makesrc_dotnet.mk` |
 | 上記以外 | - | エラー |
 
 ### MAKEFW_BUILD の明示設定が必要なケース
@@ -435,7 +435,7 @@ make
 **解決策**:
 
 1. ディレクトリ構造を見直し、`libsrc` または `src` の下に配置します。
-2. または、当該ディレクトリの `makelocal.mk` に `MAKEFW_BUILD := 0` を設定して走査のみに戻す
+2. または、当該ディレクトリの `makelocal.mk` に `MAKEFW_BUILD := 0` を設定して走査のみに戻します。
 
 ### ビルドが実行されない (サブディレクトリ走査のみになる)
 
@@ -474,7 +474,7 @@ makefile テンプレート自動選択機構により、以下が実現され�
 
 ## 保守コマンド
 
-app 直下テンプレートまたは統一テンプレートを更新したあと、すでに配置済みの対応 `makefile` を再同期するには、次の保守コマンドを利用します。
+app 直下テンプレートまたは統一テンプレートを更新した後、すでに配置済みの対応 `makefile` を再同期するには、次の保守コマンドを利用します。
 
 ```bash
 python framework/makefw/bin/update_template_makefiles.py --dry-run

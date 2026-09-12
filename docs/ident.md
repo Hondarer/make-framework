@@ -31,7 +31,7 @@ build で 4% 程度、clean から build まで含めた場合で 3% 程度が�
 
 IDENT は `make IDENT=1` を指定したときだけ、`prod/` 配下の C/C++ ビルドで有効になります。  
 `IDENT=0`、空文字、その他の値では有効になりません。  
-確認では、以下を順に見る。
+確認では、次の項目を順に確認します。
 
 1. 各 `.c` に対応する `.ident` JSON が `obj/` 配下に生成されること
 2. static lib では、後続リンクへ渡す `.ident_srcs` が `lib/` 配下に生成されること  
@@ -65,8 +65,8 @@ $text = [Text.Encoding]::ASCII.GetString($bytes)
 [regex]::Matches($text, '@\(#\)IDENT-[^\x00\r\n]*') | ForEach-Object { $_.Value }
 ```
 
-出力に、`IDENT-BEGIN`、`IDENT-C`、`IDENT-CH`、`IDENT-END` が含まれていれば、  
-ソースとヘッダーのハッシュが最終成果物へ埋め込まれている。
+出力に `IDENT-BEGIN`、`IDENT-C`、`IDENT-CH`、`IDENT-END` が含まれていれば、  
+ソースとヘッダーのハッシュが最終成果物へ埋め込まれています。
 
 exe で確認する場合は、`prod/src/cmd/` 配下のターゲットを使用します。
 
@@ -166,13 +166,13 @@ find app/example/test -name '*.ident' -print
 }
 ```
 
-パスはすべて `WORKSPACE_DIR` からの相対パス。  
+パスはすべて `WORKSPACE_DIR` からの相対パスです。  
 Make の依存ファイル内で `\` としてエスケープされた空白は、実際の空白として扱います。
 
 ### static lib 完成時
 
 `.ident_srcs` ファイルを生成し、どのディレクトリに `.ident` ファイルがあるかを記録します。  
-`LIB_TYPE=both` の場合も、static 側の成果物名に対応する `.ident_srcs` を生成する (例: `libcplat_static.lib` → `cplat_static.ident_srcs`)。
+`LIB_TYPE=both` の場合も、static 側の成果物名に対応する `.ident_srcs` を生成します (例: `libcplat_static.lib` → `cplat_static.ident_srcs`)。
 
 ```text
 [ident_dir]
@@ -185,7 +185,7 @@ Make の依存ファイル内で `\` としてエスケープされた空白は�
 2. リンクする static lib から `.ident_srcs` を読み込み、各 ident_dir を再帰検索
 3. git short hash を取得
 4. すべての情報を `_ident_manifest.c` へ生成
-5. `_ident_manifest.o` (.obj) へコンパイルし、リンクに自動混入
+5. `_ident_manifest.o` (.obj) へコンパイルし、リンク対象へ自動的に追加
 
 ## 有効範囲
 
@@ -194,7 +194,7 @@ Make の依存ファイル内で `\` としてエスケープされた空白は�
 | `app/<name>/prod/` | ✅ `IDENT=1` で有効 |
 | `app/<name>/test/` | ❌ 自動除外 |
 
-`IDENT_ENABLED` は `prepare.mk` でパスに `/prod/` を含む場合のみセットされる。
+`IDENT_ENABLED` は `prepare.mk` でパスに `/prod/` を含む場合のみ設定されます。
 
 ## clean
 
@@ -217,7 +217,7 @@ make clean IDENT=1
 
 ## 既知の制限
 
-- **LTO (`-flto`, Release ビルド)**: GCC の `__attribute__((used))` が LTO 下で有効かどうかは環境依存。  
+- **LTO (`-flto`, Release ビルド)**: GCC の `__attribute__((used))` が LTO 下で有効かどうかは環境に依存します。  
   動作確認が必要な場合は `readelf -p .ident <file>` で .ident セクションの有無を確認してください。
 - **git hash**: `.git/HEAD` の変更時のみ rev ファイルを再生成します。  
   新しいコミット後にハッシュを最新にするには `make IDENT=1` を再実行してください。

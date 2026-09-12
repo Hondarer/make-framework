@@ -71,7 +71,7 @@ endif
 ## 注意: PLATFORM 条件との組み合わせ
 
 フック検出は `makelocal.mk` のテキストを走査し、`ifdef` は解釈しません。  
-そのため、`pre-build:` などのターゲット定義行を `ifdef PLATFORM_LINUX` のような条件の内側に置くと、検出結果と実ターゲット定義が食い違い、`No rule to make target 'pre-clean'` などのエラーになります。
+そのため、`pre-build:` などのターゲット定義行を `ifdef PLATFORM_LINUX` のような条件の内側に置くと、検出結果と実際のターゲット定義との間で不整合が生じ、`No rule to make target 'pre-clean'` などのエラーが発生します。
 
 OS 専用処理が必要な場合は、ターゲット定義自体は条件の外に置き、レシピ内で分岐します。
 
@@ -145,7 +145,7 @@ install: $(OUTPUT_DIR)/$(TARGET)
 
 ### 例 5: エラーの無視
 
-フック ターゲット内でエラーが発生した場合、ビルド全体が停止します。エラーを無視したい場合は次のようにします。
+フック ターゲット内でエラーが発生した場合、ビルド全体が停止します。エラーを無視したい場合は、次のように指定します。
 
 ```makefile
 .PHONY: post-build

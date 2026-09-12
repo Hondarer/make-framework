@@ -11,16 +11,16 @@ makefile における OS 判定は、`framework/makefw/makefiles/prepare.mk` が
 
 ## 基本ルール
 
-### OS 判定は PLATFORM_* を使う
+### OS 判定は PLATFORM_* を使用する
 
 - Linux 判定: `PLATFORM_LINUX`
 - Windows 判定: `PLATFORM_WINDOWS`
 - 未知の環境: `PLATFORM_UNKNOWN`
 
-`$(OS)` や `Windows_NT` をアプリケーション側の makefile に直接書かないでください。
+`$(OS)` や `Windows_NT` をアプリケーション側の makefile に直接記述しないでください。
 
 `PLATFORM_*` は「選択されたものだけ `1` で定義し、非選択肢は未定義」とします。  
-そのため、make ディレクティブでは `ifdef PLATFORM_LINUX` のように書きます。
+そのため、make ディレクティブでは `ifdef PLATFORM_LINUX` のように記述します。
 
 ```makefile
 ifdef PLATFORM_LINUX
@@ -30,9 +30,9 @@ else ifdef PLATFORM_WINDOWS
 endif
 ```
 
-### OS 意味の else を使わない
+### OS 判定における単独の else の禁止
 
-Linux/Windows 二択でも、Windows 側を単なる `else` にしません。  
+Linux と Windows の 2 択であっても、Windows 側を単なる `else` にはしません。  
 必ず `else ifdef PLATFORM_WINDOWS` と明示します。
 
 ```makefile
@@ -70,7 +70,7 @@ endif
 - `$(filter 1,$(PLATFORM_WINDOWS))`
 - `$(filter 1,$(PLATFORM_LINUX))`
 
-既存コードを修正する場合も、新しい分岐追加時は `PLATFORM_*` に寄せてください。
+既存コードを修正する場合も、新しい分岐を追加する際は `PLATFORM_*` に統一してください。
 
 ## Make 関数内での書き方
 
@@ -130,6 +130,6 @@ endef
 
 ## 例外
 
-`$(OS)` や `uname -s` を読んでよいのは、プラットフォームを一度だけ確定する `framework/makefw/makefiles/prepare.mk` に限定します。
+`$(OS)` や `uname -s` を参照してよいのは、プラットフォームを一度だけ確定する `framework/makefw/makefiles/prepare.mk` に限定します。
 
 利用側の makefile は、その結果として export された `PLATFORM_*` のみを参照してください。

@@ -34,9 +34,9 @@ export COVERITY_HOME=/opt/coverity
 ```
 
 `$COVERITY_HOME/bin/cov-build` が存在しない場合、`with-cov` は開始前に失敗します。  
-通常の `make`、`make test`、`make doxy` には影響しませんので、Coverity が設定されていない環境では設定不要です。
+通常の `make`、`make test`、`make doxy` には影響しないため、Coverity が設定されていない環境では設定不要です。
 
-### cov-congigure の実行
+### cov-configure の実行
 
 [cov-configure の例](#cov-configure-の例) を参照して設定を行ってください。
 
@@ -45,7 +45,7 @@ export COVERITY_HOME=/opt/coverity
 次の 3 か所で `with-cov` を実行できます。
 
 > [!TIP]
-> 通常はプロジェクト ルートで `make with-cov` を行います。
+> 通常はプロジェクト ルートで `make with-cov` を実行します。
 
 > [!IMPORTANT]
 > 本フレームワークでは `cov-build` が必要な場合に、`make` 内部で自動的に `cov-build` を経由します。
@@ -90,9 +90,9 @@ cov-build --append-log --dir app/idir make -C prod
 
 `app/<appname>/makefile` の `with-cov` は通常の `make` と同じ署名比較を使います。
 
-- `make_build.stamp` が一致する場合は build を skip
-- build が skip された app では Coverity 収集も追加実行しません。
-- `make test` の skip 判定は既存どおり `make_test.stamp`
+- `make_build.stamp` が一致する場合はビルドをスキップします。
+- ビルドがスキップされた app では Coverity 収集も追加実行しません。
+- `make test` のスキップ判定は従来どおり `make_test.stamp` を参照します。
 - `assured.stamp` がある app では、app 直下の `with-cov` でも通常の `make` と同じく `test/src` のコンパイルとテスト実行を省略します。`prod` の Coverity 収集と `test/libsrc` のモック コンパイルは行います。
 
 このため、依存関係が未変更で clean な状態では、`with-cov` は追加のビルド コストを発生させません。
@@ -106,7 +106,7 @@ cov-build --append-log --dir app/idir make -C prod
 - `make -C app/<appname> clean`
     - app 単位の既存 clean だけを実行し、`app/idir` は削除しません
 
-`clean` を `cov-build` 経由で流すと、すでに `app/idir` に蓄積された emit を壊す可能性があります。  
+`clean` を `cov-build` 経由で実行すると、すでに `app/idir` に蓄積された解析データを破損させる可能性があります。  
 そのため `with-cov` でも `clean` は通常の `make` と分離して扱います。
 
 ## cov-configure の例
@@ -198,14 +198,14 @@ Windows で C と C# を対象にする場合は、少なくとも MSVC 系と C
 
 ### 迷ったときの整理
 
-- Linux で `app/example` だけ解析します。
+- Linux で `app/example` だけを解析する場合:
     - `cov-configure --gcc`
-- Linux で `app/example` と `app/example.net` の両方を解析します。
+- Linux で `app/example` と `app/example.net` の両方を解析する場合:
     - `cov-configure --gcc`
     - `cov-configure --cs`
-- Windows で `app/example` だけ解析します。
+- Windows で `app/example` だけを解析する場合:
     - `cov-configure --msvc`
-- Windows で `app/example` と `app/example.net` の両方を解析します。
+- Windows で `app/example` と `app/example.net` の両方を解析する場合:
     - `cov-configure --msvc`
     - `cov-configure --cs`
 

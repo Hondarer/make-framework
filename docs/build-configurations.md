@@ -75,8 +75,8 @@ INFO: Skipping build (dependencies are unchanged and clean)
 - ワークスペース直下の `Directory.Build.props` / `Directory.Build.targets`
 - `CONFIG` / `MSVC_CRT` / `TARGET_ARCH` / `CFLAGS` / `CXXFLAGS` / `LDFLAGS` / `DEFINES` / `LIBS` の値
 
-サブディレクトリへの再帰が省略されると、`makepart.mk` の `$(shell)` でサブディレクトリの make 読み込み時に走る処理も実行されません。  
-`app/cjson` / `app/sqlite` / `app/lua` のように、`packages/` の配布アーカイブを `bin/extract_package.py` で展開し、`patches/` のパッチを適用してから prod/ を構成する app では、展開処理自体がこの `$(shell)` の中で起きます。  
+サブディレクトリへの再帰が省略されると、`makepart.mk` の `$(shell)` でサブディレクトリの make 読み込み時に実行される処理も実行されません。  
+`app/cjson` / `app/sqlite` / `app/lua` のように、`packages/` の配布アーカイブを `bin/extract_package.py` で展開し、`patches/` のパッチを適用してから prod/ を構成する app では、展開処理自体がこの `$(shell)` の中で実行されます。  
 そのため、これら 3 つの入力そのものが変化してもビルド署名には反映されない、という欠陥がかつて存在しました。
 
 これを避けるため、ビルド署名には次も明示的に含めます (対象 app にのみ存在する分だけが加わります)。
@@ -87,7 +87,7 @@ INFO: Skipping build (dependencies are unchanged and clean)
 
 `packages/README.md` や `patches/README.md` のような運用手順の文書は対象に含めません。  
 `bin/extract_package.py` と `framework/makefw/bin/apply_patches.py` はいずれも README.md を参照せず、実際の展開・パッチ適用に使うのはファイル名を正規表現やファイル名昇順で選んだアーカイブ本体・パッチ本体だけだからです。  
-署名は「ビルド入力かどうか」を基準に含めるため、文書だけを変更しても再ビルドは走りません。
+署名は「ビルド入力かどうか」を基準に含めるため、文書だけを変更しても再ビルドは実行されません。
 
 ## assured.stamp による保証済み app の扱い
 
@@ -99,7 +99,7 @@ app/example/assured.stamp
 ```
 
 ファイルがあれば有効です。  
-中身は見ません。  
+ファイル内容は参照しません。  
 make はこのファイルを生成しません。  
 Git の無視対象にもしません。方針としてコミットできます。
 
@@ -124,17 +124,17 @@ app 直下の `make test` は `make_test.stamp` を更新しません。
 
 ### 成功時の clean 省略
 
-直近の app 直下 `make` が成功しているとき (`make_build.stamp` があるとき)、app 直下の `make clean` は成果物も `make_build.stamp` も消しません。
+直近の app 直下 `make` が成功しているとき (`make_build.stamp` があるとき)、app 直下の `make clean` は成果物も `make_build.stamp` も削除しません。
 
 ```text
 INFO: Skipping clean (assured.stamp is present and make succeeded)
 ```
 
 `make_build.stamp` を残すため、ソースを更新したあとの app 直下 `make` は、署名比較により必要な再ビルドだけを行います。  
-`make_build.stamp` が無いとき (失敗途中など) は、app 直下の `make clean` も従来どおり消します。
+`make_build.stamp` が無いとき (失敗途中など) は、app 直下の `make clean` も従来どおり削除します。
 
 構成切り替えのように、本来 `make clean` が必要な操作では、app 直下の `clean` が省略されます。  
-その場合は stamp を外してから `make clean` するか、`prod/` や `test/` 直下で `make clean` します。
+その場合は stamp を削除してから `make clean` するか、`prod/` や `test/` 直下で `make clean` します。
 
 ## Windows のランタイム指定
 
@@ -210,7 +210,7 @@ Windows の MSVC コンパイルは、1 回の `cl.exe` に渡すソース本数
 
 ## MSVC のヒープ不足時の再試行
 
-Windows の `cl.exe` が `fatal error C1060:` (ヒープの領域を使い果たしました) を出して失敗した場合、`msvc_compile.ps1` は make をすぐ失敗させず、内部で再試行します。  
+Windows の `cl.exe` が `fatal error C1060:` (ヒープの領域を使い果たしました) を出力して失敗した場合、`msvc_compile.ps1` は make を直ちに失敗させず、内部で再試行します。  
 並列 make で複数の `cl.exe` が同時にメモリを使うと、一時的にヒープ不足になることがあります。  
 同じ待ち時間で一斉に再開すると再び同時に失敗しやすいため、待ち時間は回数とともに延ばし、その範囲内の乱数にします。
 
@@ -221,15 +221,15 @@ Windows の `cl.exe` が `fatal error C1060:` (ヒープの領域を使い果た
 待ち時間の基準は 2000[ms]、上限は 16000[ms]、下限は 500[ms] です。  
 n 回目の再試行の上限は `min(16000, 2000 * 2^(n-1))` [ms] で、実際の待ちはその下限から上限までの乱数です。
 
-再試行中は元の `fatal error C1060` 行を赤字で出しません。  
-待機直前に情報出力を 1 行だけ出します。  
-本文に `error` や `fatal error` を含めないため、成功した再試行をコンパイラ失敗として拾われません。
+再試行中は元の `fatal error C1060` 行を赤字で出力しません。  
+待機直前に情報ログを 1 行だけ出力します。  
+本文に `error` や `fatal error` を含めないため、再試行で成功した場合はコンパイラ失敗として誤検出されません。
 
 ```text
 foo.cc: MSVC C1060 compiler heap exhausted; waiting 3.4s then retrying (2/4)
 ```
 
-再試行を使い果たした場合だけ、最後の試行の診断と `Compilation failed with exit code ...` を従来どおり赤字で出します。
+再試行上限に達した場合に限り、最後の試行の診断と `Compilation failed with exit code ...` を従来どおり赤字で出力します。
 
 次の環境変数で上書きできます。
 

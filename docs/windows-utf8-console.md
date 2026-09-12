@@ -13,7 +13,7 @@ Windows 10 1903 以降では、アプリケーション マニフェストの `a
 
 このため、本リポジトリでは次の方針を採用します。
 
-- Windows 10 1903 以降をサポート対象とし、`activeCodePage=UTF-8` マニフェストを必ず埋め込む
+- Windows 10 1903 以降をサポート対象とし、`activeCodePage=UTF-8` マニフェストを必ず埋め込みます。
 - `argv`、CRT narrow API、Win32 `-A` API は UTF-8 前提で扱います。
 - コンソール入出力については、`cplat_console_init()` で `SetConsoleCP(CP_UTF8)` / `SetConsoleOutputCP(CP_UTF8)` と VT 処理の有効化を行います。
 
@@ -65,8 +65,8 @@ Microsoft Learn の Console Code Pages 文書では、UTF-8 文字列を A 系�
 `cplat_console_init()` は Windows で次の処理を行います。
 
 - stdout がコンソールである場合に限り、初期化処理を行います。
-- コンソール入力コード ページが UTF-8 でなければ `SetConsoleCP(CP_UTF8)` を呼ぶ
-- コンソール出力コード ページが UTF-8 でなければ `SetConsoleOutputCP(CP_UTF8)` を呼ぶ
+- コンソール入力コード ページが UTF-8 でなければ `SetConsoleCP(CP_UTF8)` を呼び出します。
+- コンソール出力コード ページが UTF-8 でなければ `SetConsoleOutputCP(CP_UTF8)` を呼び出します。
 - stdout / stderr の `ENABLE_VIRTUAL_TERMINAL_PROCESSING` を有効化します。
 - 通常終了時に、変更前のコンソール コード ページとコンソール モードを復元します。
 
@@ -103,7 +103,7 @@ CodeBlock: PowerShell 7 を使用する場合
 
 ### マニフェストの指定
 
-makefw は `WIN32_MANIFEST` 変数を使ったマニフェスト埋め込み機能を提供します。MSVC の `link.exe` に `/MANIFEST:EMBED /MANIFESTINPUT:` オプションを渡してリンク時に直接 EXE へ埋め込みます。
+makefw は `WIN32_MANIFEST` 変数を使ったマニフェスト埋め込み機能を提供します。MSVC の `link.exe` に `/MANIFEST:EMBED /MANIFESTINPUT:` オプションを指定してリンク時に直接 EXE へ埋め込みます。
 
 `makepart.mk` に以下を追加します。
 
