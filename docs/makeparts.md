@@ -78,6 +78,7 @@ MAKE_INCLUDE_MK += $(wildcard $(CURDIR)/makepart.mk)
 | `CXXFLAGS` | C++ コンパイラ フラグ | `CXXFLAGS += -std=c++17` |
 | `OUTPUT_DIR` | 出力先ディレクトリ | `OUTPUT_DIR := $(MYAPP_DIR)/prod/cbin` |
 | `LIB_TYPE` | ライブラリ種別 | `LIB_TYPE = shared` (デフォルトは static、`both` で両方生成) |
+| `LDFLAGS += /NOENTRY` | Windows のリソース専用 DLL | `.mc` / `.rc` のリソースだけを含む DLL を生成します。`LIB_TYPE = shared` と併用します。 |
 | `LINK_INPUTS` | リンカーへ直接渡す追加入力 (EXE / DLL) | `LINK_INPUTS += path/to/prebuilt.res` |
 | `LINK_TEST` | テスト フレームワーク リンク | `LINK_TEST = 1` |
 | `TEST_SRCS` | テスト対象ソース ファイル | `TEST_SRCS := $(MYAPP_DIR)/prod/.../add.c` |
@@ -121,6 +122,22 @@ endif
 # 利用者は _static の有無でリンク方式を選択できる
 LIB_TYPE = both
 ```
+
+**例 1c: Windows のリソース専用 DLL**
+
+Windows の EventLog メッセージ テーブルなど、実行コードを持たないリソース専用 DLL は、次の設定で生成します。
+
+```makefile
+# app/example/prod/libsrc/example-messages/makepart.mk
+LIB_TYPE = shared
+ifdef PLATFORM_WINDOWS
+    LDFLAGS += /NOENTRY
+endif
+```
+
+`/NOENTRY` は Windows の DLL リンクにだけ適用されます。makefw はこの指定を検出すると、リソース専用 DLL に不要な識別用コードとインポート ライブラリを追加せず、対象アーキテクチャーを `/MACHINE` でリンカーへ渡します。DLL の入力には、同じディレクトリに配置した `.mc` または `.rc` を使用してください。
+
+この設定はリソース専用 DLL に限定してください。C/C++ の関数や `DllMain` を含む DLL へ指定すると、エントリ ポイントが存在しないためリンクまたは実行時の動作が成立しません。Linux では `/NOENTRY` は使用せず、通常の共有ライブラリ設定を使用します。
 
 **例 2: 実行体の出力先統一**
 

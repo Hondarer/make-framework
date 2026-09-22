@@ -168,16 +168,22 @@ else ifdef PLATFORM_WINDOWS
     endif
 endif
 
-# Windows DLL は IDENT 指定の有無にかかわらず manifest object をリンクする。
+# Windows DLL はリソース専用 (/NOENTRY) を除き manifest object をリンクする。
 # これにより空の翻訳単位でも DLL と import library を通常経路で生成できる。
-# Windows DLLs always link the manifest object, even without IDENT.
+# Windows DLLs link the manifest object unless /NOENTRY is specified.
 # This lets empty translation units produce a DLL and import library through the normal path.
 MAKEFW_DLL_IDENT_ENABLED :=
 MAKEFW_IDENT_EXPORT :=
 ifdef PLATFORM_WINDOWS
     ifneq (,$(filter shared both,$(LIB_TYPE)))
-        MAKEFW_DLL_IDENT_ENABLED := 1
-        MAKEFW_IDENT_EXPORT := 1
+        # /NOENTRY は実行コードを持たないリソース専用 DLL に使用する。
+        # see: https://learn.microsoft.com/en-us/cpp/build/creating-a-resource-only-dll
+        ifeq ($(filter /NOENTRY,$(LDFLAGS)),)
+            MAKEFW_DLL_IDENT_ENABLED := 1
+            MAKEFW_IDENT_EXPORT := 1
+        else
+            LDFLAGS += /MACHINE:$(MAKEFW_CVTRES_MACHINE)
+        endif
     endif
 endif
 
@@ -359,7 +365,10 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(STATI
         else ifdef PLATFORM_WINDOWS
             # DLL 副産物 (.lib, .pdb) の存在チェック条件を組み立てる
             # Build existence-check condition for DLL side products (.lib, .pdb)
-            _DLL_SIDE_CHECK := [ ! -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.lib,$(TARGET))" ]
+            _DLL_SIDE_CHECK := false
+            ifeq ($(filter /NOENTRY,$(LDFLAGS)),)
+                _DLL_SIDE_CHECK := [ ! -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.lib,$(TARGET))" ]
+            endif
             ifneq ($(filter /DEBUG /DEBUG:FULL /DEBUG:FASTLINK,$(LDFLAGS)),)
                 _DLL_SIDE_CHECK += || [ ! -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET))" ]
             endif
@@ -437,7 +446,10 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(OUTPUT_DIR)/$(TARGET_STATIC) 
 				exit $$_rc
         else ifdef PLATFORM_WINDOWS
             # DLL 副産物 (.lib, .pdb) の存在チェック条件を組み立てる
-            _DLL_SIDE_CHECK := [ ! -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.lib,$(TARGET))" ]
+            _DLL_SIDE_CHECK := false
+            ifeq ($(filter /NOENTRY,$(LDFLAGS)),)
+                _DLL_SIDE_CHECK := [ ! -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.lib,$(TARGET))" ]
+            endif
             ifneq ($(filter /DEBUG /DEBUG:FULL /DEBUG:FASTLINK,$(LDFLAGS)),)
                 _DLL_SIDE_CHECK += || [ ! -f "$(OUTPUT_DIR)/$(patsubst %.dll,%.pdb,$(TARGET))" ]
             endif
@@ -751,6 +763,8 @@ _test_main:
 				@:
 endif
 
+ifeq ($(filter /NOENTRY,$(LDFLAGS)),)
 ifneq (,$(filter 1,$(IDENT_ENABLED) $(MAKEFW_DLL_IDENT_ENABLED)))
 include $(MAKEFW_HOME)/makefiles/_ident.mk
+endif
 endif
