@@ -200,6 +200,19 @@ test:
 _test_build:
 _test_run:
 
+# ビルド対象もサブディレクトリも持たない階層 (例: 現在の OS に該当するソースがなく、
+# Windows でのみ *.mc / *.rc をビルドするディレクトリの Linux 側) では、
+# 主要ターゲットを何もしない空定義とし、上位からの再帰や直接の make を成功させる。
+# Directories with neither build sources nor subdirectories (e.g. a Windows-only
+# *.mc / *.rc directory on Linux): define the main targets as no-ops.
+ifneq ($(MAKEFW_BUILD),1)
+    ifeq ($(SUBDIRS),)
+        .DEFAULT_GOAL := default
+.PHONY: default build clean run restore rebuild
+default build clean run restore rebuild:
+    endif
+endif
+
 .PHONY: _makefw_is_test_leaf
 _makefw_is_test_leaf:
 	@if [ "$(MAKEFW_TEST_LEAF)" = "1" ]; then echo 1; else echo 0; fi
