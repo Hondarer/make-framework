@@ -164,18 +164,22 @@ makefw は Linux と Windows のどちらでも、利用可能な論理 CPU 数�
 Linux では `nproc`、Windows では `NUMBER_OF_PROCESSORS` から CPU 予算を取得し、取得できない場合は 6 を使います。  
 `MAKEFW_CPU_BUDGET` に正の整数を指定すると、自動検出した CPU 予算を上書きできます。
 
-Linux の make には CPU 予算と 16 の小さい方を割り当てます。  
-Windows の make には `ceil(sqrt(2 * CPU 数))` を割り当て、上限を 12 とします。  
-MSBuild の `-m` には `floor(CPU 数 / make の並列度)` を割り当て、1 から 16 の範囲に制限します。  
-MSVC の `/MP` にはその値をさらに 2 で割った `floor(floor(CPU 数 / make の並列度) / 2)` を割り当て、1 から 16 の範囲に制限します。  
+CPU 使用量の目安を半分程度へ抑えるため、両 OS とも `ceil(CPU 数 / 2)` をコンパイル予算とします。  
+make の並列度と、MSVC の `/MP` や MSBuild の `-m` との積が、コンパイル予算に収まるように配分します。
+
+Linux の make にはコンパイル予算を割り当て、上限を 8 とします。  
+Windows の make には `ceil(sqrt(2 * CPU 数))` を割り当て、コンパイル予算と 12 を上限とします。  
+MSVC の `/MP` と MSBuild の `-m` には `floor(コンパイル予算 / make の並列度)` を割り当て、1 から 16 の範囲に制限します。  
 Windows では make の外側の並列度を増やしつつ、1 つの `cl.exe` が生成する子プロセス数を抑えることで、CPU の利用効率とコンパイル時のスタック・メモリ使用量を調整します。
 
-論理 CPU が 72 個ある場合の自動設定は次のとおりです。
+代表的な論理 CPU 数での自動設定は次のとおりです。
 
-| OS | make | GCC | MSVC | MSBuild |
-|---|---:|---:|---:|---:|
-| Linux | `-j16` | make の並列度を使用 | - | `-m:4` |
-| Windows | `-j12` | - | `/MP3` | `-m:6` |
+| OS | CPU 数 | make | GCC | MSVC | MSBuild |
+|---|---:|---:|---:|---:|---:|
+| Linux | 8 | `-j4` | make の並列度を使用 | - | `-m:1` |
+| Linux | 72 | `-j8` | make の並列度を使用 | - | `-m:4` |
+| Windows | 8 | `-j4` | - | `/MP1` | `-m:1` |
+| Windows | 72 | `-j12` | - | `/MP3` | `-m:3` |
 
 引数なし、`default`、`build`、`clean`、`rebuild`、`test` では自動設定を使用します。  
 `make test` は内部で 2 フェーズに分かれます。Phase 1 (ビルド フェーズ、ターゲット `_test_build`) はテスト バイナリのコンパイルとリンクのみを自動設定の並列度で実行し、Phase 2 (実行フェーズ、ターゲット `_test_run`) はテストの実行順を維持するため `-j1` で実行します。  

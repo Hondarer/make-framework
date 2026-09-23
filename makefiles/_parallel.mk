@@ -6,8 +6,9 @@
 # make -j の並列スロットを消費する。
 # 単純に floor(CPU / make_j) を /MP に割り当てると、複数 app の並列ビルド時に
 # 瞬間的な cl.exe プロセス数が想定を超え、メモリ不足を引き起こしやすい。
-# そのため Windows では /MP を floor(inner_jobs / 2) に抑制することで
-# ピーク時のメモリ圧力を下げている。
+# そのため両 OS とも ceil(CPU / 2) をコンパイル予算とし、
+# make 並列度と /MP・MSBuild -m の積がこの予算に収まるよう配分して、
+# CPU 使用量とピーク時のメモリ圧力を下げている。
 # MAKEFW_CL_MP_JOBS を明示指定した場合はその値を優先する。
 
 ifndef _MAKEFW_PARALLEL_MK
@@ -29,11 +30,12 @@ MAKEFW_ALLOW_JOB_FALLBACK := $(or $(MAKEFW_AUTO_DEFAULT_PARALLEL),$(MAKEFW_HAS_U
 # makeflags、明示設定、自動設定の順で外側と内側の並列度を解決する。
 # runner が MAKEFLAGS を消して再帰 make を起動しても、解決済みの並列度を維持するため、
 # recipe 内で MAKEFW_CPU_BUDGET / MAKEFW_CL_MP_JOBS / MAKEFW_MSBUILD_JOBS を export する。
-# Linux の make は CPU 数と 16 の小さい方を使う。
-# Windows の make は ceil(sqrt(2 * CPU 数)) と 12 の小さい方を使う。
-# 72 論理 CPU では -j12 となり、inner_jobs=6、/MP3、MSBuild -m:6 になる。
-# MSVC は floor(floor(CPU 数 / make 並列度) / 2) を 1 から 16 の範囲で使う。
-# MSBuild は floor(CPU 数 / make 並列度) を 1 から 16 の範囲で使う。
+# コンパイル予算は ceil(CPU 数 / 2) とし、CPU 使用量の目安を半分程度へ抑える。
+# Linux の make はコンパイル予算と 8 の小さい方を使う。
+# Windows の make は ceil(sqrt(2 * CPU 数))、12、コンパイル予算の最小値を使う。
+# MSVC と MSBuild は floor(コンパイル予算 / make 並列度) を 1 から 16 の範囲で使う。
+# 8 論理 CPU の Linux では -j4、MSBuild -m:1 になる。
+# 72 論理 CPU の Windows では -j12、/MP3、MSBuild -m:3 になる。
 define _MAKEFW_RESOLVE_PARALLEL_SHELL
 	makeflags="$${MAKEFLAGS:-} $${MFLAGS:-}"; \
 	jobs=""; \
@@ -61,13 +63,15 @@ define _MAKEFW_RESOLVE_PARALLEL_SHELL
 			if [ "$(MAKEFW_HAS_USER_CPU_BUDGET)" = "1" ]; then echo "ERROR: MAKEFW_CPU_BUDGET must be a positive integer: $(MAKEFW_CPU_BUDGET)" >&2; exit 2; fi; \
 			cpu=6 ;; \
 	esac; \
+	compile_budget=$$(((cpu + 1) / 2)); \
 	if [ -z "$$jobs" ] && [ -z "$$unlimited_parallel" ] && [ -n "$$allow_job_fallback" ]; then \
 		if [ "$(OS)" = "Windows_NT" ]; then \
 			jobs=1; \
 			while [ $$((jobs * jobs)) -lt $$((cpu * 2)) ] && [ $$jobs -lt 12 ]; do jobs=$$((jobs + 1)); done; \
+			if [ $$jobs -gt $$compile_budget ]; then jobs=$$compile_budget; fi; \
 		else \
-			jobs=$$cpu; \
-			if [ $$jobs -gt 16 ]; then jobs=16; fi; \
+			jobs=$$compile_budget; \
+			if [ $$jobs -gt 8 ]; then jobs=8; fi; \
 		fi; \
 	fi; \
 	if [ -z "$$jobs" ] && [ -z "$$unlimited_parallel" ] && [ -n "$$allow_job_fallback" ]; then jobs="$(JOBS_EFFECTIVE)"; fi; \
@@ -76,21 +80,14 @@ define _MAKEFW_RESOLVE_PARALLEL_SHELL
 	if [ -n "$$unlimited_parallel" ]; then \
 		inner_jobs=1; \
 	elif [ -n "$$jobs" ]; then \
-		inner_jobs=$$((cpu / jobs)); \
+		inner_jobs=$$((compile_budget / jobs)); \
 		if [ $$inner_jobs -lt 1 ]; then inner_jobs=1; fi; \
 		if [ $$inner_jobs -gt 16 ]; then inner_jobs=16; fi; \
 	else \
 		inner_jobs=1; \
 	fi; \
 	if [ "$(MAKEFW_HAS_USER_CL_MP_JOBS)" = "1" ]; then cl_jobs="$(MAKEFW_CL_MP_JOBS)"; fi; \
-	if [ -z "$$cl_jobs" ]; then \
-		if [ "$(OS)" = "Windows_NT" ]; then \
-			cl_jobs=$$((inner_jobs / 2)); \
-			if [ $$cl_jobs -lt 1 ]; then cl_jobs=1; fi; \
-		else \
-			cl_jobs="$$inner_jobs"; \
-		fi; \
-	fi; \
+	if [ -z "$$cl_jobs" ]; then cl_jobs="$$inner_jobs"; fi; \
 	if [ "$(MAKEFW_HAS_USER_MSBUILD_JOBS)" = "1" ]; then msbuild_jobs="$(MAKEFW_MSBUILD_JOBS)"; fi; \
 	if [ -z "$$msbuild_jobs" ]; then msbuild_jobs="$$inner_jobs"; fi; \
 	case "$$cl_jobs" in *[!0-9]*|0|'') echo "ERROR: MAKEFW_CL_MP_JOBS must be a positive integer: $$cl_jobs" >&2; exit 2 ;; esac; \
