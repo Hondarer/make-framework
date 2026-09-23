@@ -168,8 +168,10 @@ def main() -> int:
             print(f"エラー: {exc}", file=sys.stderr)
             errors += 1
             continue
+        # テンプレートは改行を LF に正規化して読み、同期先は改行を変換せずに読む。
+        # CRLF の作業コピーも差分として検出し、.gitattributes (eol=lf) に揃える。
         template_content = template_path.read_text(encoding="utf-8")
-        current_content = makefile.read_text(encoding="utf-8")
+        current_content = makefile.read_bytes().decode("utf-8")
 
         if current_content == template_content:
             print(f"[スキップ] {rel_path} (すでに最新)")
@@ -179,7 +181,8 @@ def main() -> int:
         if args.dry_run:
             print(f"[対象]     {rel_path}")
         else:
-            makefile.write_text(template_content, encoding="utf-8")
+            # Windows でも CRLF へ変換せず LF で書き出す。
+            makefile.write_text(template_content, encoding="utf-8", newline="\n")
             print(f"[更新]     {rel_path}")
         updated += 1
 
