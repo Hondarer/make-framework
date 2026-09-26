@@ -5,6 +5,11 @@ MAKEFW_HOME := $(strip $(MAKEFW_HOME))
 ifeq ($(MAKEFW_HOME),)
     $(error MAKEFW_HOME is required. Export MAKEFW_HOME before running make)
 endif
+
+# "#!/bin/bash" のスクリプトを "$(SHELL)" で起動すると shebang は使われない。
+# make の既定は /bin/sh なので、ここで bash を指定する。
+SHELL := /bin/bash
+
 include $(MAKEFW_HOME)/makefiles/_parallel.mk
 
 APP_ORDER_RESOLVER = $(MAKEFW_HOME)/bin/resolve_app_deps.sh
