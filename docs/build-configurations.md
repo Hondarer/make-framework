@@ -59,9 +59,10 @@ app 単位は途中で 1 つでも失敗すると次回は全体を再実行し�
 
 ## ビルド署名に含まれる入力
 
-app 直下の `make` / `make test` / `make with-cov` は、実行のたびに `framework/makefw/bin/resolve_app_deps.sh --signature` でビルド署名 (`BUILD_SIGNATURE`) を計算し、直前の実行時の値と比較します。  
-`make` と `make with-cov` は `make_build.stamp` と、`make test` は `make_test.stamp` と突き合わせます。  
-署名が前回と一致し、かつ直近のビルドが成功していれば、サブディレクトリへの再帰そのものを省略します。
+app 直下の `make` / `make test` は、実行のたびに `framework/makefw/bin/resolve_app_deps.sh --signature` でビルド署名 (`BUILD_SIGNATURE`) を計算し、直前の実行時の値と比較します。  
+`make` は `make_build.stamp` と、`make test` は `make_test.stamp` と突き合わせます。  
+署名が前回と一致し、かつ直近のビルドが成功していれば、サブディレクトリへの再帰そのものを省略します。  
+`make with-cov` は署名を計算せず、`make_build.stamp` も更新しません (`test` をビルドしないため)。
 
 ```text
 INFO: Skipping build (dependencies are unchanged and clean)
@@ -109,7 +110,7 @@ Git の無視対象にもしません。方針としてコミットできます�
 
 ### test/src の省略
 
-app 直下の `make` と `make test`、および `make with-cov` の `test` 側は、製品とモックだけをコンパイルし、`test/src` のコンパイルとテスト実行を行いません。
+app 直下の `make` と `make test` は、製品とモックだけをコンパイルし、`test/src` のコンパイルとテスト実行を行いません。
 
 ```text
 INFO: Skipping test/src (assured.stamp is present)
@@ -132,6 +133,11 @@ INFO: Skipping clean (assured.stamp is present and make succeeded)
 
 `make_build.stamp` を残すため、ソースを更新したあとの app 直下 `make` は、署名比較により必要な再ビルドだけを行います。  
 `make_build.stamp` が無いとき (失敗途中など) は、app 直下の `make clean` も従来どおり削除します。
+
+`make with-cov` は、`assured.stamp` の有無に関係なく、この省略を使いません。  
+`prod/coverity.mk` がある app では、収集の直前に `prod` の成果物と `make_build.stamp` を削除し、`prod` をリンクまで再ビルドします。  
+通常の `make clean` は、この省略を維持します。  
+手順は [clean の扱い](coverity-with-cov.md#clean-の扱い) を参照してください。
 
 構成切り替えのように、本来 `make clean` が必要な操作では、app 直下の `clean` が省略されます。  
 その場合は stamp を削除してから `make clean` するか、`prod/` や `test/` 直下で `make clean` します。

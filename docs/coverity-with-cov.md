@@ -2,7 +2,10 @@
 
 ## 概要
 
-`with-cov` は通常の `make` と同じ成果物を生成しつつ、解析対象 app の `prod` だけを `cov-build` 経由で実行する仕組みです。  
+`with-cov` は、解析対象 app の `prod` を `cov-build` 経由でビルドする、分析専用の仕組みです。  
+構文解析や自動生成を伴う app では、解析対象のソースがリンクまでのビルド過程で生成されるため、`prod` は通常の `make` と同じくリンクまで行います。  
+一方で `test` (モックとテスト コード) はビルドせず、`make_build.stamp` と `make_test.stamp` も更新しません。  
+`test` のビルドや実行が必要な場合は、通常の `make` や `make test` を別に実行してください。  
 解析結果はワークスペース共通の `app/idir` に蓄積されます。
 
 ## Coverity を make にあわせて収集する方法
@@ -64,11 +67,14 @@ make -C app/<appname> with-cov または cd app/<appname> && make with-cov && cd
     - `skills` も通常の `make` と同様に実行
 - `make -C app with-cov`
     - app の依存順は通常の `make -C app` と同じ
-    - `prod/coverity.mk` がある app だけ `with-cov` を呼ぶ
-    - それ以外の app は通常ビルド
+    - 対象は、`prod/coverity.mk` がある app と、それらが (推移的に) 依存する app だけです
+    - `prod/coverity.mk` がある app は `with-cov` を呼ぶ
+    - 依存先で `prod/coverity.mk` がない app は、生成ヘッダーやライブラリを供給するため、`prod` だけを通常どおり `make` する
+    - どの対象 app にも依存されない、`prod/coverity.mk` のない app は `make` しない
+    - `prod/coverity.mk` のある app が 1 つもない場合は、何もしない
 - `make -C app/<appname> with-cov`
-    - `prod` は Coverity 経由
-    - `test` は通常どおり `make -C test`
+    - `prod` だけを Coverity 経由でビルドする
+    - `test` は対象外 (ビルドしない)
 
 ## 収集動作
 
@@ -81,6 +87,7 @@ cov-build --append-log --dir app/idir make -C prod
 - `--dir` は常にワークスペースの `app/idir`
 - `--append-log` により `app/idir/build-log.txt` は追記されます
 - `test` や `clean` は `cov-build` を通しません
+- 対象 app の一覧は `framework/makefw/bin/resolve_app_deps.sh --coverity-apps` で確認できます
 
 `app/idir` は app ごとの一時ディレクトリではなく、ワークスペース全体の集約先です。  
 複数 app を連続実行すると、同じ `app/idir` に emit が蓄積されます。  
@@ -88,14 +95,16 @@ cov-build --append-log --dir app/idir make -C prod
 
 ## skip 挙動
 
-`app/<appname>/makefile` の `with-cov` は通常の `make` と同じ署名比較を使います。
+`app/<appname>/makefile` の `with-cov` は、通常の `make` のような署名比較によるビルド スキップを行いません。  
+Coverity 収集は `prod` のビルドを観測することが前提であり、ビルドが行われなければ何も収集されないためです。
 
-- `make_build.stamp` が一致する場合はビルドをスキップします。
-- ビルドがスキップされた app では Coverity 収集も追加実行しません。
-- `make test` のスキップ判定は従来どおり `make_test.stamp` を参照します。
-- `assured.stamp` がある app では、app 直下の `with-cov` でも通常の `make` と同じく `test/src` のコンパイルとテスト実行を省略します。`prod` の Coverity 収集と `test/libsrc` のモック コンパイルは行います。
+- `prod/coverity.mk` がある app は、収集の直前に `prod` の成果物と `make_build.stamp` を削除します。`assured.stamp` の有無や `make_build.stamp` の一致に関係なく、`prod` を必ず再ビルドします。
+- `prod` は通常の `make` と同じく、リンクまで行います。
+- `test` (モックとテスト コード) はビルドしません。`assured.stamp` の有無にも影響されません。
+- `make_build.stamp` と `make_test.stamp` は更新しません。`test` をビルドしていない状態を「ビルド済み」と扱わないためです。
 
-このため、依存関係が未変更で clean な状態では、`with-cov` は追加のビルド コストを発生させません。
+このため、`with-cov` を実行した app は、続く通常の `make` で `test` のビルドと `make_build.stamp` の作成が行われます。  
+依存先として `prod` だけを `make` した app (`prod/coverity.mk` がない app) も同様に、`make_build.stamp` は更新されません。
 
 ## clean の扱い
 
@@ -105,6 +114,13 @@ cov-build --append-log --dir app/idir make -C prod
     - ルートから `make -C app clean` が呼ばれるため、最終的に `app/idir` も削除されます
 - `make -C app/<appname> clean`
     - app 単位の既存 clean だけを実行し、`app/idir` は削除しません
+
+`make with-cov` は、`prod/coverity.mk` がある app で、収集の直前に `prod` だけを clean し、`make_build.stamp` を削除します。  
+この clean は `__ensure-coverity` による前提検査のあと、`cov-build` の外で実行します。  
+`with-cov` は `test` を扱わないため、`test` は clean しません。  
+`assured.stamp` の有無に関係なく実行するため、`with-cov` の前に利用者が `make clean` する必要はありません。  
+一方、`assured.stamp` と `make_build.stamp` がある app の通常の `make clean` は、従来どおり成果物と stamp を削除しません。  
+省略条件の詳細は [成功時の clean 省略](build-configurations.md#成功時の-clean-省略) を参照してください。
 
 `clean` を `cov-build` 経由で実行すると、すでに `app/idir` に蓄積された解析データを破損させる可能性があります。  
 そのため `with-cov` でも `clean` は通常の `make` と分離して扱います。

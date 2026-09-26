@@ -25,6 +25,7 @@ Usage:
   resolve_app_deps.sh --paths-all <app-dir> [test]
   resolve_app_deps.sh --signature <app-dir> [build|test]
   resolve_app_deps.sh --app-order
+  resolve_app_deps.sh --coverity-apps
 EOF
 }
 
@@ -773,6 +774,24 @@ emit_app_order() {
     printf '%s\n' "${ordered[*]}"
 }
 
+emit_coverity_apps() {
+    local app
+    local dep
+    local -A needed=()
+
+    while IFS= read -r app; do
+        [[ -z "$app" ]] && continue
+        [[ -f "$APP_ROOT_DIR/$app/prod/coverity.mk" ]] || continue
+        while IFS= read -r dep; do
+            [[ -n "$dep" ]] && needed["$dep"]=1
+        done < <(collect_app_closure "$app")
+    done < <(list_apps)
+
+    if (( ${#needed[@]} > 0 )); then
+        printf '%s\n' "${!needed[@]}" | LC_ALL=C sort
+    fi
+}
+
 main() {
     local mode="${1:-}"
     local app_dir="${2:-}"
@@ -802,6 +821,9 @@ main() {
             ;;
         --app-order)
             emit_app_order
+            ;;
+        --coverity-apps)
+            emit_coverity_apps
             ;;
         *)
             usage

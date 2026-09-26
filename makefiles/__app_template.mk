@@ -83,15 +83,25 @@ default : submodule
 		"$$app_build_jobs" default $(SUBDIRS)
 	@$(APP_POST_BUILD_CHECKS)
 
+# with-cov は分析専用とし、prod/coverity.mk を持つ app と、それらが依存する (推移的) app だけを対象にする。
+# 依存先の app は、生成ヘッダーやライブラリを供給するため、coverity.mk が無ければ prod だけを通常どおり make する。
+# それ以外の app は make しない。実行時にだけ展開するため再帰展開 (=) にする。
+_MAKEFW_WITH_COV_SUBDIRS = $(filter $(shell bash "$(APP_ORDER_RESOLVER)" --coverity-apps),$(SUBDIRS))
+
 .PHONY: with-cov
 with-cov : submodule
 	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
 	app_with_cov_jobs="$$jobs"; \
 	if [ -z "$$app_with_cov_jobs" ]; then app_with_cov_jobs=1; fi; \
-	MAKEFW_SUBDIR_MAKE="$(MAKEFW_SUBDIR_MAKE_CMD)" "$(SHELL)" \
-		"$(MAKEFW_HOME)/bin/run_ordered_subdir_target.sh" \
-		--app-deps --silent-missing --echo-command --progress \
-		"$$app_with_cov_jobs" _makefw_with_cov_or_default $(SUBDIRS)
+	with_cov_subdirs="$(_MAKEFW_WITH_COV_SUBDIRS)"; \
+	if [ -z "$$with_cov_subdirs" ]; then \
+		echo "INFO: Skipping with-cov (no app has prod/coverity.mk)"; \
+	else \
+		MAKEFW_SUBDIR_MAKE="$(MAKEFW_SUBDIR_MAKE_CMD)" "$(SHELL)" \
+			"$(MAKEFW_HOME)/bin/run_ordered_subdir_target.sh" \
+			--app-deps --silent-missing --echo-command --progress \
+			"$$app_with_cov_jobs" _makefw_with_cov_prod $$with_cov_subdirs; \
+	fi
 	@$(APP_POST_BUILD_CHECKS)
 
 .PHONY: clean
