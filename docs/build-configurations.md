@@ -46,7 +46,7 @@ MSVC では `/GL` と `/LTCG` を組み合わせます。
 `LINK_TEST=1` のテスト対象では、ステップ実行とカバレッジ計測を優先します。  
 そのため、通常の `CONFIG` が `RelWithDebInfo` や `Release` であっても、テスト対象ソースには最適化抑制とカバレッジ用の設定が適用されます。
 
-- Linux: `-O0 -g -coverage` を使用し、`-flto` はリンク オプションから除外します。
+- Linux: `-O0 -g -coverage -fprofile-update=atomic` を使用し、`-flto` はリンク オプションから除外します。`-fprofile-update=atomic` は、多スレッド テストでカバレッジ カウンターの更新が競合して gcov が負の実行回数を出力し、gcovr が読み取りに失敗することを防ぎます。
 - MSVC: `/Od /Ob0 /Zi` を使用し、`/LTCG` はリンク オプションから除外します。
 
 本番性能の確認には、`test` 配下ではなく `prod` 配下を `CONFIG=Release` でビルドした成果物を使用します。

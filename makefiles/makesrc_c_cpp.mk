@@ -175,8 +175,11 @@ ifdef PLATFORM_LINUX
     endif
     # カバレッジ計測用オプション
     #   -coverage: gcov/lcov 用のインストルメンテーション
-    CFLAGS_TEST += -coverage
-    CXXFLAGS_TEST += -coverage
+    #   -fprofile-update=atomic: 多スレッド テストでカウンター更新が競合し、
+    #     gcov が負の実行回数を出力して gcovr が読み取りに失敗するのを防ぐ
+    #     see: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=68080
+    CFLAGS_TEST += -coverage -fprofile-update=atomic
+    CXXFLAGS_TEST += -coverage -fprofile-update=atomic
 else ifdef PLATFORM_WINDOWS
     # ステップ実行/カバレッジに支障となるオプションを除去
     #   /O1, /O2: 最適化 (コード再配置・省略が発生)
