@@ -18,6 +18,8 @@
 | `# 各 app 直下 makefile テンプレート` | `framework/makefw/makefiles/__each_app_template.mk` |
 | `# app 直下 makefile テンプレート` | `framework/makefw/makefiles/__app_template.mk` |
 
+Table: 先頭行の識別子に応じたテンプレート同期元ファイル
+
 この先頭行は「この `makefile` はテンプレートの実体コピーであり、内容差分を持たせない」という識別子として扱います。
 
 ## 背景

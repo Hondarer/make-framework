@@ -34,6 +34,8 @@ make -C app/example/test CONFIG=Debug test
 | `RelWithDebInfo` | 性能と調査しやすさのバランス | `-O2 -g -fno-omit-frame-pointer -DNDEBUG` | `/O2 /Ob2 /Zi /DNDEBUG` |
 | `Release` | 配布・性能測定向け | `-O2 -g -flto -DNDEBUG` | `/O2 /Ob2 /Oy /Zi /GL /DNDEBUG` |
 
+Table: ビルド構成別の用途およびコンパイラ フラグ一覧
+
 `RelWithDebInfo` は、通常開発・テスト・性能調査の既定構成です。  
 最適化を有効にしつつデバッグ情報を生成し、Linux ではフレーム ポインターを保持してスタック トレースやプロファイリングを安定させます。
 
@@ -186,6 +188,8 @@ Windows では make の外側の並列度を増やしつつ、1 つの `cl.exe` 
 | Linux | 72 | `-j8` | make の並列度を使用 | - | `-m:4` |
 | Windows | 8 | `-j4` | - | `/MP1` | `-m:1` |
 | Windows | 72 | `-j12` | - | `/MP3` | `-m:3` |
+
+Table: OS および論理 CPU 数別の並列ビルド設定一覧
 
 引数なし、`default`、`build`、`clean`、`rebuild`、`test` では自動設定を使用します。  
 `make test` は内部で 2 フェーズに分かれます。Phase 1 (ビルド フェーズ、ターゲット `_test_build`) はテスト バイナリのコンパイルとリンクのみを自動設定の並列度で実行し、Phase 2 (実行フェーズ、ターゲット `_test_run`) はテストの実行順を維持するため `-j1` で実行します。  

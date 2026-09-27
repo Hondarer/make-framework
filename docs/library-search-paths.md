@@ -20,6 +20,8 @@ Linux のリンクでは、`LIBSDIR` に設定したディレクトリを `-L` �
 | 直接依存 | コマンド ラインの `-lfoo` | `-L`、既定の探索パス |
 | 間接依存 | `libfoo.so` が `DT_NEEDED` に持つ `libbar.so` | `-rpath-link`、`-rpath`、`LD_LIBRARY_PATH`、`DT_RUNPATH`、既定の探索パス |
 
+Table: ライブラリの直接依存と間接依存の探索仕様
+
 `-L` は直接依存にしか使われません。  
 `libfoo.so` を `-lfoo` でリンクするとき、`libfoo.so` 自身が要求する `libbar.so` は `-L` では見つからず、次の診断でリンクが失敗します。
 

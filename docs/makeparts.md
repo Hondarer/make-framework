@@ -12,6 +12,8 @@ makefw フレームワークでは、ビルド設定のカスタマイズに 3 �
 | `makelocal.mk` | 自ディレクトリ限定 | 自ディレクトリのみ |
 | `appdeps.mk` | app 直下の省略可能な依存・公開ヘッダー分類 | 自 app と依存 app の `prod/include` / `prod/lib` / `test/include` / `test/lib` 自動解決 |
 
+Table: makefw 設定ファイルの種類とスコープ
+
 これらのファイルは、記述する内容がある場合にだけ作成すれば十分です。  
 設定が不要なときは、空のファイルを作成する必要はありません。
 
@@ -83,6 +85,8 @@ MAKE_INCLUDE_MK += $(wildcard $(CURDIR)/makepart.mk)
 | `LINK_TEST` | テスト フレームワーク リンク | `LINK_TEST = 1` |
 | `TEST_SRCS` | テスト対象ソース ファイル | `TEST_SRCS := $(MYAPP_DIR)/prod/.../add.c` |
 | `ADD_SRCS` | テスト対象の依存実装など、カバレッジ対象外の追加ソース ファイル | `ADD_SRCS := $(MYAPP_DIR)/prod/.../result.c` |
+
+Table: makepart.mk の主な設定項目と記述例
 
 `appdeps.mk` により、自 app と依存 app の `prod/lib` は `LIBSDIR` へ自動的に追加されます。  
 `LIBSDIR` を明示するのは、依存関係の解決対象に含まれない外部ライブラリの検索パスだけです。
@@ -339,12 +343,16 @@ prod/
 | `prod/makechild.mk` (A) | **適用される** (`mylib/` は `prod/` の子孫) |
 | `prod/myapp/makechild.mk` (B) | **適用される** (`mylib/` は `myapp/` の子孫) |
 
+Table: mylib ディレクトリでの makechild.mk 適用判定
+
 `prod/myapp/` でビルドを実行した場合:
 
 | ファイル | 適用されるか |
 |---------|------------|
 | `prod/makechild.mk` (A) | **適用される** (`myapp/` は `prod/` の子) |
 | `prod/myapp/makechild.mk` (B) | **適用されない** (自ディレクトリは除く) |
+
+Table: myapp ディレクトリでの makechild.mk 適用判定
 
 ### 実装
 
@@ -474,6 +482,8 @@ SUBDIRS := \
 | `makepart.mk` (ルート) | ✗ | ✗ | ルート — `$(WORKSPACE_DIR)` を使用 |
 | `framework/` 配下 | ✗ | ✗ | フレームワーク — 対象外 |
 
+Table: 場所別の MYAPP_DIR および APP_DIR の有効範囲
+
 無効範囲で `$(MYAPP_DIR)` または `$(APP_DIR)` を参照すると、Make の `$(error ...)` により明示的なエラーが発生します。
 
 ### 記述ルール
@@ -545,6 +555,8 @@ INCDIR += $(WORKSPACE_DIR)/framework/testfw/include
 | フック ターゲット | makelocal.mk | 自ディレクトリのみに限定 |
 | ローカル変数 | makelocal.mk | 継承させたくない設定 |
 | `SUBDIRS` の順序指定 | makelocal.mk | 走査順を自ディレクトリだけで変えたい |
+
+Table: 設定項目ごとの設定ファイル配置指針
 
 ## 併用例
 
@@ -628,6 +640,8 @@ ADD_SRCS := \
 | `DIRECT_SRCS` | テスト フォルダーに既存の実体ファイル | カレント ディレクトリに実ファイルが存在し、かつシンボリック リンクでない |
 | `LINK_SRCS` | シンボリック リンクで引き込むファイル | Linux 環境で、inject ファイルおよびフィルター ファイルがない場合 |
 | `CP_SRCS` | コピーで引き込むファイル | Windows 環境の場合、または inject / フィルター ファイルが存在する場合 |
+
+Table: テスト実行時におけるソース ファイルの分類区分
 
 通常の関数単体テスト (Linux 環境、inject なし) では `TEST_SRCS` に指定したファイルは `LINK_SRCS` として処理され、テスト ビルド ディレクトリ内の当該ファイル名は `prod/` にある実体ファイルへのシンボリック リンクになります。
 

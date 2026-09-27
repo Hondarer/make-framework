@@ -147,6 +147,8 @@ find app/example/test -name '*.ident' -print
 | `IDENT-CH` | 直前の `.c` がコンパイル時に参照した `.h`。sha256 はコンパイル時点のヘッダー ハッシュ |
 | `IDENT-END` | manifest の末尾 |
 
+Table: IDENT マニフェストのタグ一覧と意味
+
 ## 仕組み
 
 ### コンパイル時 (各 .c ごと)
@@ -194,6 +196,8 @@ Make の依存ファイル内で `\` としてエスケープされた空白は�
 | `app/<name>/prod/` | ✅ `IDENT=1` で有効 |
 | `app/<name>/test/` | ❌ 自動除外 |
 
+Table: ディレクトリ パス別の IDENT 有効範囲
+
 `IDENT_ENABLED` は `prepare.mk` でパスに `/prod/` を含む場合のみ設定されます。
 
 ## clean
@@ -214,6 +218,8 @@ make clean IDENT=1
 | `makefiles/prepare.mk` | `IDENT_ENABLED` フラグの設定 |
 | `makefiles/makelibsrc_c_cpp.mk` | `_ident.mk` の include |
 | `makefiles/makesrc_c_cpp.mk` | `_ident.mk` の include |
+
+Table: IDENT 関連ファイルとその役割
 
 ## 既知の制限
 

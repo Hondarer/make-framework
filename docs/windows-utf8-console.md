@@ -43,6 +43,8 @@ CodeBlock: utf8_manifest.manifest
 | CRT narrow API | ACP を参照する API では UTF-8 前提で扱える |
 | Win32 `-A` API | ANSI コード ページが UTF-8 の場合、通常 UTF-8 として動作します。 |
 
+Table: activeCodePage=UTF-8 指定による影響一覧
+
 Microsoft Learn は、Windows 10 1903 以降で `activeCodePage` によりプロセスのコード ページを UTF-8 にできること、また ANSI コード ページが UTF-8 の場合は `-A` API が通常 UTF-8 として動作することを説明しています。
 
 ただし、Windows は内部的に UTF-16 (`WCHAR`) を使います。Windows API 境界でより明示的に扱いたい場合や、`WCHAR` のみを受け付ける API を使う場合は、`MultiByteToWideChar(CP_UTF8, ...)` / `WideCharToMultiByte(CP_UTF8, ...)` で変換し、`-W` API を使います。
@@ -55,6 +57,8 @@ Microsoft Learn は、Windows 10 1903 以降で `activeCodePage` によりプロ
 |:-----|:-----|
 | 入力コード ページ | キーボード入力を文字値へ変換します。 |
 | 出力コード ページ | A 系コンソール出力の文字値を表示文字へ変換します。 |
+
+Table: コンソール コード ページの種類と役割
 
 Microsoft Learn の Console Code Pages 文書では、UTF-8 文字列を A 系コンソール API へ送る場合、事前に `SetConsoleCP` と `SetConsoleOutputCP` でコード ページを `65001` (`CP_UTF8`) に設定する、と説明されています。
 
@@ -160,6 +164,8 @@ CodeBlock: dumpbin でマニフェスト リソースを確認
 | `SetConsoleCP(CP_UTF8)` | 接続先コンソールの入力コード ページを UTF-8 にします。 |
 | `SetConsoleOutputCP(CP_UTF8)` | 接続先コンソールの出力コード ページを UTF-8 にします。 |
 | `ENABLE_VIRTUAL_TERMINAL_PROCESSING` | ANSI エスケープ シーケンスによる色やカーソル制御を有効化します。 |
+
+Table: Windows コンソールの UTF-8 対応策とその役割
 
 推奨構成は、`WIN32_MANIFEST = utf8` で UTF-8 マニフェストを埋め込み、コンソール アプリケーションの開始時に `cplat_console_init()` を呼び出すことです。
 

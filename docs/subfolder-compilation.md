@@ -581,3 +581,5 @@ INCDIR += $(MYAPP_DIR)/prod/src/sample-app
 | テスト | 起点の `makechild.mk` | `NO_LINK = 1` | サブディレクトリではコンパイルのみ、起点でリンク |
 | テスト | 各サブの `makelocal.mk` | `TEST_SRCS` | サブディレクトリごとにテスト対象を指定 |
 | テスト レポート | - | `results/` | 個別テスト結果と全体カバレッジを出力 |
+
+Table: サブフォルダー コンパイルの設定要件一覧

@@ -194,6 +194,8 @@ endif  # MAKEFW_BUILD
 | パスに `/libsrc/` または `/src/` を含み、かつ `TEST_SRCS` / `ADD_SRCS` が指定されている | `1` (ビルド実行) |
 | 上記以外 | `0` (走査のみ) |
 
+Table: MAKEFW_BUILD の自動判定条件
+
 `0` と判定され、OS フィルタリング後の `SUBDIRS` も空の場合 (例: Windows でのみ `*.mc` / `*.rc` をビルドするディレクトリを Linux で make する場合) は、`default` / `build` / `clean` / `run` / `restore` / `rebuild` を何もしない空ターゲットとして定義します。上位からの再帰や直接の make はエラーにならず、何も行いません。
 
 判定後は通常どおり以下のパス分岐でテンプレートを選択します。
@@ -206,6 +208,8 @@ endif  # MAKEFW_BUILD
 | `/src/` を含む | 有り | `makesrc_dotnet.mk` |
 | 上記以外 | - | エラー |
 
+Table: ディレクトリ パスおよびプロジェクト種別によるテンプレート選択ルール
+
 ### MAKEFW_BUILD の明示設定が必要なケース
 
 通常は自動判定で対応できます。以下のケースのみ `makelocal.mk` への明示設定が必要です。
@@ -214,6 +218,8 @@ endif  # MAKEFW_BUILD
 |-------|--------|--------|------|
 | サブフォルダーのみにソースを置くライブラリ ルート | `libsrc/<lib>/makelocal.mk` | `MAKEFW_BUILD := 1` | 直下ソースがゼロのため自動判定では 0 と誤判定される |
 | 意図的にビルドを無効化したいディレクトリ | 任意の `makelocal.mk` | `MAKEFW_BUILD := 0` | 直下にソースがあっても走査のみにしたい場合 |
+
+Table: MAKEFW_BUILD の明示設定が必要なケース一覧
 
 `prepare.mk` は `makelocal.mk` を最後に読み込むため、明示設定は自動判定を確実に上書きします。
 
