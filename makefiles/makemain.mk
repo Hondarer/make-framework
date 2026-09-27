@@ -221,7 +221,7 @@ _makefw_is_test_leaf:
 ifeq ($(_MAKEFW_SKIP_TEST_SRC_NOTICE),1)
 .PHONY: _makefw_skip_test_src
 _makefw_skip_test_src:
-	@echo "INFO: Skipping test/src (assured.stamp is present)"
+	@echo "INFO: Skipping test/src (assured.stamp matches the commit and the tree is clean)"
 .PHONY: default build _test_build _test_run
 default: _makefw_skip_test_src
 build: _makefw_skip_test_src

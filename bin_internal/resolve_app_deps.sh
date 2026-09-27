@@ -24,6 +24,8 @@ Usage:
   resolve_app_deps.sh --paths <app-dir> <include|include_internal|lib|test_include|test_lib>
   resolve_app_deps.sh --paths-all <app-dir> [test]
   resolve_app_deps.sh --signature <app-dir> [build|test]
+  resolve_app_deps.sh --assured <app-dir>
+  resolve_app_deps.sh --assured-selftest
   resolve_app_deps.sh --app-order
   resolve_app_deps.sh --coverity-apps
 EOF
@@ -350,6 +352,102 @@ emit_paths_all() {
     return 0
 }
 
+# app/<name>.assured.stamp の省略が有効なら 1、無効なら 0 を stdout へ出す。
+# スタンプが無いときは 0 で、警告しない。
+# 有効条件は、対象がワークスペースのサブモジュールであり、スタンプの
+# 16 進ハッシュが HEAD と一致し、作業ツリーに追加・削除・変更が無いこと。
+# 無視対象 (ビルド成果物) は git status に出ないため差分に含めない。
+# サブモジュールでないときにスタンプがあると stderr へ警告する。
+# シンボリック名 (HEAD など) は、後のコミットでも一致してしまうため拒否する。
+query_assured_active() {
+    local app_dir="$1"
+    local stamp name rel stage mode toplevel head recorded resolved status_out
+
+    if ! app_dir=$(cd -- "$app_dir" && pwd -P); then
+        printf '0\n'
+        return 0
+    fi
+    if command -v cygpath >/dev/null 2>&1; then
+        app_dir=$(cygpath -u "$app_dir")
+        app_dir=$(cd -- "$app_dir" && pwd -P)
+    fi
+
+    name=$(basename -- "$app_dir")
+    stamp="$(dirname -- "$app_dir")/${name}.assured.stamp"
+    if [[ ! -f "$stamp" ]]; then
+        printf '0\n'
+        return 0
+    fi
+
+    rel="app/${name}"
+    if ! stage=$(git -C "$WORKSPACE_DIR" ls-files --stage -- ":(literal)${rel}"); then
+        echo "Warning: failed to inspect the git index for ${rel}. Ignoring ${name}.assured.stamp." >&2
+        printf '0\n'
+        return 0
+    fi
+    stage=${stage%%$'\n'*}
+    mode=${stage%%[[:space:]]*}
+    if [[ "$mode" != "160000" ]]; then
+        echo "Warning: ${rel} is not a submodule. Ignoring ${name}.assured.stamp." >&2
+        printf '0\n'
+        return 0
+    fi
+
+    if ! toplevel=$(git -C "$app_dir" rev-parse --show-toplevel); then
+        echo "Warning: ${rel} is not a checked-out submodule. Ignoring ${name}.assured.stamp." >&2
+        printf '0\n'
+        return 0
+    fi
+    if command -v cygpath >/dev/null 2>&1; then
+        toplevel=$(cygpath -u "$toplevel")
+    fi
+    if ! toplevel=$(cd -- "$toplevel" && pwd -P); then
+        echo "Warning: ${rel} is not a checked-out submodule. Ignoring ${name}.assured.stamp." >&2
+        printf '0\n'
+        return 0
+    fi
+    if [[ "$toplevel" != "$app_dir" ]]; then
+        echo "Warning: ${rel} is not a checked-out submodule. Ignoring ${name}.assured.stamp." >&2
+        printf '0\n'
+        return 0
+    fi
+
+    if ! head=$(git -C "$app_dir" rev-parse HEAD); then
+        echo "Warning: failed to read HEAD of ${rel}. Ignoring ${name}.assured.stamp." >&2
+        printf '0\n'
+        return 0
+    fi
+
+    recorded=$(tr -d '[:space:]' < "$stamp")
+    if [[ ! "$recorded" =~ ^[0-9a-fA-F]{4,64}$ ]]; then
+        printf '0\n'
+        return 0
+    fi
+    # recorded は上で 16 進だけに絞ってある。`--` を付けると ^{commit} が
+    # リビジョンとして解釈されず、git rev-parse が失敗する。
+    if ! resolved=$(git -C "$app_dir" rev-parse --verify "${recorded}^{commit}" 2>/dev/null); then
+        printf '0\n'
+        return 0
+    fi
+    if [[ "$resolved" != "$head" ]]; then
+        printf '0\n'
+        return 0
+    fi
+
+    if ! status_out=$(git -C "$app_dir" status --porcelain --untracked-files=normal); then
+        echo "Warning: failed to read git status of ${rel}. Ignoring ${name}.assured.stamp." >&2
+        printf '0\n'
+        return 0
+    fi
+    if [[ -n "$status_out" ]]; then
+        printf '0\n'
+        return 0
+    fi
+
+    printf '1\n'
+    return 0
+}
+
 emit_signature() {
     local app_dir="$1"
     local mode="${2:-build}"
@@ -380,15 +478,26 @@ emit_signature() {
     esac
 
     root_app=$(resolve_root_app "$app_dir")
-    assured=0
-    if [[ -f "$APP_ROOT_DIR/$root_app/assured.stamp" ]]; then
-        assured=1
+    # makefile が --assured の結果を渡したときは再判定しない。
+    # 再判定すると、サブモジュールでない警告が parse 時と署名時で 2 回出る。
+    if [[ -n "${MAKEFW_ASSURED_ACTIVE+x}" ]]; then
+        case "$MAKEFW_ASSURED_ACTIVE" in
+            0|1)
+                assured=$MAKEFW_ASSURED_ACTIVE
+                ;;
+            *)
+                echo "ERROR: MAKEFW_ASSURED_ACTIVE must be 0 or 1: $MAKEFW_ASSURED_ACTIVE" >&2
+                return 2
+                ;;
+        esac
+    else
+        assured=$(query_assured_active "$app_dir")
     fi
     tmp_entries=$(mktemp)
     tmp_paths=$(mktemp)
 
     while IFS= read -r app; do
-        collect_signature_files "$app" "$mode" "$root_app"
+        collect_signature_files "$app" "$mode" "$root_app" "$assured"
     done < <(collect_app_closure "$root_app")
 
     # 収集した全ファイルを 1 回の sha256sum 起動で一括ハッシュする
@@ -652,6 +761,7 @@ collect_signature_files() {
     local app="$1"
     local mode="$2"
     local root_app="$3"
+    local assured="${4:-0}"
     local app_path="$APP_ROOT_DIR/$app"
     local extra
 
@@ -665,10 +775,12 @@ collect_signature_files() {
     # `make` (default) は app 配下の test/ も SUBDIRS として再帰しビルドするため、
     # build 署名にも test/ を含める。これにより test/ の変更が `make` の BUILD_STAMP
     # 短絡をすり抜けることがなくなる。
-    # assured.stamp がある対象 app では app 直下 make が test/src をビルドしないため、
-    # そのツリーを署名から外し、モック (test/libsrc) と test/ 直下の設定だけ残す。
+    # app/<name>.assured.stamp の省略が有効な対象 app では、app 直下 make が
+    # test/src をビルドしないため、そのツリーを署名から外し、モック (test/libsrc) と
+    # test/ 直下の設定だけ残す。省略が無効 (ハッシュ不一致や差分あり) のときは
+    # test/ 全体を署名に含め、テスト ソースの変更で再ビルドする。
     if [[ -d "$app_path/test" ]]; then
-        if [[ "$app" == "$root_app" && -f "$app_path/assured.stamp" ]]; then
+        if [[ "$app" == "$root_app" && "$assured" == "1" ]]; then
             add_signature_file "$app_path/test/makefile"
             add_signature_file "$app_path/test/makepart.mk"
             add_signature_file "$app_path/test/makelocal.mk"
@@ -682,7 +794,7 @@ collect_signature_files() {
     add_signature_file "$WORKSPACE_DIR/Directory.Build.props"
     add_signature_file "$WORKSPACE_DIR/Directory.Build.targets"
 
-    if [[ "$mode" == "test" && "$app" == "$root_app" && ! -f "$app_path/assured.stamp" ]]; then
+    if [[ "$mode" == "test" && "$app" == "$root_app" && "$assured" != "1" ]]; then
         while IFS= read -r extra; do
             [[ -z "$extra" ]] && continue
             add_signature_file "$extra"
@@ -792,6 +904,203 @@ emit_coverity_apps() {
     fi
 }
 
+_assured_selftest_commit() {
+    local repo="$1"
+    local message="$2"
+    git -C "$repo" -c user.name=assured-selftest -c user.email=assured-selftest@example.com commit -q -m "$message"
+}
+
+_assured_selftest_expect() {
+    local want="$1"
+    local dir="$2"
+    local label="$3"
+    local warn_substr="${4:-}"
+    local got errfile
+
+    errfile=$(mktemp)
+    if ! got=$(query_assured_active "$dir" 2>"$errfile"); then
+        echo "FAIL: ${label}: query_assured_active returned non-zero" >&2
+        cat "$errfile" >&2
+        ASSURED_SELFTEST_FAIL=1
+        rm -f "$errfile"
+        return 0
+    fi
+    if [[ "$got" != "$want" ]]; then
+        echo "FAIL: ${label}: expected ${want} but got [${got}]" >&2
+        cat "$errfile" >&2
+        ASSURED_SELFTEST_FAIL=1
+    elif [[ -n "$warn_substr" ]]; then
+        if ! grep -F -- "$warn_substr" "$errfile" >/dev/null; then
+            echo "FAIL: ${label}: missing warning [${warn_substr}]" >&2
+            cat "$errfile" >&2
+            ASSURED_SELFTEST_FAIL=1
+        fi
+    elif [[ -s "$errfile" ]]; then
+        echo "FAIL: ${label}: unexpected stderr" >&2
+        cat "$errfile" >&2
+        ASSURED_SELFTEST_FAIL=1
+    fi
+    rm -f "$errfile"
+}
+
+# 一時的な gitlink と通常ディレクトリで、省略条件と署名からの test/src 除外を確認する。
+run_assured_selftest() {
+    local tmp ws sample hash stamp sig errfile
+    local saved_ws saved_app
+
+    tmp=$(mktemp -d)
+    tmp=$(cd -- "$tmp" && pwd -P)
+    trap "rm -rf $(printf '%q' "$tmp")" EXIT
+    ws="$tmp/ws"
+    saved_ws=$WORKSPACE_DIR
+    saved_app=$APP_ROOT_DIR
+    ASSURED_SELFTEST_FAIL=0
+
+    git init -q -b main "$ws"
+    mkdir -p "$ws/app/sample" "$ws/app/plain"
+    git init -q -b main "$ws/app/sample"
+    printf 'int a(void) { return 1; }\n' > "$ws/app/sample/a.c"
+    git -C "$ws/app/sample" add a.c
+    _assured_selftest_commit "$ws/app/sample" init
+    hash=$(git -C "$ws/app/sample" rev-parse HEAD)
+    git -C "$ws" update-index --add --cacheinfo "160000,${hash},app/sample"
+
+    printf 'int b(void) { return 2; }\n' > "$ws/app/plain/b.c"
+    git -C "$ws" add app/plain/b.c
+
+    ws=$(cd -- "$ws" && pwd -P)
+    WORKSPACE_DIR=$ws
+    APP_ROOT_DIR="$ws/app"
+    sample="$ws/app/sample"
+    stamp="$ws/app/sample.assured.stamp"
+
+    _assured_selftest_expect 0 "$sample" "no stamp"
+
+    printf '%s\n' "$hash" > "$stamp"
+    _assured_selftest_expect 1 "$sample" "full hash and clean tree"
+
+    printf ' %s \r\n' "$hash" > "$stamp"
+    _assured_selftest_expect 1 "$sample" "hash surrounded by whitespace"
+
+    printf '%s\n' "$(git -C "$sample" rev-parse --short=12 HEAD)" > "$stamp"
+    _assured_selftest_expect 1 "$sample" "unique abbreviated hash"
+
+    printf 'HEAD\n' > "$stamp"
+    _assured_selftest_expect 0 "$sample" "symbolic HEAD is rejected"
+
+    printf '0123456789abcdef0123456789abcdef01234567\n' > "$stamp"
+    _assured_selftest_expect 0 "$sample" "different hash"
+
+    printf '%s\n' "$hash" > "$stamp"
+    printf 'int a(void) { return 3; }\n' > "$sample/a.c"
+    _assured_selftest_expect 0 "$sample" "modified tracked file"
+    git -C "$sample" checkout -q -- a.c
+    _assured_selftest_expect 1 "$sample" "restored after modification"
+
+    rm -f "$sample/a.c"
+    _assured_selftest_expect 0 "$sample" "deleted tracked file"
+    git -C "$sample" checkout -q -- a.c
+    _assured_selftest_expect 1 "$sample" "restored after deletion"
+
+    printf 'int extra(void) { return 4; }\n' > "$sample/extra.c"
+    _assured_selftest_expect 0 "$sample" "untracked addition"
+    rm -f "$sample/extra.c"
+    _assured_selftest_expect 1 "$sample" "untracked addition removed"
+
+    printf 'int extra(void) { return 4; }\n' > "$sample/extra.c"
+    git -C "$sample" add extra.c
+    _assured_selftest_expect 0 "$sample" "staged addition"
+    git -C "$sample" reset -q -- extra.c
+    rm -f "$sample/extra.c"
+    _assured_selftest_expect 1 "$sample" "staged addition removed"
+
+    printf '*.o\n' > "$sample/.gitignore"
+    printf 'obj\n' > "$sample/a.o"
+    git -C "$sample" add .gitignore
+    _assured_selftest_commit "$sample" "ignore objects"
+    hash=$(git -C "$sample" rev-parse HEAD)
+    printf '%s\n' "$hash" > "$stamp"
+    _assured_selftest_expect 1 "$sample" "ignored build output stays clean"
+    rm -f "$sample/a.o"
+
+    printf 'int a(void) { return 9; }\n' > "$sample/a.c"
+    git -C "$sample" add a.c
+    _assured_selftest_commit "$sample" "change a"
+    _assured_selftest_expect 0 "$sample" "stamp left on the previous commit"
+    hash=$(git -C "$sample" rev-parse HEAD)
+    printf '%s\n' "$hash" > "$stamp"
+    _assured_selftest_expect 1 "$sample" "stamp updated to the new commit"
+
+    mkdir -p "$sample/test/src" "$sample/test/libsrc"
+    printf 'int mock(void) { return 0; }\n' > "$sample/test/libsrc/mock.c"
+    printf 'int test_foo(void) { return 0; }\n' > "$sample/test/src/foo.c"
+    git -C "$sample" add test/libsrc/mock.c test/src/foo.c
+    _assured_selftest_commit "$sample" "add tests"
+    hash=$(git -C "$sample" rev-parse HEAD)
+    printf '%s\n' "$hash" > "$stamp"
+    _assured_selftest_expect 1 "$sample" "clean tree includes committed tests"
+
+    sig=$(emit_signature "$sample" build)
+    if ! grep -F 'ASSURED=1' <<<"$sig" >/dev/null; then
+        echo "FAIL: active signature has no ASSURED=1" >&2
+        ASSURED_SELFTEST_FAIL=1
+    fi
+    if ! grep -F 'app/sample/test/libsrc/mock.c' <<<"$sig" >/dev/null; then
+        echo "FAIL: active signature dropped test/libsrc/mock.c" >&2
+        ASSURED_SELFTEST_FAIL=1
+    fi
+    if grep -F 'app/sample/test/src/foo.c' <<<"$sig" >/dev/null; then
+        echo "FAIL: active signature still contains test/src/foo.c" >&2
+        ASSURED_SELFTEST_FAIL=1
+    fi
+
+    printf 'int test_foo(void) { return 1; }\n' > "$sample/test/src/foo.c"
+    _assured_selftest_expect 0 "$sample" "modified test source disables assured"
+    sig=$(emit_signature "$sample" build)
+    if grep -F 'ASSURED=1' <<<"$sig" >/dev/null; then
+        echo "FAIL: dirty signature still has ASSURED=1" >&2
+        ASSURED_SELFTEST_FAIL=1
+    fi
+    if ! grep -F 'app/sample/test/src/foo.c' <<<"$sig" >/dev/null; then
+        echo "FAIL: dirty signature dropped test/src/foo.c" >&2
+        ASSURED_SELFTEST_FAIL=1
+    fi
+
+    sig=$(MAKEFW_ASSURED_ACTIVE=1 emit_signature "$sample" build)
+    if grep -F 'app/sample/test/src/foo.c' <<<"$sig" >/dev/null; then
+        echo "FAIL: MAKEFW_ASSURED_ACTIVE=1 still hashed test/src/foo.c" >&2
+        ASSURED_SELFTEST_FAIL=1
+    fi
+
+    errfile=$(mktemp)
+    if MAKEFW_ASSURED_ACTIVE=2 emit_signature "$sample" build >/dev/null 2>"$errfile"; then
+        echo "FAIL: MAKEFW_ASSURED_ACTIVE=2 was accepted" >&2
+        ASSURED_SELFTEST_FAIL=1
+    elif ! grep -F 'MAKEFW_ASSURED_ACTIVE must be 0 or 1' "$errfile" >/dev/null; then
+        echo "FAIL: invalid MAKEFW_ASSURED_ACTIVE did not explain the error" >&2
+        cat "$errfile" >&2
+        ASSURED_SELFTEST_FAIL=1
+    fi
+    rm -f "$errfile"
+
+    printf '%s\n' "$hash" > "$ws/app/plain.assured.stamp"
+    _assured_selftest_expect 0 "$ws/app/plain" "plain directory" "is not a submodule"
+
+    mkdir -p "$ws/app/missing"
+    git -C "$ws" update-index --add --cacheinfo "160000,${hash},app/missing"
+    printf '%s\n' "$hash" > "$ws/app/missing.assured.stamp"
+    _assured_selftest_expect 0 "$ws/app/missing" "gitlink without checkout" "not a checked-out submodule"
+
+    WORKSPACE_DIR=$saved_ws
+    APP_ROOT_DIR=$saved_app
+    if [[ "$ASSURED_SELFTEST_FAIL" -ne 0 ]]; then
+        echo "assured selftest failed" >&2
+        return 1
+    fi
+    echo "assured selftest passed"
+    return 0
+}
+
 main() {
     local mode="${1:-}"
     local app_dir="${2:-}"
@@ -818,6 +1127,16 @@ main() {
                 return 2
             fi
             emit_signature "$app_dir" "${kind:-build}"
+            ;;
+        --assured)
+            if [[ -z "$app_dir" ]]; then
+                usage
+                return 2
+            fi
+            query_assured_active "$app_dir"
+            ;;
+        --assured-selftest)
+            run_assured_selftest
             ;;
         --app-order)
             emit_app_order

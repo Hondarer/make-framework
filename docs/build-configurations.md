@@ -74,7 +74,7 @@ INFO: Skipping build (dependencies are unchanged and clean)
 
 - app 直下の `makefile` / `makepart.mk` / `makelocal.mk` / `appdeps.mk`
 - 依存閉包に含まれる各 app の `prod/` 配下のソース、ヘッダー、make ファイル
-- `test/` 配下 (`assured.stamp` がある app では `test/libsrc` のモックだけ)
+- `test/` 配下 (`app/<name>.assured.stamp` の省略が有効な対象 app では `test/libsrc` のモックだけ)
 - ワークスペース直下の `Directory.Build.props` / `Directory.Build.targets`
 - `CONFIG` / `MSVC_CRT` / `TARGET_ARCH` / `CFLAGS` / `CXXFLAGS` / `LDFLAGS` / `DEFINES` / `LIBS` の値
 
@@ -94,55 +94,74 @@ INFO: Skipping build (dependencies are unchanged and clean)
 
 ## assured.stamp による保証済み app の扱い
 
-`app/example/assured.stamp` は、その app が品質保証済みであることを表します。  
-ルートからのビルド確認に保証済み app を含めたまま、確認時間を短くするために使います。
+`app/<name>.assured.stamp` は、サブモジュールの app が記録したコミットのままであることを示すスタンプです。  
+ルートからのビルド確認にその app を含めたまま、`test/src` のコンパイルとテスト実行、および成功済みビルドの `clean` を省きます。
 
-```text
-app/example/assured.stamp
+ファイルは `app/` 直下に置きます。app ディレクトリの中には置きません。  
+名前は `<name>.assured.stamp` です。`app/cplat` なら `app/cplat.assured.stamp` です。
+
+中身は、その app のコミット ハッシュ 1 個です。make はこのファイルを作りません。  
+次のコマンドで、現在の HEAD を書き込めます。
+
+```bash
+git -C app/cplat rev-parse HEAD > app/cplat.assured.stamp
 ```
 
-ファイルがあれば有効です。  
-ファイル内容は参照しません。  
-make はこのファイルを生成しません。  
-Git の無視対象にもしません。方針としてコミットできます。
+ワークスペースの `.gitignore` は `*.assured.stamp` を無視します。コミット対象にしません。
 
-効果は `app/example` 直下の `make` / `make test` / `make clean` に限ります。  
-`prod/` や `test/`、`test/src` 配下での直接 make は妨げません。  
-保証済みでも個別のテスト実行や、`prod` 直下の `make clean` といった救済は、配下で従来どおり実行できます。
+省略が有効になるのは、次をすべて満たすときだけです。
+
+- 対象 app がワークスペースのサブモジュールである
+- スタンプのハッシュが、そのサブモジュールの HEAD と一致する
+- 作業ツリーに追加、削除、変更がない (未追跡の追加、インデックスへ載せた追加、追跡ファイルの変更と削除を含む。`.gitignore` されたビルド成果物は含めない)
+
+1 つでも欠けるときは省略せず、通常の `make` / `make test` / `make clean` を行います。  
+ハッシュ不一致や差分があるだけのときは警告しません。  
+対象 app がサブモジュールではないときにスタンプがあると、警告を出して省略しません。
+
+```text
+Warning: app/calc is not a submodule. Ignoring calc.assured.stamp.
+```
+
+効果は `app/<name>` 直下の `make` / `make test` / `make clean` に限ります。  
+`prod/` や `test/`、`test/src` 配下での直接 make は妨げません。
 
 ### test/src の省略
 
-app 直下の `make` と `make test` は、製品とモックだけをコンパイルし、`test/src` のコンパイルとテスト実行を行いません。
+省略が有効なとき、app 直下の `make` と `make test` は製品とモックだけをコンパイルし、`test/src` のコンパイルとテスト実行を行いません。
 
 ```text
-INFO: Skipping test/src (assured.stamp is present)
+INFO: Skipping test/src (assured.stamp matches the commit and the tree is clean)
 ```
 
 `MAKEFW_TEST_FORCE=1` では解除しません。  
-app 直下でテストを再開するときは stamp を外します。
+app 直下でテストを再開するときは、スタンプを外すか、別のコミットへ進めるか、作業ツリーに差分を作ります。
 
-stamp を置いたときと外したときは、`make_build.stamp` の署名が変わるため、次回の app 直下 `make` は再ビルドします。  
-stamp があるあいだは、ビルド署名から `test/src` を外すため、テスト ソースの変更では製品とモックを再ビルドしません。  
-app 直下の `make test` は `make_test.stamp` を更新しません。
+省略が有効なあいだは、ビルド署名から `test/src` を外します。  
+テスト ソースだけの変更は差分になるため省略は解け、署名に `test/src` が戻り、製品とモックの再ビルド判定にも載ります。  
+app 直下の `make test` は、省略中は `make_test.stamp` を更新しません。
 
 ### 成功時の clean 省略
 
-直近の app 直下 `make` が成功しているとき (`make_build.stamp` があるとき)、app 直下の `make clean` は成果物も `make_build.stamp` も削除しません。
+app 直下の `make clean` を省略するのは、省略が有効であり、かつ直近の app 直下 `make` が正常終了しているときだけです。  
+正常終了は `make_build.stamp` があることです。どちらかが欠けると、成果物と `make_build.stamp` を削除します。
 
 ```text
-INFO: Skipping clean (assured.stamp is present and make succeeded)
+INFO: Skipping clean (assured.stamp matches the commit and make succeeded)
 ```
 
-`make_build.stamp` を残すため、ソースを更新したあとの app 直下 `make` は、署名比較により必要な再ビルドだけを行います。  
-`make_build.stamp` が無いとき (失敗途中など) は、app 直下の `make clean` も従来どおり削除します。
+`make` はサブディレクトリのビルドへ入る前に `make_build.stamp` を削除し、app 直下の `make` が終了コード 0 で終わったあとにだけ書き戻します。  
+I/O エラーやコマンド失敗で終了コードが 0 以外になったとき、およびサブディレクトリのビルドが始まったあとにプロセスが止まったときは、スタンプが残らないため `make clean` は実行されます。  
+署名の計算中に止まり、サブディレクトリのビルドがまだ始まっていないときは、前回の正常終了で書いた `make_build.stamp` と成果物がそのまま残るため、clean は省略されます。
 
-`make with-cov` は、`assured.stamp` の有無に関係なく、この省略を使いません。  
+`make_build.stamp` を残すため、ソースを更新したあとの app 直下 `make` は、署名比較により必要な再ビルドだけを行います。
+
+`make with-cov` は、この省略を使いません。  
 `prod/coverity.mk` がある app では、収集の直前に `prod` の成果物と `make_build.stamp` を削除し、`prod` をリンクまで再ビルドします。  
-通常の `make clean` は、この省略を維持します。  
+通常の `make clean` は、上の省略条件を維持します。  
 手順は [clean の扱い](coverity-with-cov.md#clean-の扱い) を参照してください。
 
-構成切り替えのように、本来 `make clean` が必要な操作では、app 直下の `clean` が省略されます。  
-その場合は stamp を削除してから `make clean` するか、`prod/` や `test/` 直下で `make clean` します。
+構成切り替えのように、本来 `make clean` が必要な操作で app 直下の `clean` が省略されるときは、スタンプを削除してから `make clean` するか、`prod/` や `test/` 直下で `make clean` します。
 
 ## Windows のランタイム指定
 

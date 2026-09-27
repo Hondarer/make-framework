@@ -98,9 +98,9 @@ cov-build --append-log --dir app/idir make -C prod
 `app/<appname>/makefile` の `with-cov` は、通常の `make` のような署名比較によるビルド スキップを行いません。  
 Coverity 収集は `prod` のビルドを観測することが前提であり、ビルドが行われなければ何も収集されないためです。
 
-- `prod/coverity.mk` がある app は、収集の直前に `prod` の成果物と `make_build.stamp` を削除します。`assured.stamp` の有無や `make_build.stamp` の一致に関係なく、`prod` を必ず再ビルドします。
+- `prod/coverity.mk` がある app は、収集の直前に `prod` の成果物と `make_build.stamp` を削除します。`assured.stamp` の省略条件や `make_build.stamp` の一致に関係なく、`prod` を必ず再ビルドします。
 - `prod` は通常の `make` と同じく、リンクまで行います。
-- `test` (モックとテスト コード) はビルドしません。`assured.stamp` の有無にも影響されません。
+- `test` (モックとテスト コード) はビルドしません。`assured.stamp` の省略条件にも影響されません。
 - `make_build.stamp` と `make_test.stamp` は更新しません。`test` をビルドしていない状態を「ビルド済み」と扱わないためです。
 
 このため、`with-cov` を実行した app は、続く通常の `make` で `test` のビルドと `make_build.stamp` の作成が行われます。  
@@ -118,8 +118,8 @@ Coverity 収集は `prod` のビルドを観測することが前提であり、
 `make with-cov` は、`prod/coverity.mk` がある app で、収集の直前に `prod` だけを clean し、`make_build.stamp` を削除します。  
 この clean は `__ensure-coverity` による前提検査のあと、`cov-build` の外で実行します。  
 `with-cov` は `test` を扱わないため、`test` は clean しません。  
-`assured.stamp` の有無に関係なく実行するため、`with-cov` の前に利用者が `make clean` する必要はありません。  
-一方、`assured.stamp` と `make_build.stamp` がある app の通常の `make clean` は、従来どおり成果物と stamp を削除しません。  
+`assured.stamp` の省略条件に関係なく実行するため、`with-cov` の前に利用者が `make clean` する必要はありません。  
+一方、省略条件を満たし `make_build.stamp` がある app の通常の `make clean` は、成果物と stamp を削除しません。  
 省略条件の詳細は [成功時の clean 省略](build-configurations.md#成功時の-clean-省略) を参照してください。
 
 `clean` を `cov-build` 経由で実行すると、すでに `app/idir` に蓄積された解析データを破損させる可能性があります。  
