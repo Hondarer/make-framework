@@ -45,7 +45,7 @@ endif
 # the matching source file still exists.
 ifdef PLATFORM_LINUX
     # Linux: .o ファイルを検索
-    SUBDIR_OBJS := $(shell bash "$(MAKEFW_HOME)/bin/filter_existing_source_objs.sh" linux subdirs)
+    SUBDIR_OBJS := $(shell bash "$(MAKEFW_HOME)/bin_internal/filter_existing_source_objs.sh" linux subdirs)
 endif
 OBJS += $(SUBDIR_OBJS)
 
@@ -83,7 +83,7 @@ _makefw_parent_artifact:
 
 define _MAKEFW_OBJLIST_LINUX
 objs_file="$(OBJDIR)/objs_$$.lst"; \
-bash "$(MAKEFW_HOME)/bin/filter_existing_source_objs.sh" linux all > "$$objs_file"; \
+bash "$(MAKEFW_HOME)/bin_internal/filter_existing_source_objs.sh" linux all > "$$objs_file"; \
 if [ ! -f "$$objs_file" ]; then : > "$$objs_file"; fi; \
 trap 'rm -f "$$objs_file" "$$rsp_file"' EXIT; \
 rebuild=0; \
@@ -99,7 +99,7 @@ endef
 
 define _MAKEFW_OBJLIST_WINDOWS
 objs_file="$(OBJDIR)/objs_$$.lst"; \
-bash "$(MAKEFW_HOME)/bin/filter_existing_source_objs.sh" windows all "$(MSVC_CRT_SUBDIR)" > "$$objs_file"; \
+bash "$(MAKEFW_HOME)/bin_internal/filter_existing_source_objs.sh" windows all "$(MSVC_CRT_SUBDIR)" > "$$objs_file"; \
 if [ ! -f "$$objs_file" ]; then : > "$$objs_file"; fi; \
 trap 'rm -f "$$objs_file" "$$rsp_file"' EXIT; \
 rebuild=0; \
@@ -386,8 +386,8 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_MSVC_COMPILE)
 					rsp_file="$(OBJDIR)/link_$$.rsp"; \
 					cp "$$objs_file" "$$rsp_file"; \
 					printf '%s\n' $(MAKEFW_EXTRA_OBJS) >> "$$rsp_file"; \
-					echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))" | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin/msvc_format_cmd.ps1"; \
-					set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ @$$rsp_file $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin/msvc_link_filter.ps1" | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
+					echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))" | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_format_cmd.ps1"; \
+					set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ @$$rsp_file $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_link_filter.ps1" | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
 				else \
 					_rc=0; \
@@ -468,8 +468,8 @@ $(OUTPUT_DIR)/$(TARGET_STATIC): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_MSVC_C
 					rsp_file="$(OBJDIR)/lib_$$.rsp"; \
 					cp "$$objs_file" "$$rsp_file"; \
 					printf '%s\n' $(MAKEFW_EXTRA_OBJS) $(RESOURCE_OBJS) >> "$$rsp_file"; \
-					echo "$(strip $(AR) /NOLOGO $(LIB_LTCG) /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/lib_$$.rsp)" | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin/msvc_format_cmd.ps1"; \
-					set -o pipefail; MSYS_NO_PATHCONV=1 "$(AR)" /NOLOGO $(LIB_LTCG) /OUT:$@ @$$rsp_file 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin/msvc_lib_filter.ps1" | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET_STATIC).warn; \
+					echo "$(strip $(AR) /NOLOGO $(LIB_LTCG) /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/lib_$$.rsp)" | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_format_cmd.ps1"; \
+					set -o pipefail; MSYS_NO_PATHCONV=1 "$(AR)" /NOLOGO $(LIB_LTCG) /OUT:$@ @$$rsp_file 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_lib_filter.ps1" | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET_STATIC).warn; \
 					_rc=$$?; \
 				else \
 					_rc=0; \
@@ -491,8 +491,8 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(OUTPUT_DIR)/$(TARGET_STATIC) 
 					rsp_file="$(OBJDIR)/link_$$.rsp"; \
 					cp "$$objs_file" "$$rsp_file"; \
 					printf '%s\n' $(MAKEFW_EXTRA_OBJS) >> "$$rsp_file"; \
-					echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))" | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin/msvc_format_cmd.ps1"; \
-					set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ @$$rsp_file $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin/msvc_link_filter.ps1" | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
+					echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))" | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_format_cmd.ps1"; \
+					set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ @$$rsp_file $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_link_filter.ps1" | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
 				else \
 					_rc=0; \
@@ -540,8 +540,8 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_MSVC_COMPILE)
 					rsp_file="$(OBJDIR)/lib_$$.rsp"; \
 					cp "$$objs_file" "$$rsp_file"; \
 					printf '%s\n' $(MAKEFW_EXTRA_OBJS) $(RESOURCE_OBJS) >> "$$rsp_file"; \
-					echo "$(strip $(AR) /NOLOGO $(LIB_LTCG) /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/lib_$$.rsp)" | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin/msvc_format_cmd.ps1"; \
-					set -o pipefail; MSYS_NO_PATHCONV=1 "$(AR)" /NOLOGO $(LIB_LTCG) /OUT:$@ @$$rsp_file 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin/msvc_lib_filter.ps1" | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
+					echo "$(strip $(AR) /NOLOGO $(LIB_LTCG) /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/lib_$$.rsp)" | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_format_cmd.ps1"; \
+					set -o pipefail; MSYS_NO_PATHCONV=1 "$(AR)" /NOLOGO $(LIB_LTCG) /OUT:$@ @$$rsp_file 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_lib_filter.ps1" | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
 				else \
 					_rc=0; \

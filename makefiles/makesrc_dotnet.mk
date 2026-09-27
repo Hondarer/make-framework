@@ -11,7 +11,7 @@ OUTPUT_DIR ?= $(CURDIR)/bin
 
 # テスト スクリプトのパス
 ifneq ($(strip $(TESTFW_HOME)),)
-    TESTSH := $(TESTFW_HOME)/bin/exec_test_dotnet.sh
+    TESTSH := $(TESTFW_HOME)/bin_internal/exec_test_dotnet.sh
 endif
 
 ifneq (,$(findstring /test/,$(CURDIR)))
@@ -43,7 +43,7 @@ default: build
 
 # dotnet build ラッパー スクリプト (warning/error のみ着色)
 # dotnet build wrapper script (colorizes only warnings/errors)
-DOTNET_BUILD := $(WORKSPACE_DIR)/framework/makefw/bin/dotnet_build.sh
+DOTNET_BUILD := $(WORKSPACE_DIR)/framework/makefw/bin_internal/dotnet_build.sh
 
 $(OUTPUT_ASSEMBLY): $(SOURCES) $(PROJECT_FILE)
     # dotnet_build.sh 側にてビルド コマンドは echo される

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""framework/makefw/bin/apply_patches.py
+"""framework/makefw/bin_internal/apply_patches.py
 
 app/cjson, app/sqlite, app/lua などが、packages/ から展開した上流ソースへ
 バイト列の前置・置換で改変する代わりに、unified diff 形式のパッチ ファイル

@@ -528,9 +528,9 @@ add_signature_file() {
 # のための規則であり、出力ディレクトリ (prod/cbin、test/.../bin など) を
 # 除外するために拡張子を .c/.h 系などへ絞り込み、bin/ 配下を丸ごと除外する。
 # しかし app/cjson・app/sqlite・app/lua のように外来 OSS を取り込む app では、
-# patches/*.patch、packages/ 配下の配布アーカイブ、bin/*.py・bin/*.sh
+# patches/*.patch、packages/ 配下の配布アーカイブ、bin_internal/*.py・bin_internal/*.sh
 # (展開スクリプト) 自体がビルド入力であり、これらは上記フィルターの対象外
-# 拡張子であるか、bin/ 配下であるために全滅してしまう。
+# 拡張子であるか、通常のソース走査の対象外であるために全滅してしまう。
 # そのため、この関数はワークスペース内かどうかと実在確認だけを行い、
 # 呼び出し側 (collect_vendor_import_signature_files) が対象ディレクトリと
 # 拡張子をあらかじめ絞り込んだうえで直接追加する。
@@ -555,11 +555,11 @@ add_signature_file_direct() {
 # make 読み込み時に走るため、app 直下 make が署名一致でサブディレクトリへの
 # 再帰を省くと、展開もパッチ適用も一切実行されなくなる。
 # それを防ぐため、実際に展開・パッチ適用へ使われる入力だけを対象にする。
-#   - patches/*.patch      : framework/makefw/bin/apply_patches.py が
+#   - patches/*.patch      : framework/makefw/bin_internal/apply_patches.py が
 #                             ファイル名昇順に適用するパッチ本体。
-#   - packages/ 配下のアーカイブ : 各 app の bin/extract_package.py が
+#   - packages/ 配下のアーカイブ : 各 app の bin_internal/extract_package.py が
 #                             正規表現でファイル名を照合して選ぶ配布アーカイブ。
-#   - bin/*.py, bin/*.sh   : 展開処理そのものを行うスクリプト。
+#   - bin_internal/*.py, bin_internal/*.sh : 展開処理そのものを行うスクリプト。
 # いずれのディレクトリにも運用手順を記した README.md が置かれることがあるが
 # (例: app/cjson/packages/README.md, app/cjson/patches/README.md)、
 # extract_package.py・apply_patches.py のどちらも README.md を一切参照しない
@@ -583,8 +583,8 @@ collect_vendor_import_signature_files() {
         done
     fi
 
-    if [[ -d "$app_path/bin" ]]; then
-        for f in "$app_path"/bin/*.py "$app_path"/bin/*.sh; do
+    if [[ -d "$app_path/bin_internal" ]]; then
+        for f in "$app_path"/bin_internal/*.py "$app_path"/bin_internal/*.sh; do
             add_signature_file_direct "$f"
         done
     fi

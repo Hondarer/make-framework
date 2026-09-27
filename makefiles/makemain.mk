@@ -166,7 +166,7 @@ _test_run:
 	if [ -z "$$test_run_jobs" ]; then test_run_jobs="$$jobs"; fi; \
 	if [ -z "$$test_run_jobs" ]; then test_run_jobs=1; fi; \
 	case "$$test_run_jobs" in *[!0-9]*|0) echo "ERROR: MAKEFW_TEST_RUN_JOBS must be a positive integer: $$test_run_jobs" >&2; exit 2 ;; esac; \
-	MAKEFW_SUBDIR_MAKE="$(MAKE)" "$(SHELL)" "$(MAKEFW_HOME)/bin/run_ordered_subdir_target.sh" "$$test_run_jobs" _test_run $(SUBDIRS)
+	MAKEFW_SUBDIR_MAKE="$(MAKE)" "$(SHELL)" "$(MAKEFW_HOME)/bin_internal/run_ordered_subdir_target.sh" "$$test_run_jobs" _test_run $(SUBDIRS)
     endif
 endif
 

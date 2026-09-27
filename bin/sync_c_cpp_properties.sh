@@ -40,7 +40,7 @@ fi
 APP_DIR="$WORKSPACE_DIR/app"
 VSCODE_FILE="$WORKSPACE_DIR/.vscode/c_cpp_properties.json"
 WARN_FILE="$APP_DIR/c_cpp_properties.warn"
-APP_ORDER_RESOLVER="$SCRIPT_DIR/resolve_app_deps.sh"
+APP_ORDER_RESOLVER="$SCRIPT_DIR/../bin_internal/resolve_app_deps.sh"
 # --check では「設定差分あり」を warning として扱うため、内部エラーとは別の終了コードを使う
 SYNC_WARN_EXIT=3
 
@@ -196,17 +196,17 @@ EOF
         write_sync_makepart_includes "$app" "$host_os" "$var_name"
         if [[ "$var_name" == "INCDIR" ]]; then
             cat <<'EOF'
-AUTO_APPDEPS_INCDIR := $(shell bash "$(WORKSPACE_DIR)/framework/makefw/bin/resolve_app_deps.sh" --paths "$(MYAPP_DIR)" include)
+AUTO_APPDEPS_INCDIR := $(shell bash "$(WORKSPACE_DIR)/framework/makefw/bin_internal/resolve_app_deps.sh" --paths "$(MYAPP_DIR)" include)
 ifneq ($(strip $(.SHELLSTATUS)),0)
 $(error Failed to resolve app include dependencies for $(MYAPP_DIR))
 endif
 INCDIR += $(AUTO_APPDEPS_INCDIR)
-AUTO_APPDEPS_INCLUDE_INTERNAL := $(shell bash "$(WORKSPACE_DIR)/framework/makefw/bin/resolve_app_deps.sh" --paths "$(MYAPP_DIR)" include_internal)
+AUTO_APPDEPS_INCLUDE_INTERNAL := $(shell bash "$(WORKSPACE_DIR)/framework/makefw/bin_internal/resolve_app_deps.sh" --paths "$(MYAPP_DIR)" include_internal)
 ifneq ($(strip $(.SHELLSTATUS)),0)
 $(error Failed to resolve app internal include dependencies for $(MYAPP_DIR))
 endif
 INCDIR += $(AUTO_APPDEPS_INCLUDE_INTERNAL)
-AUTO_APPDEPS_TEST_INCDIR := $(shell bash "$(WORKSPACE_DIR)/framework/makefw/bin/resolve_app_deps.sh" --paths "$(MYAPP_DIR)" test_include)
+AUTO_APPDEPS_TEST_INCDIR := $(shell bash "$(WORKSPACE_DIR)/framework/makefw/bin_internal/resolve_app_deps.sh" --paths "$(MYAPP_DIR)" test_include)
 ifneq ($(strip $(.SHELLSTATUS)),0)
 $(error Failed to resolve app test include dependencies for $(MYAPP_DIR))
 endif

@@ -33,7 +33,7 @@ default: build
 
 # dotnet build ラッパー スクリプト (warning/error のみ着色)
 # dotnet build wrapper script (colorizes only warnings/errors)
-DOTNET_BUILD := $(WORKSPACE_DIR)/framework/makefw/bin/dotnet_build.sh
+DOTNET_BUILD := $(WORKSPACE_DIR)/framework/makefw/bin_internal/dotnet_build.sh
 
 $(OUTPUT_ASSEMBLY): $(SOURCES) $(PROJECT_FILE)
     # dotnet_build.sh 側にてビルド コマンドは echo される

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""framework/makefw/bin/apply_patches_selftest.py
+"""framework/makefw/bin_internal/apply_patches_selftest.py
 
 apply_patches.py の自己テスト。命名は既存の
-bin/msvc_compile_heap_retry_selftest.ps1 に倣う。
+bin_internal/msvc_compile_heap_retry_selftest.ps1 に倣う。
 
 一時ディレクトリ上だけで完結し、リポジトリ内のファイルは一切書き換えない。
 各検査の合否を日本語で標準出力へ出し、すべて成功すれば終了コード 0、

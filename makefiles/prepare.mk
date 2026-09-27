@@ -36,7 +36,7 @@ export MAKEFW_HOME
 # pwsh を使用する場合は make MAKEFW_POWERSHELL=pwsh のように指定する。
 MAKEFW_POWERSHELL ?= powershell
 MAKEFW_POWERSHELL_COMMAND := $(MAKEFW_POWERSHELL) -NoProfile -ExecutionPolicy Bypass
-MSVC_OUTPUT_FILTER_SCRIPT := $(MAKEFW_HOME)/bin/msvc_output_filter.ps1
+MSVC_OUTPUT_FILTER_SCRIPT := $(MAKEFW_HOME)/bin_internal/msvc_output_filter.ps1
 
 include $(MAKEFW_HOME)/makefiles/_parallel.mk
 
@@ -105,7 +105,7 @@ DEFINES :=
 # ソース ファイルのエンコード指定から LANG を得る
 # FILES_LANG is stable across recursive make invocations in the same workspace
 ifeq ($(origin MAKEFW_FILES_LANG), undefined)
-    MAKEFW_FILES_LANG := $(shell bash $(MAKEFW_HOME)/bin/get_files_lang.sh)
+    MAKEFW_FILES_LANG := $(shell bash $(MAKEFW_HOME)/bin_internal/get_files_lang.sh)
 endif
 export MAKEFW_FILES_LANG
 FILES_LANG := $(MAKEFW_FILES_LANG)
@@ -502,7 +502,7 @@ $(foreach make_config, $(MAKE_INCLUDE_MK), $(call _include_make_config,$(make_co
 # ここでカレント ディレクトリの makelocal.mk を読み込めばよい
 -include $(CURDIR)/makelocal.mk
 
-MAKEFW_APPDEP_RESOLVER := $(MAKEFW_HOME)/bin/resolve_app_deps.sh
+MAKEFW_APPDEP_RESOLVER := $(MAKEFW_HOME)/bin_internal/resolve_app_deps.sh
 
 ifeq ($(_MYAPP_IS_VALID),1)
 
@@ -573,7 +573,7 @@ endif # _MYAPP_IS_VALID
 # - INCDIR, SYSTEM_INCDIR, LIBSDIR: sort で重複除去
 # - OUTPUT_DIR: 単一パス
 # - TEST_SRCS, ADD_SRCS: 順序保持
-MAKEFW_NORMALIZE_PATHS := $(MAKEFW_HOME)/bin/normalize_paths.sh
+MAKEFW_NORMALIZE_PATHS := $(MAKEFW_HOME)/bin_internal/normalize_paths.sh
 _makefw_normalize_path = $(if $(findstring :/,$(1)),$(1),$(abspath $(1)))
 _makefw_normalize_paths = $(foreach path,$(1),$(call _makefw_normalize_path,$(path)))
 

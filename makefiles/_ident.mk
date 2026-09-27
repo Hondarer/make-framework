@@ -17,7 +17,7 @@ _IDENT_LOCAL_IDENT_FILES := $(patsubst %.d,%.ident,$(DEPS))
 ifdef PLATFORM_LINUX
 
 $(OBJDIR)/%.ident: $(OBJDIR)/%.o | $(OBJDIR)
-	@python3 "$(MAKEFW_HOME)/bin/gen_ident_manifest.py" \
+	@python3 "$(MAKEFW_HOME)/bin_internal/gen_ident_manifest.py" \
 		--mode source-info \
 		--dep-file "$(OBJDIR)/$*.d" \
 		--src-dir "$(CURDIR)" \
@@ -31,7 +31,7 @@ else ifdef PLATFORM_WINDOWS
 $(_IDENT_LOCAL_IDENT_FILES): _msvc_compile
 
 $(OBJDIR)/%.ident: $(OBJDIR)/%.d | $(OBJDIR)
-	@python3 "$(MAKEFW_HOME)/bin/gen_ident_manifest.py" \
+	@python3 "$(MAKEFW_HOME)/bin_internal/gen_ident_manifest.py" \
 		--mode source-info \
 		--dep-file "$(OBJDIR)/$*.d" \
 		--src-dir "$(CURDIR)" \
@@ -150,7 +150,7 @@ _IDENT_SUBDIR_IDENT_FILES := $(shell find "$(CURDIR)" -name "*.ident" -type f 2>
 # ローカル .ident + サブディレクトリ .ident + 静的ライブラリ変更 (.a/.lib) + .ident_srcs が揃ったら manifest を生成
 # Generate manifest when local, subdirectory .ident, static lib archives, and .ident_srcs are ready
 $(_IDENT_MANIFEST_C): $(_IDENT_LOCAL_IDENT_FILES) $(_IDENT_SUBDIR_IDENT_FILES) $(wildcard $(_IDENT_STATIC_SRCS)) $(_IDENT_LINK_STATIC_LIBS) $(_IDENT_REV_FILE) $(MAKEFILE_LIST) | $(OBJDIR)
-	@python3 "$(MAKEFW_HOME)/bin/gen_ident_manifest.py" \
+	@python3 "$(MAKEFW_HOME)/bin_internal/gen_ident_manifest.py" \
 		--mode combine \
 		--ident-dirs "$(CURDIR)" \
 		$(if $(strip $(_IDENT_STATIC_SRCS)),--ident-srcs-files $(_IDENT_STATIC_SRCS),) \

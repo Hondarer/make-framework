@@ -233,7 +233,7 @@ GENDIR := gen
 
 # 警告キャプチャ スクリプト (コンパイラ/リンカー出力から .warn ファイルを生成)
 # Warning capture script (generates .warn files from compiler/linker output)
-CAPTURE_WARNINGS := "$(SHELL)" "$(WORKSPACE_DIR)/framework/makefw/bin/capture_warnings.sh"
+CAPTURE_WARNINGS := "$(SHELL)" "$(WORKSPACE_DIR)/framework/makefw/bin_internal/capture_warnings.sh"
 
 # std::filesystem サポート (GCC < 9 では -lstdc++fs が必須)
 # ここでは要否のフラグ (NEED_STDCXXFS) のみを設定する。

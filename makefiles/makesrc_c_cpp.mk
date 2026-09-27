@@ -11,7 +11,7 @@ include $(WORKSPACE_DIR)/framework/makefw/makefiles/_flex_bison_compile.mk
 # LINK_TEST が 1 の場合にのみ設定する
 ifneq ($(strip $(TESTFW_HOME)),)
     TESTFW_INCLUDE_OVERRIDE := -I$(TESTFW_HOME)/include_override
-    TESTSH := $(TESTFW_HOME)/bin/exec_test_c_cpp.sh
+    TESTSH := $(TESTFW_HOME)/bin_internal/exec_test_c_cpp.sh
 endif
 
 ifneq (,$(findstring /test/,$(CURDIR)))
@@ -100,7 +100,7 @@ endif
 
 define _MAKEFW_OBJLIST_LINUX
 objs_file="$(OBJDIR)/objs_$$.lst"; \
-bash "$(MAKEFW_HOME)/bin/filter_existing_source_objs.sh" linux all > "$$objs_file"; \
+bash "$(MAKEFW_HOME)/bin_internal/filter_existing_source_objs.sh" linux all > "$$objs_file"; \
 if [ ! -f "$$objs_file" ]; then : > "$$objs_file"; fi; \
 trap 'rm -f "$$objs_file" "$$rsp_file"' EXIT; \
 rebuild=0; \
@@ -116,7 +116,7 @@ endef
 
 define _MAKEFW_OBJLIST_WINDOWS
 objs_file="$(OBJDIR)/objs_$$.lst"; \
-bash "$(MAKEFW_HOME)/bin/filter_existing_source_objs.sh" windows all "$(MSVC_CRT_SUBDIR)" > "$$objs_file"; \
+bash "$(MAKEFW_HOME)/bin_internal/filter_existing_source_objs.sh" windows all "$(MSVC_CRT_SUBDIR)" > "$$objs_file"; \
 if [ ! -f "$$objs_file" ]; then : > "$$objs_file"; fi; \
 trap 'rm -f "$$objs_file" "$$rsp_file"' EXIT; \
 rebuild=0; \
@@ -276,7 +276,7 @@ endif
 # the matching source file still exists.
 ifdef PLATFORM_LINUX
     # Linux: .o ファイルを検索
-    SUBDIR_OBJS := $(shell bash "$(MAKEFW_HOME)/bin/filter_existing_source_objs.sh" linux subdirs)
+    SUBDIR_OBJS := $(shell bash "$(MAKEFW_HOME)/bin_internal/filter_existing_source_objs.sh" linux subdirs)
 endif
 OBJS += $(SUBDIR_OBJS)
 
@@ -441,8 +441,8 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_MSVC_COMPILE)
 					cp "$$objs_file" "$$rsp_file"; \
 					printf '%s\n' $(MAKEFW_EXTRA_OBJS) >> "$$rsp_file"; \
 					printf '%s\n' $(LINK_INPUTS) >> "$$rsp_file"; \
-					echo "$(strip $(basename $(notdir $(LD))) $(LDFLAGS) /PDB:$(call _relpath,$(patsubst %.exe,%.pdb,$@)) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(LIBS))" | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin/msvc_format_cmd.ps1"; \
-					set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ @$$rsp_file $(LIBS) 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin/msvc_link_filter.ps1" | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
+					echo "$(strip $(basename $(notdir $(LD))) $(LDFLAGS) /PDB:$(call _relpath,$(patsubst %.exe,%.pdb,$@)) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(LIBS))" | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_format_cmd.ps1"; \
+					set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ @$$rsp_file $(LIBS) 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_link_filter.ps1" | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
 				else \
 					_rc=0; \

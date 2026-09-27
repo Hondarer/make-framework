@@ -52,7 +52,7 @@ $(GENDIR)/%.lex.c: %.l | $(GENDIR)
 
 # bison/flex の生成物は、obj/*.o の生成過程でだけ作られる中間ファイルと見なされ、
 # GNU Make の既定では make の終了時に削除される。削除されると、サブディレクトリの
-# オブジェクト収集 (bin/filter_existing_source_objs.sh) が生成元のソースを見失い、
+# オブジェクト収集 (bin_internal/filter_existing_source_objs.sh) が生成元のソースを見失い、
 # リンクを行う親ディレクトリまでオブジェクトが届かない。
 # 再生成の無駄も省けるため、明示的に残す。
 .SECONDARY: $(GEN_TAB_C) $(GEN_TAB_H) $(GEN_LEX_C)

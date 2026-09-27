@@ -210,7 +210,7 @@ make clean IDENT=1
 | ファイル | 役割 |
 | --- | --- |
 | `makefiles/_ident.mk` | make 側の ident ルール定義 |
-| `bin/gen_ident_manifest.py` | source-info / combine 両モード |
+| `bin_internal/gen_ident_manifest.py` | source-info / combine 両モード |
 | `makefiles/prepare.mk` | `IDENT_ENABLED` フラグの設定 |
 | `makefiles/makelibsrc_c_cpp.mk` | `_ident.mk` の include |
 | `makefiles/makesrc_c_cpp.mk` | `_ident.mk` の include |

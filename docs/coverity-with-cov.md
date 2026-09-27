@@ -87,7 +87,7 @@ cov-build --append-log --dir app/idir make -C prod
 - `--dir` は常にワークスペースの `app/idir`
 - `--append-log` により `app/idir/build-log.txt` は追記されます
 - `test` や `clean` は `cov-build` を通しません
-- 対象 app の一覧は `framework/makefw/bin/resolve_app_deps.sh --coverity-apps` で確認できます
+- 対象 app の一覧は `framework/makefw/bin_internal/resolve_app_deps.sh --coverity-apps` で確認できます
 
 `app/idir` は app ごとの一時ディレクトリではなく、ワークスペース全体の集約先です。  
 複数 app を連続実行すると、同じ `app/idir` に emit が蓄積されます。  

@@ -49,14 +49,14 @@ NO_LINK = 1
 # サブディレクトリの obj ディレクトリを再帰的に検索して、対応するソースがある
 # オブジェクト ファイルだけを収集する。
 ifdef PLATFORM_LINUX
-    SUBDIR_OBJS := $(shell bash "$(MAKEFW_HOME)/bin/filter_existing_source_objs.sh" linux subdirs)
+    SUBDIR_OBJS := $(shell bash "$(MAKEFW_HOME)/bin_internal/filter_existing_source_objs.sh" linux subdirs)
 endif
 OBJS += $(SUBDIR_OBJS)
 ```
 
 これにより、親ディレクトリでリンクを実行すると、サブディレクトリのオブジェクト ファイルも含めてリンクされます。
 
-収集の対象は `bin/filter_existing_source_objs.sh` が判定します。  
+収集の対象は `bin_internal/filter_existing_source_objs.sh` が判定します。  
 削除済みのソースに対応する古いオブジェクトを混入させないため、生成元のソースが存在するものだけを収集対象とします。  
 判定の根拠は次のいずれかです。
 

@@ -12,7 +12,7 @@ SHELL := /bin/bash
 
 include $(MAKEFW_HOME)/makefiles/_parallel.mk
 
-APP_ORDER_RESOLVER = $(MAKEFW_HOME)/bin/resolve_app_deps.sh
+APP_ORDER_RESOLVER = $(MAKEFW_HOME)/bin_internal/resolve_app_deps.sh
 SUBDIRS := $(shell bash "$(APP_ORDER_RESOLVER)" --app-order)
 _MAKEFW_APP_RUNNER_GOALS := default with-cov clean test doxy
 
@@ -33,8 +33,8 @@ ifeq ($(filter --output-sync%,$(MAKEFLAGS)),)
 endif
 endif
 
-TESTFW_BANNER = $(TESTFW_HOME)/bin/banner.sh
-CPP_PROPERTIES_SYNC = $(MAKEFW_HOME)/bin/sync_c_cpp_properties.sh
+TESTFW_BANNER = $(TESTFW_HOME)/bin_internal/banner.sh
+CPP_PROPERTIES_SYNC = $(MAKEFW_HOME)/bin_internal/sync_c_cpp_properties.sh
 DOXY_WARN_FILES = $(addsuffix /doxy.warn,$(SUBDIRS)) $(foreach d,$(SUBDIRS),$(wildcard $(d)/doxy_*.warn))
 MAKEFW_SUBDIR_MAKE_CMD := $(MAKE)
 export MAKEFW_HOME
@@ -83,7 +83,7 @@ default : submodule
 	app_build_jobs="$$jobs"; \
 	if [ -z "$$app_build_jobs" ]; then app_build_jobs=1; fi; \
 	MAKEFW_SUBDIR_MAKE="$(MAKEFW_SUBDIR_MAKE_CMD)" "$(SHELL)" \
-		"$(MAKEFW_HOME)/bin/run_ordered_subdir_target.sh" \
+		"$(MAKEFW_HOME)/bin_internal/run_ordered_subdir_target.sh" \
 		--app-deps --silent-missing --echo-command --progress \
 		"$$app_build_jobs" default $(SUBDIRS)
 	@$(APP_POST_BUILD_CHECKS)
@@ -103,7 +103,7 @@ with-cov : submodule
 		echo "INFO: Skipping with-cov (no app has prod/coverity.mk)"; \
 	else \
 		MAKEFW_SUBDIR_MAKE="$(MAKEFW_SUBDIR_MAKE_CMD)" "$(SHELL)" \
-			"$(MAKEFW_HOME)/bin/run_ordered_subdir_target.sh" \
+			"$(MAKEFW_HOME)/bin_internal/run_ordered_subdir_target.sh" \
 			--app-deps --silent-missing --echo-command --progress \
 			"$$app_with_cov_jobs" _makefw_with_cov_prod $$with_cov_subdirs; \
 	fi
@@ -115,7 +115,7 @@ clean : submodule
 	app_clean_jobs="$$jobs"; \
 	if [ -z "$$app_clean_jobs" ]; then app_clean_jobs=1; fi; \
 	MAKEFW_SUBDIR_MAKE="$(MAKEFW_SUBDIR_MAKE_CMD)" "$(SHELL)" \
-		"$(MAKEFW_HOME)/bin/run_ordered_subdir_target.sh" \
+		"$(MAKEFW_HOME)/bin_internal/run_ordered_subdir_target.sh" \
 		--app-deps --silent-missing --echo-command --progress \
 		"$$app_clean_jobs" clean $(SUBDIRS)
 	-find . -name "coverage.xml" -delete
@@ -130,11 +130,11 @@ test : submodule
 	app_test_jobs=$${MAKEFW_APP_TEST_JOBS:-$$jobs}; \
 	test_run_jobs=$${MAKEFW_TEST_RUN_JOBS:-$$jobs}; \
 	MAKEFW_SUBDIR_MAKE="$(MAKE)" MAKEFW_TEST_RUN_JOBS="$$test_run_jobs" "$(SHELL)" \
-		"$(MAKEFW_HOME)/bin/run_ordered_subdir_target.sh" \
+		"$(MAKEFW_HOME)/bin_internal/run_ordered_subdir_target.sh" \
 		--app-deps --silent-missing --echo-command --progress \
 		"$$app_test_jobs" test $(SUBDIRS)
     # このフォルダー以下の coverage.xml をマージする
-	-python "$(TESTFW_HOME)/bin/cobertura_merge.py" . > /dev/null
+	-python "$(TESTFW_HOME)/bin_internal/cobertura_merge.py" . > /dev/null
 
 .PHONY: doxy
 doxy : submodule
@@ -145,7 +145,7 @@ doxy : submodule
 	app_doxy_jobs=$${MAKEFW_APP_DOXY_JOBS:-$$jobs}; \
 	if [ -z "$$app_doxy_jobs" ]; then app_doxy_jobs=1; fi; \
 	MAKEFW_SUBDIR_MAKE="$(MAKEFW_SUBDIR_MAKE_CMD)" "$(SHELL)" \
-		"$(MAKEFW_HOME)/bin/run_ordered_subdir_target.sh" \
+		"$(MAKEFW_HOME)/bin_internal/run_ordered_subdir_target.sh" \
 		--app-deps --silent-missing --echo-command --progress \
 		"$$app_doxy_jobs" doxy $(SUBDIRS); \
 	doxy_status=$$?; \

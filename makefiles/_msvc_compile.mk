@@ -11,7 +11,7 @@ CFLAGS   += $(MAKEFW_CL_MPFLAG)
 CXXFLAGS += $(MAKEFW_CL_MPFLAG)
 
 # MSVC コンパイル スクリプトのパス
-MSVC_COMPILE_SCRIPT := $(MAKEFW_HOME)/bin/msvc_compile.ps1
+MSVC_COMPILE_SCRIPT := $(MAKEFW_HOME)/bin_internal/msvc_compile.ps1
 
 # 1 回の cl.exe に渡すソース本数の上限。
 # 大きな C/C++ ソース群を 1 プロセスへ渡すと、/MP の子プロセスごとの
@@ -23,7 +23,7 @@ MAKEFW_MSVC_BATCH_MAX_CHARS ?= 8000
 export MAKEFW_MSVC_SOURCES_PER_BATCH MAKEFW_MSVC_BATCH_MAX_CHARS
 
 # 再コンパイルが必要なソースを抽出する外部スクリプト
-FIND_DIRTY_SRCS_SCRIPT := $(MAKEFW_HOME)/bin/find_dirty_srcs.sh
+FIND_DIRTY_SRCS_SCRIPT := $(MAKEFW_HOME)/bin_internal/find_dirty_srcs.sh
 
 # 再コンパイルが必要なソースを抽出
 # - .obj が存在しない
