@@ -34,7 +34,7 @@ endif
 endif
 
 TESTFW_BANNER = $(TESTFW_HOME)/bin_internal/banner.sh
-CPP_PROPERTIES_SYNC = $(MAKEFW_HOME)/bin_internal/sync_c_cpp_properties.sh
+CPP_PROPERTIES_SYNC = $(MAKEFW_HOME)/bin/sync_c_cpp_properties.sh
 DOXY_WARN_FILES = $(addsuffix /doxy.warn,$(SUBDIRS)) $(foreach d,$(SUBDIRS),$(wildcard $(d)/doxy_*.warn))
 MAKEFW_SUBDIR_MAKE_CMD := $(MAKE)
 export MAKEFW_HOME
