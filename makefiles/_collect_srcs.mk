@@ -97,11 +97,12 @@ ifdef PLATFORM_WINDOWS
     # Windows ではコピーを行うことにより、inject ファイル および フィルター ファイルがないにもかかわらず実体が存在するため、DIRECT_SRCS と判定されることへの対策として、
     # 外部ファイル (実パスがカレント ディレクトリと異なるファイル) を DIRECT_SRCS から CP_SRCS に移動する
     # $(foreach) と $(notdir)/$(dir) で Make 側で展開し、シェルには展開済みの値を渡す
-    EXTERNAL_SRCS := $(shell \
+    # DIRECT_SRCS が空のときはシェルを起動しない (Windows では起動ごとに数十 [ms] かかる)
+    EXTERNAL_SRCS := $(if $(strip $(DIRECT_SRCS)),$(shell \
         cur=$$(pwd); \
         $(foreach f,$(DIRECT_SRCS),\
             real_f=$$(cd "$(dir $(f))." 2>/dev/null && pwd)/$(notdir $(f)); \
-            if [ "$$real_f" != "$$cur/$(notdir $(f))" ]; then echo "$(f)"; fi; ))
+            if [ "$$real_f" != "$$cur/$(notdir $(f))" ]; then echo "$(f)"; fi; )))
     CP_SRCS += $(EXTERNAL_SRCS)
     DIRECT_SRCS := $(filter-out $(EXTERNAL_SRCS),$(DIRECT_SRCS))
 endif

@@ -48,8 +48,7 @@ endif
 ifdef HAS_PRE_BUILD
 _pre_build_hook: pre-build
 else
-_pre_build_hook:
-	@:
+_pre_build_hook: ;
 endif
 
 # post-build フック
@@ -57,8 +56,7 @@ endif
 ifdef HAS_POST_BUILD
 _post_build_hook: _build_main post-build
 else
-_post_build_hook: _build_main
-	@:
+_post_build_hook: _build_main ;
 endif
 
 # ============================================================================
@@ -73,8 +71,7 @@ endif
 ifdef HAS_PRE_CLEAN
 _pre_clean_hook: pre-clean
 else
-_pre_clean_hook:
-	@:
+_pre_clean_hook: ;
 endif
 
 # post-clean フック
@@ -82,8 +79,7 @@ endif
 ifdef HAS_POST_CLEAN
 _post_clean_hook: _clean_main post-clean
 else
-_post_clean_hook: _clean_main
-	@:
+_post_clean_hook: _clean_main ;
 endif
 
 # ============================================================================
@@ -98,8 +94,7 @@ endif
 ifdef HAS_PRE_TEST
 _pre_test_hook: pre-test
 else
-_pre_test_hook:
-	@:
+_pre_test_hook: ;
 endif
 
 # post-test フック
@@ -107,8 +102,7 @@ endif
 ifdef HAS_POST_TEST
 _post_test_hook: _test_main post-test
 else
-_post_test_hook: _test_main
-	@:
+_post_test_hook: _test_main ;
 endif
 
 # ============================================================================

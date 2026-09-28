@@ -32,8 +32,9 @@ FIND_DIRTY_SRCS_SCRIPT := $(MAKEFW_HOME)/bin_internal/find_dirty_srcs.sh
 # - .d 内のワークスペース内ヘッダーが .obj より新しい
 # 注: ワークスペース外のヘッダー (Windows SDK 等) はチェックしない
 # 引数: $(1)=ソース リスト, $(2)=OBJDIR
+# ソース リストが空のときはスクリプトを起動しない (C のみ、C++ のみの末端で片方が空になる)。
 define _find_dirty_srcs
-$(shell bash "$(FIND_DIRTY_SRCS_SCRIPT)" "$(1)" "$(2)" "$(WORKSPACE_DIR)")
+$(if $(strip $(1)),$(shell bash "$(FIND_DIRTY_SRCS_SCRIPT)" "$(1)" "$(2)" "$(WORKSPACE_DIR)"))
 endef
 
 # MSVC コンパイル時の PDB 生成ルール
@@ -125,7 +126,6 @@ _msvc_compile_cpp_test: $(notdir $(LINK_SRCS)) $(notdir $(CP_SRCS)) | $(OBJDIR) 
 
 else
 .PHONY: _msvc_compile
-_msvc_compile:
-	@:
+_msvc_compile: ;
 
 endif # PLATFORM_WINDOWS

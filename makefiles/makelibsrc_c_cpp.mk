@@ -75,8 +75,7 @@ MAKEFW_ARTIFACT_MSVC_COMPILE := $(if $(MAKEFW_ARTIFACT_ONLY),,_msvc_compile)
 MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT := $(if $(filter $(CURDIR),$(MAKEFW_REQUEST_ROOT)),$(if $(filter-out $(MAKEFW_ARTIFACT_ROOT),$(CURDIR)),$(if $(filter command\ line,$(origin NO_LINK)),,1),),)
 
 .PHONY: _makefw_artifact_recheck _makefw_parent_artifact
-_makefw_artifact_recheck:
-	@:
+_makefw_artifact_recheck: ;
 
 _makefw_parent_artifact:
 	$(MAKE) -C "$(MAKEFW_ARTIFACT_ROOT)" MAKEFW_ARTIFACT_ONLY=1 _build_main
@@ -226,8 +225,7 @@ _build_impl: _pre_build_hook _build_main _post_build_hook
 # Actual build process
 # Windows では _msvc_compile が完了してから _build_main を実行
 ifeq ($(call should_skip,$(SKIP_BUILD)),true)
-_build_main: _msvc_compile
-	@:
+_build_main: _msvc_compile ;
 else
     ifndef NO_LINK
 _build_main: $(MAKEFW_ARTIFACT_MSVC_COMPILE) $(OUTPUT_DIR)/$(TARGET)
@@ -748,17 +746,17 @@ ifeq ($(call should_skip,$(SKIP_BUILD)),true)
     # Build was skipped
 _test_run:
 				@echo "Test skipped because it is not included in the build (SKIP_BUILD=$(SKIP_BUILD))"
-_test_main:
-				@:
+_test_main: ;
 else ifeq ($(call should_skip,$(SKIP_TEST)),true)
     # テストのスキップ (ビルドは Phase 1 で実施済み)
     # Skip tests (the build is already done in Phase 1)
 _test_run:
 				@echo "Test skipped (SKIP_TEST=$(SKIP_TEST))"
-_test_main:
-				@:
+_test_main: ;
 else
 _test_run: _pre_test_hook _test_main _post_test_hook
+# 空レシピにすると _test_run 全体で実行するコマンドが無くなり、
+# make が "Nothing to be done for '_test_run'" を出力するため、何もしないコマンドを残す。
 _test_main:
 				@:
 endif
