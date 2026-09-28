@@ -28,15 +28,22 @@ else ifdef PLATFORM_WINDOWS
 
 # _msvc_compile が .d を生成するため、その完了後に .ident を生成
 # _msvc_compile generates .d files; build .ident after it completes
-$(_IDENT_LOCAL_IDENT_FILES): _msvc_compile
-
-$(OBJDIR)/%.ident: $(OBJDIR)/%.d | $(OBJDIR)
+# _msvc_compile は PHONY のため、変更が無くても毎回すべての .ident が生成対象になる。
+# .ident ごとに Python を起動すると 1 回あたり 100 [ms] 以上かかるため、1 回の起動でまとめて生成する。
+# 各 .ident は空レシピで待ち合わせる。make は空レシピの後も更新日時を読み直し、
+# 内容が変わらない .ident は書き換えない (write_if_changed) ため、依存側は不要に再ビルドされない。
+# Generate all .ident files in one Python process and let each .ident wait with an empty recipe.
+ifneq ($(strip $(_IDENT_LOCAL_IDENT_FILES)),)
+.PHONY: _ident_source_info
+_ident_source_info: _msvc_compile | $(OBJDIR)
 	@python3 "$(MAKEFW_HOME)/bin_internal/gen_ident_manifest.py" \
-		--mode source-info \
-		--dep-file "$(OBJDIR)/$*.d" \
+		--mode source-info-batch \
+		--dep-files $(patsubst %.ident,"%.d",$(_IDENT_LOCAL_IDENT_FILES)) \
 		--src-dir "$(CURDIR)" \
-		--workspace "$(WORKSPACE_DIR)" \
-		--out "$@"
+		--workspace "$(WORKSPACE_DIR)"
+
+$(_IDENT_LOCAL_IDENT_FILES): _ident_source_info ;
+endif
 endif # PLATFORM
 
 # NO_LINK=1: アーカイブを生成しないコンパイル専用サブディレクトリ (LIB_TYPE を問わず優先)

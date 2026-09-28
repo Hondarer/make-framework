@@ -171,6 +171,10 @@ Table: IDENT マニフェストのタグ一覧と意味
 パスはすべて `WORKSPACE_DIR` からの相対パスです。  
 Make の依存ファイル内で `\` としてエスケープされた空白は、実際の空白として扱います。
 
+Windows (MSVC) では、ディレクトリ内のすべての `.ident` を 1 回の Python 起動でまとめて生成します (`source-info-batch` モード)。  
+MSVC の一括コンパイルは毎回実行されるターゲットのため、ソースごとに起動すると、変更がない場合も起動回数がソース数に比例して増えるためです。  
+内容が変わらない `.ident` は書き換えないため、マニフェストの再生成と再リンクは起きません。
+
 ### static lib 完成時
 
 `.ident_srcs` ファイルを生成し、どのディレクトリに `.ident` ファイルがあるかを記録します。  
@@ -214,7 +218,7 @@ make clean IDENT=1
 | ファイル | 役割 |
 | --- | --- |
 | `makefiles/_ident.mk` | make 側の ident ルール定義 |
-| `bin_internal/gen_ident_manifest.py` | source-info / combine 両モード |
+| `bin_internal/gen_ident_manifest.py` | source-info / source-info-batch / combine の各モード |
 | `makefiles/prepare.mk` | `IDENT_ENABLED` フラグの設定 |
 | `makefiles/makelibsrc_c_cpp.mk` | `_ident.mk` の include |
 | `makefiles/makesrc_c_cpp.mk` | `_ident.mk` の include |

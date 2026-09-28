@@ -44,8 +44,17 @@ MSVC_PDB = $(if $(filter static,$(LIB_TYPE)),$(OUTPUT_DIR)/$(basename $(TARGET))
 
 # 変更のあるソースを抽出
 # 共有 PDB が欠落している場合は、関連ソースをすべて再コンパイルして再生成する
-SRCS_C_DIRTY = $(if $(wildcard $(MSVC_PDB)),$(call _find_dirty_srcs,$(SRCS_C),$(OBJDIR)),$(SRCS_C))
-SRCS_CPP_DIRTY = $(if $(wildcard $(MSVC_PDB)),$(call _find_dirty_srcs,$(SRCS_CPP),$(OBJDIR)),$(SRCS_CPP))
+_MAKEFW_SRCS_C_DIRTY_EXPR = $(if $(wildcard $(MSVC_PDB)),$(call _find_dirty_srcs,$(SRCS_C),$(OBJDIR)),$(SRCS_C))
+_MAKEFW_SRCS_CPP_DIRTY_EXPR = $(if $(wildcard $(MSVC_PDB)),$(call _find_dirty_srcs,$(SRCS_CPP),$(OBJDIR)),$(SRCS_CPP))
+
+# 抽出結果を最初の参照時に 1 回だけ評価し、以降は再利用する。
+# SRCS_*_DIRTY は NORMAL と TEST の双方から参照され、再帰展開のままでは
+# 同じ判定スクリプトが 2 回起動される。
+# LIB_TYPE・TARGET・SRCS_* の確定後 (レシピ展開時) に評価するため、:= にはしない。
+# 引数: $(1)=キャッシュ変数名, $(2)=評価する式の変数名
+_makefw_eval_once = $(if $(filter undefined,$(origin $(1))),$(eval $(1) := $$($(2))))$($(1))
+SRCS_C_DIRTY = $(call _makefw_eval_once,_MAKEFW_SRCS_C_DIRTY_CACHE,_MAKEFW_SRCS_C_DIRTY_EXPR)
+SRCS_CPP_DIRTY = $(call _makefw_eval_once,_MAKEFW_SRCS_CPP_DIRTY_CACHE,_MAKEFW_SRCS_CPP_DIRTY_EXPR)
 
 # TEST_SRCS との分離 (-D_IN_TEST_SRC 付与のため)
 # TEST_SRCS: -D_IN_TEST_SRC 付きでコンパイル
@@ -69,7 +78,11 @@ _msvc_compile: _msvc_compile_c_normal _msvc_compile_c_test _msvc_compile_cpp_nor
 
 # ソース本数とコマンド文字数の上限で分割して MSVC コンパイルを実行するヘルパー
 # 引数: compiler, flags, objdir, sources, extra_flags (optional)
-define _run_msvc_compile
+# 対象ソースが空のときはレシピを空に展開し、シェルを起動しない。
+# 1 つの末端で最大 4 つのサブターゲットが空になり、Windows では起動ごとに数十 [ms] かかるため。
+_run_msvc_compile = $(if $(strip $(4)),$(call _run_msvc_compile_body,$(1),$(2),$(3),$(4),$(5)))
+
+define _run_msvc_compile_body
 	@srcs="$(4)"; \
 	if [ -n "$$srcs" ]; then \
 		max_sources="$(MAKEFW_MSVC_SOURCES_PER_BATCH)"; \

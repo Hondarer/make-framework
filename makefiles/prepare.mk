@@ -244,16 +244,19 @@ else ifdef PLATFORM_WINDOWS
         # 2. 可能なら 8.3 形式に変換
         # 3. bash 実行向けに Unix パス形式へ変換
         # 短縮名が取得できない環境でも、後段でクォートして実行できるパスを保持する
-        MAKEFW_LINK_PATH_WIN := $(subst cl.exe,link.exe,$(CL_PATH))
-        MAKEFW_LINK_PATH_SHORT := $(shell cygpath -d "$(MAKEFW_LINK_PATH_WIN)" 2>/dev/null)
-        ifeq ($(MAKEFW_LINK_PATH_SHORT),)
-            MAKEFW_LINK_PATH_SHORT := $(MAKEFW_LINK_PATH_WIN)
-        endif
-        MAKEFW_LINK_PATH_UNIX := $(shell cygpath -u "$(MAKEFW_LINK_PATH_SHORT)" 2>/dev/null)
-        ifeq ($(MAKEFW_LINK_PATH_UNIX),)
-            MAKEFW_LINK_PATH := $(MAKEFW_LINK_PATH_SHORT)
-        else
-            MAKEFW_LINK_PATH := $(MAKEFW_LINK_PATH_UNIX)
+        # 変換結果は再帰 make で不変なので、親が export した値を再利用して cygpath の起動を省く
+        ifeq ($(origin MAKEFW_LINK_PATH), undefined)
+            MAKEFW_LINK_PATH_WIN := $(subst cl.exe,link.exe,$(CL_PATH))
+            MAKEFW_LINK_PATH_SHORT := $(shell cygpath -d "$(MAKEFW_LINK_PATH_WIN)" 2>/dev/null)
+            ifeq ($(MAKEFW_LINK_PATH_SHORT),)
+                MAKEFW_LINK_PATH_SHORT := $(MAKEFW_LINK_PATH_WIN)
+            endif
+            MAKEFW_LINK_PATH_UNIX := $(shell cygpath -u "$(MAKEFW_LINK_PATH_SHORT)" 2>/dev/null)
+            ifeq ($(MAKEFW_LINK_PATH_UNIX),)
+                MAKEFW_LINK_PATH := $(MAKEFW_LINK_PATH_SHORT)
+            else
+                MAKEFW_LINK_PATH := $(MAKEFW_LINK_PATH_UNIX)
+            endif
         endif
         export MAKEFW_LINK_PATH
         LD = $(MAKEFW_LINK_PATH)

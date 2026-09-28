@@ -135,7 +135,14 @@ ifdef PLATFORM_WINDOWS
     # link.exe には Windows パスが必要。MSYS 環境では cygpath -m で変換する
     # -w (バックスラッシュ形式) は sh 経由でコマンドを実行する際にエスケープされてパスが壊れるため
     # -m (フォワード スラッシュ形式: D:/a/...) を使用する
-    _WIN32_MANIFEST_WIN := $(shell cygpath -m "$(abspath $(_WIN32_MANIFEST_FILE))" 2>/dev/null)
+    # abspath の結果が既に D:/... 形式なら cygpath -m は同じ値を返すため、プロセスの起動を省く
+    # 判定は prepare.mk の _makefw_normalize_path と同じく ":/" の有無で行う
+    _WIN32_MANIFEST_ABS := $(abspath $(_WIN32_MANIFEST_FILE))
+    ifeq ($(findstring :/,$(_WIN32_MANIFEST_ABS)),)
+      _WIN32_MANIFEST_WIN := $(shell cygpath -m "$(_WIN32_MANIFEST_ABS)" 2>/dev/null)
+    else
+      _WIN32_MANIFEST_WIN := $(_WIN32_MANIFEST_ABS)
+    endif
     ifeq ($(_WIN32_MANIFEST_WIN),)
       _WIN32_MANIFEST_WIN := $(abspath $(_WIN32_MANIFEST_FILE))
     endif

@@ -2,8 +2,9 @@
 """IDENT manifest generator.
 
 Modes:
-  source-info : read a .d file, hash source + headers, write per-source .ident JSON
-  combine     : collect .ident files from dirs, generate manifest C source
+  source-info       : read a .d file, hash source + headers, write per-source .ident JSON
+  source-info-batch : same as source-info for multiple .d files in one process
+  combine           : collect .ident files from dirs, generate manifest C source
 """
 
 import sys
@@ -161,10 +162,28 @@ def write_if_changed(path, content):
 
 def mode_source_info(args):
     """Generate per-source .ident file from a .d dependency file."""
-    dep_file = args.dep_file
-    src_dir = (args.src_dir or "").replace("\\", "/")
-    workspace = normalize_workspace(args.workspace)
-    out_path = args.out
+    generate_source_info(args.dep_file, args.src_dir, args.workspace, args.out)
+
+
+def mode_source_info_batch(args):
+    """Generate .ident files for multiple .d files in one process.
+
+    Each output path is the .d path with its extension replaced by .ident.
+    Missing .d files are skipped, as make does not run the per-source rule
+    when its .d prerequisite does not exist.
+    Starting Python once per source costs 100 ms or more on Windows (MSYS).
+    """
+    for dep_file in args.dep_files:
+        if not os.path.isfile(dep_file):
+            continue
+        out_path = os.path.splitext(dep_file)[0] + ".ident"
+        generate_source_info(dep_file, args.src_dir, args.workspace, out_path)
+
+
+def generate_source_info(dep_file, src_dir, workspace, out_path):
+    """Write the .ident JSON for one .d dependency file."""
+    src_dir = (src_dir or "").replace("\\", "/")
+    workspace = normalize_workspace(workspace)
 
     source_str, header_paths = parse_dep_file(dep_file)
 
@@ -349,11 +368,19 @@ def mode_combine(args):
 def main():
     parser = argparse.ArgumentParser(description="IDENT manifest generator")
     parser.add_argument(
-        "--mode", choices=["source-info", "combine"], required=True
+        "--mode",
+        choices=["source-info", "source-info-batch", "combine"],
+        required=True,
     )
 
     # source-info mode
     parser.add_argument("--dep-file", help="Path to .d dependency file")
+    # source-info-batch mode
+    parser.add_argument(
+        "--dep-files",
+        nargs="+",
+        help="Paths to .d dependency files (writes <name>.ident next to each)",
+    )
     parser.add_argument(
         "--src-dir",
         help="Directory containing source file (for resolving relative paths in .d)",
@@ -381,9 +408,17 @@ def main():
     parser.add_argument(
         "--workspace", required=True, help="Workspace root directory"
     )
-    parser.add_argument("--out", required=True, help="Output file path")
+    parser.add_argument("--out", help="Output file path")
 
     args = parser.parse_args()
+
+    if args.mode == "source-info-batch":
+        if not args.dep_files:
+            parser.error("--dep-files is required for source-info-batch mode")
+        mode_source_info_batch(args)
+        return
+    if not args.out:
+        parser.error("--out is required for source-info and combine modes")
 
     if args.mode == "source-info":
         mode_source_info(args)
