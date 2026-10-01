@@ -503,7 +503,7 @@ OUTPUT_DIR := $(MYAPP_DIR)/prod/cbin
 INCDIR += $(APP_DIR)/cplat/prod/include
 ```
 
-既存の `$(MYAPP_DIR)/../cplat/...` もビルド時に `realpath -m` で正規化されますが、新規記述では `$(APP_DIR)/cplat/...` を使用します。
+既存の `$(MYAPP_DIR)/../cplat/...` もビルド時に `..` を除いた形へ正規化されますが、新規記述では `$(APP_DIR)/cplat/...` を使用します。
 
 #### repo 全体の参照
 
@@ -517,8 +517,34 @@ INCDIR += $(WORKSPACE_DIR)/framework/testfw/include
 
 1. `prepare.mk` が `CURDIR` から `app/<appname>` を抽出し、`APP_DIR` と `MYAPP_DIR` に絶対パスを設定します
 2. `makepart.mk` / `makechild.mk` / `makelocal.mk` の読み込み後、パス系変数 (`INCDIR`, `SYSTEM_INCDIR`, `LIBSDIR`, `OUTPUT_DIR`, `TEST_SRCS`, `ADD_SRCS`) を一括正規化します
-3. 正規化は `realpath -m` (Linux) / `realpath -m` + `cygpath -m` (Windows) で実行します
-4. コンパイラに渡されるパスは常に `..` を含まない絶対パスになります
+3. 正規化は GNU Make の `abspath` と文字列関数だけで行い、解析のたびに外部プロセスを起動しません。シンボリック リンクは解決しません。Windows で MSYS 形式 (`/d/...`) のパスを明示した場合だけ、`cygpath` を使う補助スクリプトで変換します
+4. ワークスペース内のパスは、実行ディレクトリからの相対パスになります。配置先に含まれる半角空白を make の単語区切りと混同しないためです。ワークスペース外のパスは、同じドライブにあっても絶対パスのまま残します
+
+`APP_DIR`、`MYAPP_DIR`、`WORKSPACE_DIR`、`MAKEFW_HOME`、`TESTFW_HOME` 自体は絶対パスのままです。  
+設定ファイルでは、従来どおり `$(MYAPP_DIR)/prod/include` などの記法を使用できます。  
+`__MAKEFW_SPACE__` は makefw が設定ファイルの探索とパスの処理に使用する内部表現です。配置先の名前には使用しないでください。
+
+### 半角空白を含むパス
+
+ワークスペースの配置先に含まれる半角空白は、makefw が自動で保護します。  
+`$(WORKSPACE_DIR)`、`$(APP_DIR)`、`$(MYAPP_DIR)` などから組み立てたパスは、そのまま記載できます。
+
+ワークスペース外のパスや、ワークスペース内のディレクトリ名に含まれる半角空白は、自動では保護されません。  
+make は設定ファイルを読み込んだ時点で半角空白を区切りとして扱うため、保護のない空白は makefw から検出できず、パスが分割されます。  
+これらの空白は `\` で保護するか、変数の値を `_makefw_escape_path` で保護してください。
+
+```makefile
+INCDIR += C:/Program\ Files/foo/include
+INCDIR += $(call _makefw_escape_path,$(FOO_SDK_DIR))/include
+```
+
+保護した空白を含むパスは、正規化後も空白が残るため、次のように扱います。
+
+- Windows では、8.3 形式の短い名前 (例: `C:/PROGRA~1/foo/include`) へ変換します。
+- 短い名前を得られない場合は、変数名とパスを示してエラーで停止します。短い名前は、ボリュームの設定で生成が無効な場合や、パスが存在しない場合に得られません。
+- Linux では、変数名とパスを示してエラーで停止します。
+
+外部 SDK のヘッダーやライブラリは、可能であれば半角空白を含まない場所に配置するか、コンパイラの環境変数 (`INCLUDE`、`LIB` など) から参照してください。
 
 ## インクルード順序
 

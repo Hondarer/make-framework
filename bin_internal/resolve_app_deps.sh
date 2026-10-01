@@ -62,7 +62,7 @@ read_direct_deps_via_make() {
     tmp_makefile=$(mktemp)
     {
         printf 'APP_DEPS :=\n'
-        printf -- '-include %s\n' "$deps_makefile_path"
+        printf -- '-include %s\n' "${deps_makefile_path// /\\ }"
         cat <<'EOF'
 print:
 	@printf '%s\n' "$(APP_DEPS)"
@@ -140,7 +140,7 @@ read_prod_include_class_via_make() {
     tmp_makefile=$(mktemp)
     {
         printf 'APP_PROD_INCLUDE_CLASS := normal\n'
-        printf -- '-include %s\n' "$deps_makefile_path"
+        printf -- '-include %s\n' "${deps_makefile_path// /\\ }"
         cat <<'EOF'
 print:
 	@printf '%s\n' "$(APP_PROD_INCLUDE_CLASS)"

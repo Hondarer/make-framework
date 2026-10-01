@@ -81,7 +81,7 @@ endif
 # Generate .ident_srcs after archive is ready (order-only to avoid triggering archive rebuild)
 $(OUTPUT_DIR)/$(_IDENT_SRCS_TARGET): | $(_IDENT_SRCS_FILE)
 
-$(_IDENT_SRCS_FILE): $(_IDENT_LOCAL_IDENT_FILES) $(MAKEFILE_LIST) | $(OUTPUT_DIR)
+$(_IDENT_SRCS_FILE): $(_IDENT_LOCAL_IDENT_FILES) $(call _makefw_escape_paths,$(MAKEFILE_LIST)) | $(OUTPUT_DIR)
 	@printf '[ident_dir]\n%s\n' '$(CURDIR)' > "$@.tmp" && mv "$@.tmp" "$@"
 
 .PHONY: _ident_srcs_main
@@ -126,7 +126,7 @@ endif
 
 # git short hash スタンプ
 # Git short hash stamp
-_IDENT_GIT_HEAD := $(wildcard $(WORKSPACE_DIR)/.git/HEAD)
+_IDENT_GIT_HEAD := $(call _makefw_escape_paths,$(call _makefw_path_exists,$(WORKSPACE_DIR)/.git/HEAD))
 _IDENT_REV_FILE := $(OBJDIR)/.ident_rev
 _IDENT_EXPORT_FLAG := $(if $(filter 1,$(MAKEFW_IDENT_EXPORT)),--msvc-export-ident,)
 
@@ -152,11 +152,11 @@ MAKEFW_EXTRA_OBJS += $(_IDENT_MANIFEST_OBJ)
 # If there are NO_LINK subdirectories, include their .ident files as dependencies too.
 # Files are enumerated at make parse time (existing files only); on first build
 # _ident_manifest.c does not yet exist so the recipe always runs regardless.
-_IDENT_SUBDIR_IDENT_FILES := $(shell find "$(CURDIR)" -name "*.ident" -type f 2>/dev/null)
+_IDENT_SUBDIR_IDENT_FILES := $(shell find . -name "*.ident" -type f 2>/dev/null)
 
 # ローカル .ident + サブディレクトリ .ident + 静的ライブラリ変更 (.a/.lib) + .ident_srcs が揃ったら manifest を生成
 # Generate manifest when local, subdirectory .ident, static lib archives, and .ident_srcs are ready
-$(_IDENT_MANIFEST_C): $(_IDENT_LOCAL_IDENT_FILES) $(_IDENT_SUBDIR_IDENT_FILES) $(wildcard $(_IDENT_STATIC_SRCS)) $(_IDENT_LINK_STATIC_LIBS) $(_IDENT_REV_FILE) $(MAKEFILE_LIST) | $(OBJDIR)
+$(_IDENT_MANIFEST_C): $(_IDENT_LOCAL_IDENT_FILES) $(_IDENT_SUBDIR_IDENT_FILES) $(wildcard $(_IDENT_STATIC_SRCS)) $(_IDENT_LINK_STATIC_LIBS) $(_IDENT_REV_FILE) $(call _makefw_escape_paths,$(MAKEFILE_LIST)) | $(OBJDIR)
 	@python3 "$(MAKEFW_HOME)/bin_internal/gen_ident_manifest.py" \
 		--mode combine \
 		--ident-dirs "$(CURDIR)" \

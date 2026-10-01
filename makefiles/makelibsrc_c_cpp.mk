@@ -9,15 +9,15 @@ endif
 # 未指定の場合、カレント ディレクトリ/lib に成果物を生成する
 # _msvc_compile.mk と _flex_bison_compile.mk の order-only 依存関係 (| $(OUTPUT_DIR)) は
 # 読み込み時に展開されるため、これらの include より前に確定させる
-OUTPUT_DIR ?= $(CURDIR)/lib
+OUTPUT_DIR ?= lib
 
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_collect_srcs.mk
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_flags.mk
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_should_skip.mk
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_hooks.mk
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_msvc_compile.mk
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_resource_compile.mk
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_flex_bison_compile.mk
+include $(call _makefw_escape_path,$(WORKSPACE_DIR)/framework/makefw/makefiles/_collect_srcs.mk)
+include $(call _makefw_escape_path,$(WORKSPACE_DIR)/framework/makefw/makefiles/_flags.mk)
+include $(call _makefw_escape_path,$(WORKSPACE_DIR)/framework/makefw/makefiles/_should_skip.mk)
+include $(call _makefw_escape_path,$(WORKSPACE_DIR)/framework/makefw/makefiles/_hooks.mk)
+include $(call _makefw_escape_path,$(WORKSPACE_DIR)/framework/makefw/makefiles/_msvc_compile.mk)
+include $(call _makefw_escape_path,$(WORKSPACE_DIR)/framework/makefw/makefiles/_resource_compile.mk)
+include $(call _makefw_escape_path,$(WORKSPACE_DIR)/framework/makefw/makefiles/_flex_bison_compile.mk)
 
 # -fPIC オプションが含まれていない場合に追加
 # Add -fPIC option if not already included
@@ -85,7 +85,14 @@ MAKEFW_ARTIFACT_ROOT := $(shell \
 MAKEFW_ARTIFACT_DEPS := $(if $(MAKEFW_ARTIFACT_ONLY),_makefw_artifact_recheck,$(SUBDIRS))
 MAKEFW_ARTIFACT_OBJS := $(if $(MAKEFW_ARTIFACT_ONLY),,$(OBJS))
 MAKEFW_ARTIFACT_MSVC_COMPILE := $(if $(MAKEFW_ARTIFACT_ONLY),,_msvc_compile)
-MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT := $(if $(filter $(CURDIR),$(MAKEFW_REQUEST_ROOT)),$(if $(filter-out $(MAKEFW_ARTIFACT_ROOT),$(CURDIR)),$(if $(filter command\ line,$(origin NO_LINK)),,1),),)
+MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT :=
+ifeq ($(CURDIR),$(MAKEFW_REQUEST_ROOT))
+ifneq ($(CURDIR),$(MAKEFW_ARTIFACT_ROOT))
+ifneq ($(origin NO_LINK),command line)
+    MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT := 1
+endif
+endif
+endif
 
 .PHONY: _makefw_artifact_recheck _makefw_parent_artifact
 _makefw_artifact_recheck: ;
@@ -96,7 +103,7 @@ _makefw_parent_artifact:
 # ディレクトリ名をアーカイブ名にする (Make 関数の notdir でプロセス生成を削減)
 # Use directory name as archive name if TARGET is not specified (use Make's notdir to avoid process)
 ifeq ($(TARGET),)
-    TARGET := $(notdir $(CURDIR))
+    TARGET := $(call _makefw_path_notdir,$(CURDIR))
 endif
 TARGET_BASE := $(TARGET)
 ifdef PLATFORM_LINUX
@@ -218,7 +225,7 @@ endif
 # スタンプは makepart.mk / makefile 群が更新されたときに再評価する。
 # CP_SRCS / LINK_SRCS のリストは makefile 側で静的に決まるため、
 # MAKEFILE_LIST を依存に置けばリスト変化を捕捉できる。
-$(OBJDIR)/.gitignore_stamp: $(MAKEFILE_LIST) | $(OBJDIR)
+$(OBJDIR)/.gitignore_stamp: $(foreach path,$(call _makefw_pack_path_roots,$(MAKEFILE_LIST)),$(call _makefw_escape_path,$(call _makefw_decode_path,$(path)))) | $(OBJDIR)
 	@tmp=$$(mktemp .gitignore.tmp.XXXXXX); \
 	printf '%s\n' $(addprefix /,$(sort $(notdir $(CP_SRCS) $(LINK_SRCS)))) > "$$tmp" \
 		&& mv "$$tmp" .gitignore \
@@ -631,7 +638,7 @@ $(GENDIR):
 # Define files/directories to clean
 # カレント ディレクトリ配下の絶対パスを相対パスに変換する (make の出力を読みやすくする)
 # Convert absolute paths under $(CURDIR) to relative paths (for readable make output)
-_relpath = $(patsubst $(CURDIR)/%,%,$(1))
+_relpath = $(call _makefw_decode_path,$(patsubst $(call _makefw_encode_path,$(CURDIR))/%,%,$(call _makefw_pack_path_roots,$(1))))
 
 # clean 時に .gitignore へ反映する対象:
 # TEST_SRCS/ADD_SRCS のうち、カレント ディレクトリ外のソース
@@ -745,8 +752,8 @@ endif
 
 ifeq ($(filter /NOENTRY,$(LDFLAGS)),)
 ifneq (,$(filter 1,$(IDENT_ENABLED) $(MAKEFW_DLL_IDENT_ENABLED)))
-include $(MAKEFW_HOME)/makefiles/_ident.mk
+include $(call _makefw_escape_path,$(MAKEFW_HOME)/makefiles/_ident.mk)
 endif
 endif
 
-include $(MAKEFW_HOME)/makefiles/_link_objects.mk
+include $(call _makefw_escape_path,$(MAKEFW_HOME)/makefiles/_link_objects.mk)

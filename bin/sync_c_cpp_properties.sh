@@ -166,6 +166,7 @@ eval_makepart_var() {
     local target_arch
     local tmp_makefile
     local value
+    local helper_root="${WORKSPACE_DIR_M:-$WORKSPACE_DIR}"
 
     if [[ "$config_name" == "Linux" ]]; then
         make_platform="Linux"
@@ -179,8 +180,10 @@ eval_makepart_var() {
 
     tmp_makefile=$(mktemp)
     {
+        printf 'include %s/framework/makefw/makefiles/_path_functions.mk\n' "${helper_root// /\\ }"
         cat <<EOF
 WORKSPACE_DIR := $WORKSPACE_DIR
+WORKSPACE_DIR_M := $WORKSPACE_DIR_M
 APP_DIR := $APP_DIR
 MYAPP_DIR := $APP_DIR/$app
 TESTFW_DIR := $TESTFW_DIR
@@ -217,7 +220,7 @@ EOF
         fi
         cat <<'EOF'
 print:
-	@printf '%s\n' "$($(PRINT_VAR))"
+	@printf '%s\n' $(foreach item,$(subst $(WORKSPACE_DIR),$(call _makefw_encode_path,$(WORKSPACE_DIR)),$(if $(WORKSPACE_DIR_M),$(subst $(WORKSPACE_DIR_M),$(call _makefw_encode_path,$(WORKSPACE_DIR_M)),$(call _makefw_encode_escaped_spaces,$($(PRINT_VAR)))),$(call _makefw_encode_escaped_spaces,$($(PRINT_VAR))))),"$(call _makefw_decode_path,$(item))")
 EOF
     } > "$tmp_makefile"
 
@@ -260,7 +263,7 @@ collect_expected() {
                 "$app" "$platform" "$var_name" >&2
             return 1
         fi
-        for item in $raw; do
+        while IFS= read -r item; do
             if [[ "$var_name" == "INCDIR" ]]; then
                 normalized=$(normalize_path "$item")
             else
@@ -275,7 +278,7 @@ collect_expected() {
                 seen["$normalized"]=1
                 items+=("$normalized")
             fi
-        done
+        done <<< "$raw"
     done
 
     if (( ${#items[@]} > 0 )); then

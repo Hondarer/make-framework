@@ -2,21 +2,21 @@
 # 未指定の場合、カレント ディレクトリ/bin に成果物を生成する
 # _msvc_compile.mk と _flex_bison_compile.mk の order-only 依存関係 (| $(OUTPUT_DIR)) は
 # 読み込み時に展開されるため、これらの include より前に確定させる
-OUTPUT_DIR ?= $(CURDIR)/bin
+OUTPUT_DIR ?= bin
 
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_collect_srcs.mk
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_flags.mk
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_should_skip.mk
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_hooks.mk
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_msvc_compile.mk
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_resource_compile.mk
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_flex_bison_compile.mk
+include $(call _makefw_escape_path,$(WORKSPACE_DIR)/framework/makefw/makefiles/_collect_srcs.mk)
+include $(call _makefw_escape_path,$(WORKSPACE_DIR)/framework/makefw/makefiles/_flags.mk)
+include $(call _makefw_escape_path,$(WORKSPACE_DIR)/framework/makefw/makefiles/_should_skip.mk)
+include $(call _makefw_escape_path,$(WORKSPACE_DIR)/framework/makefw/makefiles/_hooks.mk)
+include $(call _makefw_escape_path,$(WORKSPACE_DIR)/framework/makefw/makefiles/_msvc_compile.mk)
+include $(call _makefw_escape_path,$(WORKSPACE_DIR)/framework/makefw/makefiles/_resource_compile.mk)
+include $(call _makefw_escape_path,$(WORKSPACE_DIR)/framework/makefw/makefiles/_flex_bison_compile.mk)
 
 # テスト ライブラリの設定
 # Set test libraries
 # LINK_TEST が 1 の場合にのみ設定する
 ifneq ($(strip $(TESTFW_HOME)),)
-    TESTFW_INCLUDE_OVERRIDE := -I$(TESTFW_HOME)/include_override
+    TESTFW_INCLUDE_OVERRIDE := -I$(call _makefw_normalize_path,$(TESTFW_HOME)/include_override)
     TESTSH := $(TESTFW_HOME)/bin_internal/exec_test_c_cpp.sh
 endif
 
@@ -27,9 +27,9 @@ ifneq (,$(findstring /test/,$(CURDIR)))
 endif
 
 # $(MYAPP_DIR)/test/include_override が存在する場合だけ、テスト対象用優先 include override パスとして使用する
-ifneq ($(filter $(WORKSPACE_DIR)/app/%,$(CURDIR)),)
-    ifneq ($(wildcard $(MYAPP_DIR)/test/include_override),)
-        MYAPP_INCLUDE_OVERRIDE := -I$(MYAPP_DIR)/test/include_override
+ifeq ($(_MYAPP_IS_VALID),1)
+    ifneq ($(call _makefw_path_exists,$(MYAPP_DIR)/test/include_override),)
+        MYAPP_INCLUDE_OVERRIDE := -I$(call _makefw_normalize_path,$(MYAPP_DIR)/test/include_override)
     endif
 endif
 
@@ -37,7 +37,7 @@ ifeq ($(LINK_TEST), 1)
     ifeq ($(strip $(TESTFW_HOME)),)
         $(error $(TESTFW_HOME_ERROR))
     endif
-    ifeq ($(wildcard $(TESTFW_HOME)),)
+    ifeq ($(call _makefw_path_exists,$(TESTFW_HOME)),)
         $(error $(TESTFW_HOME_ERROR))
     endif
 
@@ -48,7 +48,7 @@ ifeq ($(LINK_TEST), 1)
         LDFLAGS := $(filter-out -flto,$(LDFLAGS))
         # TARGET_ARCH を使用してプラットフォーム固有のパスを指定
         # Use TARGET_ARCH for platform-specific path (e.g., linux_el8_x64, linux_el9_x64, linux_el10_x64)
-        LIBSDIR += $(TESTFW_HOME)/gtest/lib/$(TARGET_ARCH)
+        LIBSDIR += $(call _makefw_normalize_path,$(TESTFW_HOME)/gtest/lib/$(TARGET_ARCH))
     else ifdef PLATFORM_WINDOWS
         # ステップ実行/カバレッジに支障となるオプションを除去
         #   /LTCG: リンク時コード生成 (プログラム全体最適化)
@@ -57,7 +57,7 @@ ifeq ($(LINK_TEST), 1)
         # MSVC_CRT_SUBDIR is calculated in prepare.mk from CONFIG and MSVC_CRT
         # TARGET_ARCH を使用してプラットフォーム固有のパスを指定
         # Use TARGET_ARCH for platform-specific path (e.g., windows_x64/md)
-        LIBSDIR += $(TESTFW_HOME)/gtest/lib/$(TARGET_ARCH)/$(MSVC_CRT_SUBDIR)
+        LIBSDIR += $(call _makefw_normalize_path,$(TESTFW_HOME)/gtest/lib/$(TARGET_ARCH)/$(MSVC_CRT_SUBDIR))
     endif
 
     ifneq ($(NO_GTEST_MAIN), 1)
@@ -277,7 +277,14 @@ MAKEFW_ARTIFACT_ROOT := $(shell \
 MAKEFW_ARTIFACT_DEPS := $(if $(MAKEFW_ARTIFACT_ONLY),_makefw_artifact_recheck,$(SUBDIRS))
 MAKEFW_ARTIFACT_OBJS := $(if $(MAKEFW_ARTIFACT_ONLY),,$(OBJS))
 MAKEFW_ARTIFACT_MSVC_COMPILE := $(if $(MAKEFW_ARTIFACT_ONLY),,_msvc_compile)
-MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT := $(if $(filter $(CURDIR),$(MAKEFW_REQUEST_ROOT)),$(if $(filter-out $(MAKEFW_ARTIFACT_ROOT),$(CURDIR)),$(if $(filter command\ line,$(origin NO_LINK)),,1),),)
+MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT :=
+ifeq ($(CURDIR),$(MAKEFW_REQUEST_ROOT))
+ifneq ($(CURDIR),$(MAKEFW_ARTIFACT_ROOT))
+ifneq ($(origin NO_LINK),command line)
+    MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT := 1
+endif
+endif
+endif
 
 .PHONY: _makefw_artifact_recheck _makefw_parent_artifact
 _makefw_artifact_recheck: ;
@@ -288,7 +295,7 @@ _makefw_parent_artifact:
 # ディレクトリ名を実行体名にする (Make 関数の notdir でプロセス生成を削減)
 # Use directory name as executable name if TARGET is not specified (use Make's notdir to avoid process)
 ifeq ($(TARGET),)
-    TARGET := $(notdir $(CURDIR))
+    TARGET := $(call _makefw_path_notdir,$(CURDIR))
 endif
 ifdef PLATFORM_WINDOWS
     TARGET := $(TARGET).exe
@@ -356,7 +363,7 @@ endif
 # スタンプは makepart.mk / makefile 群が更新されたときに再評価する。
 # CP_SRCS / LINK_SRCS のリストは makefile 側で静的に決まるため、
 # MAKEFILE_LIST を依存に置けばリスト変化を捕捉できる。
-$(OBJDIR)/.gitignore_stamp: $(MAKEFILE_LIST) | $(OBJDIR)
+$(OBJDIR)/.gitignore_stamp: $(foreach path,$(call _makefw_pack_path_roots,$(MAKEFILE_LIST)),$(call _makefw_escape_path,$(call _makefw_decode_path,$(path)))) | $(OBJDIR)
 	@tmp=$$(mktemp .gitignore.tmp.XXXXXX); \
 	printf '%s\n' $(addprefix /,$(sort $(notdir $(CP_SRCS) $(LINK_SRCS)))) > "$$tmp" \
 		&& mv "$$tmp" .gitignore \
@@ -534,7 +541,7 @@ $(GENDIR):
 # Define files/directories to clean
 # カレント ディレクトリ配下の絶対パスを相対パスに変換する (make の出力を読みやすくする)
 # Convert absolute paths under $(CURDIR) to relative paths (for readable make output)
-_relpath = $(patsubst $(CURDIR)/%,%,$(1))
+_relpath = $(call _makefw_decode_path,$(patsubst $(call _makefw_encode_path,$(CURDIR))/%,%,$(call _makefw_pack_path_roots,$(1))))
 
 # clean 時に .gitignore へ反映する対象:
 # TEST_SRCS/ADD_SRCS のうち、カレント ディレクトリ外のソース
@@ -621,7 +628,7 @@ _test_run: _pre_test_hook _test_main _post_test_hook
     ifndef NO_LINK
         # テストの実行
         # Run tests
-_test_main: $(TESTSH)
+_test_main: $(call _makefw_escape_path,$(TESTSH))
 				@if [ -z "$(TESTSH)" ]; then \
 					echo "$(TESTFW_HOME_ERROR)"; \
 					exit 1; \
@@ -640,7 +647,7 @@ _test_main:
 endif
 
 ifeq ($(IDENT_ENABLED),1)
-include $(MAKEFW_HOME)/makefiles/_ident.mk
+include $(call _makefw_escape_path,$(MAKEFW_HOME)/makefiles/_ident.mk)
 endif
 
-include $(MAKEFW_HOME)/makefiles/_link_objects.mk
+include $(call _makefw_escape_path,$(MAKEFW_HOME)/makefiles/_link_objects.mk)

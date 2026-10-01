@@ -1,18 +1,18 @@
 # .NET ライブラリ作成用 makefile
 
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_flags.mk
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_hooks.mk
+include $(call _makefw_escape_path,$(WORKSPACE_DIR)/framework/makefw/makefiles/_flags.mk)
+include $(call _makefw_escape_path,$(WORKSPACE_DIR)/framework/makefw/makefiles/_hooks.mk)
 
 # カレント ディレクトリ配下の絶対パスを相対パスに変換する (make の出力を読みやすくする)
 # Convert absolute paths under $(CURDIR) to relative paths (for readable make output)
-_relpath = $(patsubst $(CURDIR)/%,%,$(1))
+_relpath = $(call _makefw_decode_path,$(patsubst $(call _makefw_encode_path,$(CURDIR))/%,%,$(call _makefw_pack_path_roots,$(1))))
 
 # 成果物のディレクトリ名
 # 未指定の場合、カレント ディレクトリ/lib に成果物を生成する
-OUTPUT_DIR ?= $(CURDIR)/lib
+OUTPUT_DIR ?= lib
 
 # プロジェクト名 (カレント ディレクトリ名から取得)
-PROJECT_NAME := $(notdir $(patsubst %/,%,$(CURDIR)))
+PROJECT_NAME := $(call _makefw_path_notdir,$(patsubst %/,%,$(CURDIR)))
 
 # ライブラリ名の解決
 ifeq ($(TARGET),)

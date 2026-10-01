@@ -1,16 +1,20 @@
 # app 直下 makefile テンプレート
 # app/makefile で使用する標準テンプレート
 # 本ファイルの直接編集は禁止する。
-MAKEFW_HOME := $(strip $(MAKEFW_HOME))
+_makefw_empty :=
+_makefw_space := $(_makefw_empty) $(_makefw_empty)
+_makefw_escape_path = $(subst $(_makefw_space),\$(_makefw_space),$(1))
+MAKEFW_HOME := $(subst \,/,$(strip $(MAKEFW_HOME)))
 ifeq ($(MAKEFW_HOME),)
     $(error MAKEFW_HOME is required. Export MAKEFW_HOME before running make)
 endif
+include $(call _makefw_escape_path,$(MAKEFW_HOME)/makefiles/_path_functions.mk)
 
 # "#!/bin/bash" のスクリプトを "$(SHELL)" で起動すると shebang は使われない。
 # make の既定は /bin/sh なので、ここで bash を指定する。
 SHELL := /bin/bash
 
-include $(MAKEFW_HOME)/makefiles/_parallel.mk
+include $(call _makefw_escape_path,$(MAKEFW_HOME)/makefiles/_parallel.mk)
 
 APP_ORDER_RESOLVER = $(MAKEFW_HOME)/bin_internal/resolve_app_deps.sh
 SUBDIRS := $(shell bash "$(APP_ORDER_RESOLVER)" --app-order)

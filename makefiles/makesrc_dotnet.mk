@@ -1,13 +1,13 @@
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_flags.mk
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/_hooks.mk
+include $(call _makefw_escape_path,$(WORKSPACE_DIR)/framework/makefw/makefiles/_flags.mk)
+include $(call _makefw_escape_path,$(WORKSPACE_DIR)/framework/makefw/makefiles/_hooks.mk)
 
 # カレント ディレクトリ配下の絶対パスを相対パスに変換する (make の出力を読みやすくする)
 # Convert absolute paths under $(CURDIR) to relative paths (for readable make output)
-_relpath = $(patsubst $(CURDIR)/%,%,$(1))
+_relpath = $(call _makefw_decode_path,$(patsubst $(call _makefw_encode_path,$(CURDIR))/%,%,$(call _makefw_pack_path_roots,$(1))))
 
 # 成果物のディレクトリ名
 # 未指定の場合、カレント ディレクトリ/bin に成果物を生成する
-OUTPUT_DIR ?= $(CURDIR)/bin
+OUTPUT_DIR ?= bin
 
 # テスト スクリプトのパス
 ifneq ($(strip $(TESTFW_HOME)),)
@@ -19,7 +19,7 @@ ifneq (,$(findstring /test/,$(CURDIR)))
 endif
 
 # プロジェクト名 (カレント ディレクトリ名から取得)
-PROJECT_NAME := $(notdir $(patsubst %/,%,$(CURDIR)))
+PROJECT_NAME := $(call _makefw_path_notdir,$(patsubst %/,%,$(CURDIR)))
 
 # 実行体名の解決
 ifeq ($(TARGET),)
@@ -75,7 +75,7 @@ _test_run: _pre_test_hook _test_main _post_test_hook
 
 # 実際のテスト処理
 # Actual test process
-_test_main: $(TESTSH)
+_test_main: $(call _makefw_escape_path,$(TESTSH))
 	@if [ -z "$(TESTSH)" ]; then \
 		echo "$(TESTFW_HOME_ERROR)"; \
 		exit 1; \

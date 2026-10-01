@@ -29,8 +29,16 @@ param(
 $consoleOutputEncoding = Get-ConsoleOutputEncoding
 $utf8NoBom = Get-Utf8NoBomEncoding
 
-# ソースファイルリストをパース
-$sourceList = $Sources -split '\s+' | Where-Object { $_ }
+# 単一の実在パス、または空白を含む項目を引用したソース一覧を受け取る。
+if ([string]::IsNullOrWhiteSpace($Sources)) {
+    exit 0
+}
+if (Test-Path -LiteralPath $Sources -PathType Leaf) {
+    $sourceList = @($Sources)
+}
+else {
+    $sourceList = @(Split-MsvcCommandLineTokens -Line $Sources | ForEach-Object { $_.Trim('"') })
+}
 
 if ($sourceList.Count -eq 0) {
     exit 0
@@ -41,8 +49,9 @@ if (-not (Test-Path $ObjDir)) {
     New-Item -ItemType Directory -Path $ObjDir -Force | Out-Null
 }
 
-# Windows パス形式に変換
-$objDirWin = $ObjDir.Replace('/', '\')
+# 引用符直前のバックスラッシュによるエスケープを避け、末尾の / でディレクトリを指定する。
+# see: https://learn.microsoft.com/en-us/cpp/build/reference/fo-object-file-name
+$objDirRsp = $ObjDir.Replace('\', '/').TrimEnd('/') + '/'
 
 # レスポンスファイルを作成 (並列ビルド対応で一意のファイル名を使用)
 $rspFile = Join-Path $ObjDir "msvc_compile_$([guid]::NewGuid().ToString('N').Substring(0,8)).rsp"
@@ -50,19 +59,18 @@ $rspFile = Join-Path $ObjDir "msvc_compile_$([guid]::NewGuid().ToString('N').Sub
 # レスポンスファイルの内容を構築
 $rspContent = @()
 
-# フラグを追加 (スペースで分割)
-$allFlags = "$Flags $ExtraFlags".Trim() -split '\s+' | Where-Object { $_ }
-$rspContent += $allFlags
+# 引用されたパスを分割せず、呼び出し元のフラグ文字列をそのまま渡す。
+$rspContent += "$Flags $ExtraFlags".Trim()
 
 # コンパイルオプション
 $rspContent += "/c"
-$rspContent += "/Fo:$objDirWin\"
+$rspContent += ('/Fo:"{0}"' -f $objDirRsp)
 # /sourceDependencies <dir> でロケール非依存の JSON 依存関係ファイルを生成
 # response file では 1 引数として渡さないと cl.exe が引数不足と解釈する
-$rspContent += "/sourceDependencies $objDirWin\"
+$rspContent += ('/sourceDependencies "{0}"' -f $objDirRsp)
 
 # ソースファイルを追加
-$rspContent += $sourceList
+$rspContent += @($sourceList | ForEach-Object { '"{0}"' -f $_.Replace('\', '/') })
 
 # レスポンスファイルを書き出し (UTF-8 BOM なし)
 [System.IO.File]::WriteAllLines($rspFile, $rspContent, $utf8NoBom)
@@ -84,7 +92,7 @@ if ($DryRun) {
 $run = Invoke-MsvcCompilerWithHeapRetry -SourceList $sourceList -CompileOnce {
     Invoke-MsvcCompilerProcess `
         -FileName $Compiler `
-        -Arguments "@$rspFile" `
+        -Arguments ('@"{0}"' -f $rspFile) `
         -OutputEncoding $consoleOutputEncoding `
         -WorkingDirectory (Get-Location).Path
 }
@@ -152,11 +160,11 @@ foreach ($src in $sourceList) {
             $json = Get-Content $jsonPath -Raw -Encoding UTF8 | ConvertFrom-Json
             $rawIncludes = $json.Data.Includes
             foreach ($inc in $rawIncludes) {
-                # バックスラッシュをスラッシュに変換、スペースをエスケープ
-                $normalized = $inc.Replace('\', '/').Replace(' ', '\ ')
+                # 配置先との比較は実パスで行い、その後で make 用に空白を保護する。
+                $normalized = $inc.Replace('\', '/')
                 # WorkspaceDir が指定されている場合、ワークスペース内のみ追加
-                if ($WorkspaceDir -eq "" -or $normalized.StartsWith($WorkspaceDir.Replace('\', '/'), [System.StringComparison]::OrdinalIgnoreCase)) {
-                    $includes += $normalized
+                if ($WorkspaceDir -eq "" -or $normalized.StartsWith($WorkspaceDir.Replace('\', '/').TrimEnd('/') + '/', [System.StringComparison]::OrdinalIgnoreCase)) {
+                    $includes += $normalized.Replace(' ', '\ ')
                 }
             }
         }
@@ -166,7 +174,9 @@ foreach ($src in $sourceList) {
     }
 
     $sb = [System.Text.StringBuilder]::new()
-    [void]$sb.Append("${objPath}: ${src}")
+    $objMakePath = $objPath.Replace(' ', '\ ')
+    $srcMakePath = $src.Replace('\', '/').Replace(' ', '\ ')
+    [void]$sb.Append("${objMakePath}: ${srcMakePath}")
 
     foreach ($inc in $includes) {
         [void]$sb.Append(" \`n  ${inc}")

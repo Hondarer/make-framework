@@ -13,7 +13,9 @@ WORKSPACE_DIR="$3"
 # MSVC が生成する .d のパスは小文字化される一方 WORKSPACE_DIR は実際の表記のため、
 # 大文字小文字を無視して照合する。Windows の FS は case-insensitive なので
 # 抽出した小文字パスでも後続の -f / -nt は正しく評価される。
-ws_lower="${WORKSPACE_DIR,,}"
+ws_lower="${WORKSPACE_DIR//\\//}"
+ws_lower="${ws_lower,,}"
+ws_lower="${ws_lower%/}/"
 
 for src in $SRCS; do
     base="${src##*/}"
@@ -29,13 +31,14 @@ for src in $SRCS; do
 
     # .d 内のワークスペース内ヘッダーが .obj より新しければ再コンパイルする。
     # read -a は空白で分割し、パス名展開を行わない。
+    # -r を指定せず、make が保護した空白と行継続のバックスラッシュを解釈する。
     # 末尾がコロンのトークン (先頭行のターゲットと、ヘッダーごとの空ターゲット行) は
     # 依存の並びに現れるヘッダーの重複なので読み飛ばす。
     # MSYS ではファイル情報の取得が 1 回 0.5 [ms] 前後かかり、テストでは gtest の
     # ヘッダーが数十個並ぶため、取得回数を抑える。-nt は存在しないファイルに対して
     # 偽を返すため、-f による存在確認も省く。
     dirty=0
-    while IFS=$' \t\r' read -r -a tokens || (( ${#tokens[@]} > 0 )); do
+    while IFS=$' \t\r' read -a tokens || (( ${#tokens[@]} > 0 )); do
         for h in "${tokens[@]}"; do
             [[ "$h" == *: ]] && continue
             [[ "${h,,}" == "$ws_lower"* ]] || continue

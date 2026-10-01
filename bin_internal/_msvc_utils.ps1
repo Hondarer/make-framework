@@ -102,7 +102,27 @@ function Split-MsvcCommandLineTokens {
         return @()
     }
 
-    return @($Line.Trim() -split '\s+' | Where-Object { $_ })
+    # 表示の折り返しで引用されたパスの途中を分割しない。引用符も表示用に保持する。
+    $tokens = [System.Collections.Generic.List[string]]::new()
+    $start = -1
+    $quoted = $false
+    $backslashes = 0
+    for ($i = 0; $i -lt $Line.Length; $i++) {
+        $character = $Line[$i]
+        if (-not $quoted -and [char]::IsWhiteSpace($character)) {
+            if ($start -ge 0) {
+                $tokens.Add($Line.Substring($start, $i - $start))
+                $start = -1
+            }
+        }
+        else {
+            if ($start -lt 0) { $start = $i }
+            if ($character -eq '"' -and $backslashes % 2 -eq 0) { $quoted = -not $quoted }
+        }
+        if ($character -eq '\') { $backslashes++ } else { $backslashes = 0 }
+    }
+    if ($start -ge 0) { $tokens.Add($Line.Substring($start)) }
+    return $tokens.ToArray()
 }
 
 function Expand-MsvcResponseFileTokens {

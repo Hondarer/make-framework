@@ -25,8 +25,8 @@ MAKEFW_HOME := $(strip $(MAKEFW_HOME))
 ifeq ($(MAKEFW_HOME),)
     $(error MAKEFW_HOME is required. Export MAKEFW_HOME before running make)
 endif
-MAKEFW_HOME := $(abspath $(MAKEFW_HOME))
-ifneq ($(wildcard $(MAKEFW_HOME)/makefiles/makemain.mk),)
+MAKEFW_HOME := $(call _makefw_path_abspath,$(MAKEFW_HOME))
+ifneq ($(call _makefw_path_exists,$(MAKEFW_HOME)/makefiles/makemain.mk),)
 else
     $(error MAKEFW_HOME is invalid: $(MAKEFW_HOME))
 endif
@@ -38,7 +38,7 @@ MAKEFW_POWERSHELL ?= powershell
 MAKEFW_POWERSHELL_COMMAND := $(MAKEFW_POWERSHELL) -NoProfile -ExecutionPolicy Bypass
 MSVC_OUTPUT_FILTER_SCRIPT := $(MAKEFW_HOME)/bin_internal/msvc_output_filter.ps1
 
-include $(MAKEFW_HOME)/makefiles/_parallel.mk
+include $(call _makefw_escape_path,$(MAKEFW_HOME)/makefiles/_parallel.mk)
 
 # プラットフォーム判定
 # すでに定義されているか確認
@@ -89,23 +89,26 @@ endif
 # 2. 統合プロジェクト配下の framework/testfw
 # 3. 単独 CI / sibling 配置の testfw
 ifeq ($(strip $(TESTFW_HOME)),)
-    ifneq ($(wildcard $(WORKSPACE_DIR)/framework/testfw),)
+    ifneq ($(call _makefw_path_exists,$(WORKSPACE_DIR)/framework/testfw),)
         TESTFW_HOME := $(WORKSPACE_DIR)/framework/testfw
-    else ifneq ($(wildcard $(WORKSPACE_DIR)/testfw),)
+    else ifneq ($(call _makefw_path_exists,$(WORKSPACE_DIR)/testfw),)
         TESTFW_HOME := $(WORKSPACE_DIR)/testfw
     endif
 else
-    TESTFW_HOME := $(abspath $(TESTFW_HOME))
+    TESTFW_HOME := $(call _makefw_path_abspath,$(TESTFW_HOME))
 endif
 TESTFW_HOME_ERROR := testfw directory not found. Set TESTFW_HOME or place testfw under $(WORKSPACE_DIR)/framework/testfw or $(WORKSPACE_DIR)/testfw.
 export TESTFW_HOME
+
+_makefw_pack_path_roots = $(subst $(WORKSPACE_DIR),$(call _makefw_encode_path,$(WORKSPACE_DIR)),$(subst $(MAKEFW_HOME),$(call _makefw_encode_path,$(MAKEFW_HOME)),$(subst $(TESTFW_HOME),$(call _makefw_encode_path,$(TESTFW_HOME)),$(subst $(CURDIR),$(call _makefw_encode_path,$(CURDIR)),$(1)))))
+_makefw_escape_paths = $(foreach path,$(call _makefw_pack_path_roots,$(1)),$(call _makefw_escape_path,$(call _makefw_decode_path,$(path))))
 
 DEFINES :=
 
 # ソース ファイルのエンコード指定から LANG を得る
 # FILES_LANG is stable across recursive make invocations in the same workspace
 ifeq ($(origin MAKEFW_FILES_LANG), undefined)
-    MAKEFW_FILES_LANG := $(shell bash $(MAKEFW_HOME)/bin_internal/get_files_lang.sh)
+    MAKEFW_FILES_LANG := $(shell bash "$(MAKEFW_HOME)/bin_internal/get_files_lang.sh")
 endif
 export MAKEFW_FILES_LANG
 FILES_LANG := $(MAKEFW_FILES_LANG)
@@ -353,7 +356,7 @@ ifneq ($(_MYAPP_NEEDS_EVAL),)
 
 # CURDIR からワークスペース ルートを除いた相対パスを取得
 # Get relative path from CURDIR by removing the workspace root prefix
-_MYAPP_REL_FROM_WS := $(patsubst $(WORKSPACE_DIR)/%,%,$(CURDIR))
+_MYAPP_REL_FROM_WS := $(call _makefw_decode_path,$(patsubst $(call _makefw_encode_path,$(WORKSPACE_DIR))/%,%,$(call _makefw_encode_path,$(CURDIR))))
 
 # app/ で始まるか判定
 # Check if the relative path starts with app/
@@ -395,13 +398,13 @@ endif
 endif # _MYAPP_NEEDS_EVAL
 
 ifeq ($(_MYAPP_IS_VALID),1)
--include $(MYAPP_DIR)/appdeps.mk
+-include $(call _makefw_escape_path,$(MYAPP_DIR)/appdeps.mk)
 endif
 
 # makepart.mk / makechild.mk の検索
 # dirname コマンドの代わりにシェルのパラメーター展開を使用してプロセス生成を削減
 # Use shell parameter expansion instead of dirname command to reduce process creation
-_MAKEFW_CONFIG_PARENT_DIR := $(patsubst %/,%,$(dir $(CURDIR)))
+_MAKEFW_CONFIG_PARENT_DIR := $(patsubst %/,%,$(call _makefw_path_dir,$(CURDIR)))
 
 ifeq ($(MAKEFW_CONFIG_CACHE_DIR),$(CURDIR))
     # 同じディレクトリを並列化のために再実行した場合は、そのまま再利用する。
@@ -409,11 +412,11 @@ ifeq ($(MAKEFW_CONFIG_CACHE_DIR),$(CURDIR))
 else ifeq ($(MAKEFW_CONFIG_CACHE_DIR),$(_MAKEFW_CONFIG_PARENT_DIR))
     # 直下の子 make では親までの探索結果に親 makechild と自身の makepart を追加する。
     MAKE_INCLUDE_MK := $(MAKEFW_CONFIG_CACHE_FILES)
-    ifneq ($(wildcard $(_MAKEFW_CONFIG_PARENT_DIR)/makechild.mk),)
-        MAKE_INCLUDE_MK += $(_MAKEFW_CONFIG_PARENT_DIR)/makechild.mk
+    ifneq ($(call _makefw_path_exists,$(_MAKEFW_CONFIG_PARENT_DIR)/makechild.mk),)
+        MAKE_INCLUDE_MK += $(call _makefw_encode_path,$(_MAKEFW_CONFIG_PARENT_DIR)/makechild.mk)
     endif
-    ifneq ($(wildcard $(CURDIR)/makepart.mk),)
-        MAKE_INCLUDE_MK += $(CURDIR)/makepart.mk
+    ifneq ($(call _makefw_path_exists,$(CURDIR)/makepart.mk),)
+        MAKE_INCLUDE_MK += $(call _makefw_encode_path,$(CURDIR)/makepart.mk)
     endif
 else
 MAKE_INCLUDE_MK := $(shell \
@@ -422,16 +425,16 @@ MAKE_INCLUDE_MK := $(shell \
 	while [ "$$dir" != "/" ]; do \
 		if [ "$$dir" != "$$cur" ] && [ -f "$$dir/makechild.mk" ]; then \
 			if command -v cygpath > /dev/null 2>&1; then \
-				cygpath -m "$$dir/makechild.mk"; \
+				cygpath -m "$$dir/makechild.mk" | sed 's/ /__MAKEFW_SPACE__/g'; \
 			else \
-				echo "$$dir/makechild.mk"; \
+				printf '%s\n' "$$dir/makechild.mk" | sed 's/ /__MAKEFW_SPACE__/g'; \
 			fi; \
 		fi; \
 		if [ -f "$$dir/makepart.mk" ]; then \
 			if command -v cygpath > /dev/null 2>&1; then \
-				cygpath -m "$$dir/makepart.mk"; \
+				cygpath -m "$$dir/makepart.mk" | sed 's/ /__MAKEFW_SPACE__/g'; \
 			else \
-				echo "$$dir/makepart.mk"; \
+				printf '%s\n' "$$dir/makepart.mk" | sed 's/ /__MAKEFW_SPACE__/g'; \
 			fi; \
 		fi; \
 		if [ -f "$$dir/.workspaceRoot" ]; then \
@@ -495,7 +498,7 @@ endif
 # (カレント ディレクトリの makechild.mk は子階層以降のみに適用するため除く)
 # (The current directory's makechild.mk applies only to child directories, so it is excluded here)
 define _include_make_config
-$(eval include $(1))
+$(eval include $(call _makefw_escape_path,$(call _makefw_decode_path,$(1))))
 endef
 
 $(foreach make_config, $(MAKE_INCLUDE_MK), $(call _include_make_config,$(make_config)))
@@ -503,7 +506,7 @@ $(foreach make_config, $(MAKE_INCLUDE_MK), $(call _include_make_config,$(make_co
 # makelocal.mk の読み込み (カレント ディレクトリのみ)
 # prepare.mk は各ディレクトリの makefile から include されるため、
 # ここでカレント ディレクトリの makelocal.mk を読み込めばよい
--include $(CURDIR)/makelocal.mk
+-include $(call _makefw_escape_path,$(CURDIR)/makelocal.mk)
 
 MAKEFW_APPDEP_RESOLVER := $(MAKEFW_HOME)/bin_internal/resolve_app_deps.sh
 
@@ -526,6 +529,8 @@ else
         $(error Failed to resolve app dependencies for $(MYAPP_DIR))
     endif
 endif
+
+_MAKEFW_PATHS_ALL := $(call _makefw_pack_path_roots,$(_MAKEFW_PATHS_ALL))
 
 MAKEFW_AUTO_INCDIR := $(patsubst INCLUDE:%,%,$(filter INCLUDE:%,$(_MAKEFW_PATHS_ALL)))
 ifneq ($(MAKEFW_AUTO_INCDIR),)
@@ -566,70 +571,38 @@ endif
 
 endif # _MYAPP_IS_VALID
 
-# パス系変数の一括正規化
-# Normalize path variables to absolute paths after all makepart/makechild/makelocal are loaded
-# - INCDIR, SYSTEM_INCDIR: sort で重複除去
-# - LIBSDIR, OUTPUT_DIR: sort で重複除去
-# - TEST_SRCS, ADD_SRCS: 順序保持 (strip のみ)
-# GNU Make の abspath を使い、通常の変数値では Bash 起動を避ける。
-# MSYS 形式の絶対パスが明示された場合だけ、従来の正規化へフォールバックする。
-# - INCDIR, SYSTEM_INCDIR, LIBSDIR: sort で重複除去
-# - OUTPUT_DIR: 単一パス
-# - TEST_SRCS, ADD_SRCS: 順序保持
+# パス リスト内のワークスペースなどの共通接頭辞だけを符号化してから分割する。
+# 従来の makepart.mk の $(MYAPP_DIR)/... などの記法を維持する。
 MAKEFW_NORMALIZE_PATHS := $(MAKEFW_HOME)/bin_internal/normalize_paths.sh
-_makefw_normalize_path = $(if $(findstring :/,$(1)),$(1),$(abspath $(1)))
-_makefw_normalize_paths = $(foreach path,$(1),$(call _makefw_normalize_path,$(path)))
+# \ で保護された空白も符号化してから分割する。$(2) はエラー表示用の変数名。
+_makefw_normalize_paths = $(foreach path,$(call _makefw_pack_path_roots,$(call _makefw_encode_escaped_spaces,$(1))),$(call _makefw_decode_path,$(call _makefw_normalize_encoded_path,$(path),$(2))))
 
+# ビルド グラフやコマンドのパス リストは相対パスで保持する。
+# 出力先は単一パスなので、空白を含む値全体を 1 つのパスとして扱う。
 ifneq ($(INCDIR),)
-    ifneq ($(filter /%,$(INCDIR)),)
-        INCDIR := $(sort $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(INCDIR)))
-    else
-        INCDIR := $(sort $(call _makefw_normalize_paths,$(INCDIR)))
-    endif
+    INCDIR := $(sort $(call _makefw_normalize_paths,$(INCDIR),INCDIR))
 endif
 ifneq ($(SYSTEM_INCDIR),)
-    ifneq ($(filter /%,$(SYSTEM_INCDIR)),)
-        SYSTEM_INCDIR := $(sort $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(SYSTEM_INCDIR)))
-    else
-        SYSTEM_INCDIR := $(sort $(call _makefw_normalize_paths,$(SYSTEM_INCDIR)))
-    endif
-    # 同じパスを両方へ指定した場合は system 扱いを優先する。
+    SYSTEM_INCDIR := $(sort $(call _makefw_normalize_paths,$(SYSTEM_INCDIR),SYSTEM_INCDIR))
     INCDIR := $(filter-out $(SYSTEM_INCDIR),$(INCDIR))
 endif
 ifneq ($(LIBSDIR),)
-    ifneq ($(filter /%,$(LIBSDIR)),)
-        LIBSDIR := $(sort $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(LIBSDIR)))
-    else
-        LIBSDIR := $(sort $(call _makefw_normalize_paths,$(LIBSDIR)))
-    endif
+    LIBSDIR := $(sort $(call _makefw_normalize_paths,$(LIBSDIR),LIBSDIR))
+endif
+ifneq ($(OUTPUT_DIR),)
+    OUTPUT_DIR := $(call _makefw_normalize_path,$(OUTPUT_DIR),OUTPUT_DIR)
+endif
+ifneq ($(TEST_SRCS),)
+    TEST_SRCS := $(call _makefw_normalize_paths,$(TEST_SRCS),TEST_SRCS)
+endif
+ifneq ($(ADD_SRCS),)
+    ADD_SRCS := $(call _makefw_normalize_paths,$(ADD_SRCS),ADD_SRCS)
 endif
 
 ifdef PLATFORM_LINUX
     MAKEFW_SYSTEM_INCLUDE_FLAGS := $(foreach dir,$(SYSTEM_INCDIR),-isystem $(dir))
 else ifdef PLATFORM_WINDOWS
     MAKEFW_SYSTEM_INCLUDE_FLAGS := $(foreach dir,$(SYSTEM_INCDIR),/external:I$(dir)) $(if $(strip $(SYSTEM_INCDIR)),/external:W0)
-endif
-
-ifneq ($(OUTPUT_DIR),)
-    ifneq ($(filter /%,$(OUTPUT_DIR)),)
-        OUTPUT_DIR := $(strip $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(OUTPUT_DIR)))
-    else
-        OUTPUT_DIR := $(call _makefw_normalize_path,$(OUTPUT_DIR))
-    endif
-endif
-ifneq ($(TEST_SRCS),)
-    ifneq ($(filter /%,$(TEST_SRCS)),)
-        TEST_SRCS := $(strip $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(TEST_SRCS)))
-    else
-        TEST_SRCS := $(call _makefw_normalize_paths,$(TEST_SRCS))
-    endif
-endif
-ifneq ($(ADD_SRCS),)
-    ifneq ($(filter /%,$(ADD_SRCS)),)
-        ADD_SRCS := $(strip $(shell bash $(MAKEFW_NORMALIZE_PATHS) $(ADD_SRCS)))
-    else
-        ADD_SRCS := $(call _makefw_normalize_paths,$(ADD_SRCS))
-    endif
 endif
 
 # TARGET_ARCH をコンパイル時定数として C/C++ コードに渡す
