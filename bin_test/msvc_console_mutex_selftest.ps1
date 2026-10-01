@@ -2,7 +2,7 @@
 # _msvc_utils.ps1 の MSVC コンソール Mutex 名の決定を確認する。
 
 $ErrorActionPreference = 'Stop'
-. "$PSScriptRoot/_msvc_utils.ps1"
+. "$PSScriptRoot/../bin_internal/_msvc_utils.ps1"
 
 $script:failures = [System.Collections.Generic.List[string]]::new()
 

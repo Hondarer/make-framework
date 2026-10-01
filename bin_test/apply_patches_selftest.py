@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""framework/makefw/bin_internal/apply_patches_selftest.py
+"""framework/makefw/bin_test/apply_patches_selftest.py
 
 apply_patches.py の自己テスト。命名は既存の
-bin_internal/msvc_compile_heap_retry_selftest.ps1 に倣う。
+bin_test/msvc_compile_heap_retry_selftest.ps1 に倣う。
 
 一時ディレクトリ上だけで完結し、リポジトリ内のファイルは一切書き換えない。
 各検査の合否を日本語で標準出力へ出し、すべて成功すれば終了コード 0、
@@ -18,7 +18,8 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# 検査対象は bin_internal に置かれているため、探索先へ追加する。
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin_internal"))
 
 import apply_patches  # noqa: E402  (sys.path 設定後に import する)
 

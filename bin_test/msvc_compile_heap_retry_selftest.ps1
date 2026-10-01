@@ -2,7 +2,7 @@
 # msvc_compile.ps1 の C1060 内部再試行を、本物の cl.exe なしで確認する。
 
 $ErrorActionPreference = 'Stop'
-. "$PSScriptRoot/_msvc_utils.ps1"
+. "$PSScriptRoot/../bin_internal/_msvc_utils.ps1"
 
 $script:failures = [System.Collections.Generic.List[string]]::new()
 

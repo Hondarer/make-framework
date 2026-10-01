@@ -22,6 +22,7 @@ C/C++ と .NET のビルドを支える Make テンプレート、補助スク�
 - `bin/update_template_makefiles.py` - テンプレート由来の makefile を最新版に同期するスクリプト
 - `bin_internal/msvc_compile.ps1` - Windows の MSVC 一括コンパイルと C1060 時の内部再試行
 - `bin_internal/` - ビルド専用の補助スクリプト
+- `bin_test/` - テンプレートと補助スクリプトのテスト (空白を含む配置先の検証を含む)
 - `docs/template-auto-selection.md` - 自動選択ルール
 - `docs/makeparts.md` - `makepart.mk`、`makechild.mk`、`makelocal.mk` の役割
 - `docs/hooks.md` - `makelocal.mk` の pre/post フック
@@ -36,7 +37,7 @@ C/C++ と .NET のビルドを支える Make テンプレート、補助スク�
   see: `docs/library-search-paths.md`
 - `makepart.mk` 系の継承順序は互換性に直結するため、`prepare.mk` とドキュメントを合わせて確認してください。
 - テンプレートと補助ファイルで拡張する方針を維持してください。
-- `bin/` と `bin_internal/` 配下の Python スクリプトで日本語を出力するときは、モジュール レベル (関数定義より前) に  
+- `bin/`、`bin_internal/`、`bin_test/` 配下の Python スクリプトで日本語を出力するときは、モジュール レベル (関数定義より前) に  
   以下を追加して stdout/stderr を UTF-8 に固定してください。  
   Windows のデフォルト `sys.stdout.encoding` は `cp932` であり、出力が文字化けします。
 
