@@ -123,7 +123,7 @@ LIB_TYPE := static
         # IDENT のソース一覧は補助情報として残るため、リンク成果物の削除を確認する。
         self.assertEqual(list(library_dir.glob("*.lib")) + list(library_dir.glob("*.a")), [])
 
-    @unittest.skipUnless(os.name == "nt", "MSVC is only available on Windows")
+    @unittest.skipUnless(os.name == "nt", "[Windows] MSVC is only available on Windows")
     def test_msvc_absolute_output_and_quoted_include(self):
         source = self.write("compiler fixture/example.c", '#include "value.h"\nint example(void) { return VALUE; }\n')
         header = self.write("include space/value.h", "#define VALUE 7\n")
@@ -149,7 +149,7 @@ LIB_TYPE := static
         for warning in self.root.rglob("*.warn"):
             self.assertEqual(warning.stat().st_size, 0, warning.read_text(errors="replace"))
 
-    @unittest.skipIf(os.name == "nt", "ELF version scripts are only used on Linux")
+    @unittest.skipIf(os.name == "nt", "[Linux] ELF version scripts are only used on Linux")
     def test_shared_library_version_script_with_spaces(self):
         leaf = "framework/fixture/prod/libsrc/example"
         self.template(leaf)
