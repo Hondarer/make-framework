@@ -68,11 +68,13 @@ Microsoft Learn の Console Code Pages 文書では、UTF-8 文字列を A 系�
 
 `cplat_console_init()` は Windows で次の処理を行います。
 
-- stdout がコンソールである場合に限り、初期化処理を行います。
+- stdout または stderr がコンソールである場合に限り、初期化処理を行います。
 - コンソール入力コード ページが UTF-8 でなければ `SetConsoleCP(CP_UTF8)` を呼び出します。
 - コンソール出力コード ページが UTF-8 でなければ `SetConsoleOutputCP(CP_UTF8)` を呼び出します。
-- stdout / stderr の `ENABLE_VIRTUAL_TERMINAL_PROCESSING` を有効化します。
+- stdout / stderr のうちコンソールであるものの `ENABLE_VIRTUAL_TERMINAL_PROCESSING` を有効化します。
 - 通常終了時に、変更前のコンソール コード ページとコンソール モードを復元します。
+
+コード ページは接続先コンソール全体で共有する設定です。stdout だけをリダイレクトして実行した場合 (`cmd > out.txt` など) も、stderr がコンソールであればコード ページを UTF-8 へ変更します。このため、同じコンソールを共有する子プロセスの出力も UTF-8 のコード ページに従います。これは、本フレームワークで作成したモジュールの制約です。
 
 Linux では `cplat_console_init()` / `cplat_console_dispose()` は no-op です。
 
