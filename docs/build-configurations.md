@@ -95,6 +95,13 @@ app 直下の `make` / `make test` は、実行のたびに `framework/makefw/bi
 署名が前回と一致し、かつ直近のビルドが成功していれば、サブディレクトリへの再帰そのものを省略します。  
 `make with-cov` は署名を計算せず、`make_build.stamp` も更新しません (`test` をビルドしないため)。
 
+app 直下の make は、子 make を起動する必要がある場合にだけ依存パスを解決します。  
+署名が一致してビルドやテストを省略する場合は、依存パスを解決しません。  
+製品とテストのパスをまとめて解決し、同じ app の子 make へ環境変数で渡して再利用します。  
+Windows では全パスを 1 回の `cygpath` 呼び出しで変換し、Linux では変換せずに出力します。
+
+解決のタイミング、子 make への継承、一括出力は、`python framework/makefw/bin_internal/app_paths_selftest.py` で局所確認します。
+
 ```text
 INFO: Skipping build (dependencies are unchanged and clean)
 ```
