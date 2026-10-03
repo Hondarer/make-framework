@@ -78,7 +78,7 @@ Linux の静的ライブラリは一時ファイルへ新規作成し、成功�
 リポジトリ ルートから次のコマンドで確認できます。
 
 ```bash
-python3 framework/makefw/bin_internal/link_objects_selftest.py
+python3 framework/makefw/bin_test/link_objects_selftest.py
 ```
 
 検証では Linux の実テンプレートと GCC / ar を使います。  

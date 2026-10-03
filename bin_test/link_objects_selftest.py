@@ -16,13 +16,16 @@ import tempfile
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
+# Windows の分岐も GCC と ar で代行するため、Linux だけで実行する (run-bin-tests.py が参照する)。
+BIN_TEST_PLATFORM = "linux"
+
 MAKEFW = Path(__file__).resolve().parents[1]
 KEPT = "int kept_symbol(void) { return 13; }\n"
 REMOVED = "int removed_symbol(void) { return 81; }\n"
 
 
 def run(argv, **kwargs):
-    result = subprocess.run(argv, capture_output=True, text=True, **kwargs)
+    result = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", **kwargs)
     if result.returncode:
         raise AssertionError(f"コマンド失敗: {argv}\n{result.stdout}\n{result.stderr}")
     return result.stdout
@@ -33,7 +36,7 @@ def fake_msvc(args):
     if "/fo" in args:
         output = args[args.index("/fo") + 1]
         result = subprocess.run(["gcc", "-fPIC", "-x", "c", "-c", "-o", output, "-"],
-                                input="int resource_symbol(void) { return 7; }\n", text=True)
+                                input="int resource_symbol(void) { return 7; }\n", text=True, encoding="utf-8")
         sys.exit(result.returncode)
     if any(arg.startswith("/MACHINE:") for arg in args):
         output = next(arg[5:] for arg in args if arg.startswith("/OUT:"))
@@ -137,7 +140,7 @@ class Fixture:
         if fail and self.platform == "Linux":
             argv += ["LD=false", "AR=false", "CC=false"]
         argv += extra
-        result = subprocess.run(argv, cwd=directory or self.directory, env=env, capture_output=True, text=True)
+        result = subprocess.run(argv, cwd=directory or self.directory, env=env, capture_output=True, text=True, encoding="utf-8")
         assert bool(result.returncode) == fail, result.stdout + result.stderr
         return result.stdout
 
