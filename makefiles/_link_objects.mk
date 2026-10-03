@@ -35,6 +35,8 @@ endef
 $(foreach target,$(MAKEFW_LINK_TARGETS),$(eval $(call _makefw_check_link_objects,$(target))))
 endif
 
+# 保存一覧をレシピへ展開すると、Windows のコマンド ライン長の上限に達する。
+# see: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw
 define _MAKEFW_OBJLIST
 objs_file="$(OBJDIR)/objs_$$$$.lst"; \
 makefw_link_state="$(call _makefw_link_state,$@)"; \
@@ -49,9 +51,10 @@ done < "$$objs_file"; \
 for obj in $(call _makefw_link_extra_inputs,$@); do \
     makefw_link_inputs="$${makefw_link_inputs:+$$makefw_link_inputs }$${obj#./}"; \
 done; \
+makefw_saved_inputs=$$(sed -n 's/^_MAKEFW_LINKED_INPUTS_$(@F) := //p' "$$makefw_link_state" 2>/dev/null || true); \
 if [ ! -f "$@" ] || [ "$@" -nt "$$makefw_link_state" ] || \
     [ "$(abspath $@)" != "$(_MAKEFW_LINKED_OUTPUT_$(@F))" ] || \
-    [ "$$makefw_link_inputs" != "$(_MAKEFW_LINKED_INPUTS_$(@F))" ]; then rebuild=1; fi
+    [ "$$makefw_link_inputs" != "$$makefw_saved_inputs" ]; then rebuild=1; fi
 endef
 
 _MAKEFW_OBJLIST_LINUX = $(call _MAKEFW_OBJLIST,linux,)
