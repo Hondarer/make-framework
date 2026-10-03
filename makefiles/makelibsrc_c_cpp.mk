@@ -1,3 +1,16 @@
+# LIB_TYPE の設定 (デフォルトは static)
+# LIB_TYPE setting (default is static)
+# make LIB_TYPE=shared で、shared となる
+ifeq ($(LIB_TYPE),)
+	LIB_TYPE := static
+endif
+
+# 成果物のディレクトリ名
+# 未指定の場合、カレント ディレクトリ/lib に成果物を生成する
+# _msvc_compile.mk と _flex_bison_compile.mk の order-only 依存関係 (| $(OUTPUT_DIR)) は
+# 読み込み時に展開されるため、これらの include より前に確定させる
+OUTPUT_DIR ?= $(CURDIR)/lib
+
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_collect_srcs.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_flags.mk
 include $(WORKSPACE_DIR)/framework/makefw/makefiles/_should_skip.mk
@@ -79,17 +92,6 @@ _makefw_artifact_recheck: ;
 
 _makefw_parent_artifact:
 	$(MAKE) -C "$(MAKEFW_ARTIFACT_ROOT)" MAKEFW_ARTIFACT_ONLY=1 _build_main
-
-# LIB_TYPE の設定 (デフォルトは static)
-# LIB_TYPE setting (default is static)
-# make LIB_TYPE=shared で、shared となる
-ifeq ($(LIB_TYPE),)
-	LIB_TYPE := static
-endif
-
-# 成果物のディレクトリ名
-# 未指定の場合、カレント ディレクトリ/lib に成果物を生成する
-OUTPUT_DIR ?= $(CURDIR)/lib
 
 # ディレクトリ名をアーカイブ名にする (Make 関数の notdir でプロセス生成を削減)
 # Use directory name as archive name if TARGET is not specified (use Make's notdir to avoid process)

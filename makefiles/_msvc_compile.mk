@@ -40,7 +40,7 @@ endef
 # MSVC コンパイル時の PDB 生成ルール
 # - static lib: OUTPUT_DIR 配下のターゲット名 PDB
 # - それ以外  : OBJDIR 配下のターゲット名 PDB
-# _msvc_compile.mk は LIB_TYPE/TARGET 決定前に include されるため遅延評価にする
+# _msvc_compile.mk は TARGET 決定前に include されるため遅延評価にする
 MSVC_PDB = $(if $(filter static,$(LIB_TYPE)),$(OUTPUT_DIR)/$(basename $(TARGET)).pdb,$(if $(filter both,$(LIB_TYPE)),$(OUTPUT_DIR)/$(basename $(TARGET_STATIC)).pdb,$(OBJDIR)/$(basename $(TARGET)).pdb))
 
 # 変更のあるソースを抽出
