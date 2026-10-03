@@ -37,7 +37,8 @@ class PathSpacesTest(unittest.TestCase):
     def write(self, path, content):
         target = self.root / path
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8", newline="\n")
+        with open(target, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(content)
         return target
 
     def template(self, directory):

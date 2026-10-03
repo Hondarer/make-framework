@@ -18,6 +18,9 @@ update_template_makefiles.py - テンプレート由来の makefile を最新版
   --dry-run  ファイルを変更せず、更新対象のリストのみ表示する。
 """
 
+# 型注釈の X | Y を Python 3.9 でも評価せずに扱う。
+from __future__ import annotations
+
 import argparse
 import sys
 from pathlib import Path
@@ -182,7 +185,8 @@ def main() -> int:
             print(f"[対象]     {rel_path}")
         else:
             # Windows でも CRLF へ変換せず LF で書き出す。
-            makefile.write_text(template_content, encoding="utf-8", newline="\n")
+            with open(makefile, "w", encoding="utf-8", newline="\n") as handle:
+                handle.write(template_content)
             print(f"[更新]     {rel_path}")
         updated += 1
 
