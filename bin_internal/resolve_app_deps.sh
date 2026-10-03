@@ -313,41 +313,67 @@ emit_paths_all() {
     local include_kind
     local path
     local -a closure=()
+    local -a kinds=()
+    local -a paths=()
+    local closure_output
+    local converted
+    local i
 
     root_app=$(resolve_root_app "$app_dir")
 
+    closure_output=$(collect_app_closure "$root_app") || return $?
     while IFS= read -r app; do
         [[ -n "$app" ]] && closure+=("$app")
-    done < <(collect_app_closure "$root_app")
+    done <<< "$closure_output"
 
     for app in "${closure[@]}"; do
         path="$APP_ROOT_DIR/$app/prod/include"
-        if [[ "$(read_prod_include_class "$app")" == "system" ]]; then
+        include_kind=$(read_prod_include_class "$app") || return $?
+        if [[ "$include_kind" == "system" ]]; then
             include_kind="SYSTEM_INCLUDE"
         else
             include_kind="INCLUDE"
         fi
-        printf '%s:%s\n' "$include_kind" "$(to_make_include_path "$path")"
+        kinds+=("$include_kind")
+        paths+=("$path")
     done
 
     path="$APP_ROOT_DIR/$root_app/prod/include_internal"
-    printf 'INTERNAL:%s\n' "$(to_make_include_path "$path")"
+    kinds+=(INTERNAL)
+    paths+=("$path")
 
     for app in "${closure[@]}"; do
         path="$APP_ROOT_DIR/$app/prod/lib"
-        printf 'LIB:%s\n' "$(to_make_include_path "$path")"
+        kinds+=(LIB)
+        paths+=("$path")
     done
 
     if [[ "$want_test" == "test" ]]; then
         for app in "${closure[@]}"; do
             path="$APP_ROOT_DIR/$app/test/include"
-            printf 'TESTINC:%s\n' "$(to_make_include_path "$path")"
+            kinds+=(TESTINC)
+            paths+=("$path")
         done
         for app in "${closure[@]}"; do
             path="$APP_ROOT_DIR/$app/test/lib"
-            printf 'TESTLIB:%s\n' "$(to_make_include_path "$path")"
+            kinds+=(TESTLIB)
+            paths+=("$path")
         done
     fi
+
+    # Windows は全パスを 1 回の cygpath で変換する。Linux はそのまま出力する。
+    # 種別とパスの順序を保ち、通常 include と system include の区別も維持する。
+    if command -v cygpath >/dev/null 2>&1; then
+        converted=$(cygpath -m "${paths[@]}") || return $?
+        mapfile -t paths <<< "$converted"
+        if [[ ${#paths[@]} -ne ${#kinds[@]} ]]; then
+            echo "ERROR: cygpath returned an unexpected number of dependency paths." >&2
+            return 1
+        fi
+    fi
+    for ((i = 0; i < ${#paths[@]}; i++)); do
+        printf '%s:%s\n' "${kinds[$i]}" "${paths[$i]}"
+    done
 
     return 0
 }
