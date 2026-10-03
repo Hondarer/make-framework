@@ -301,10 +301,48 @@ def check_empty_crt_switch(root):
         print(f"PASS: Windows/{kind} の全ソース削除後の CRT 切り替え")
 
 
+def check_long_command():
+    """保存した入力一覧が長くても、シェルのコマンドへ展開しないことを確認する。"""
+    with tempfile.TemporaryDirectory(prefix="makefw-long-link-") as temporary:
+        root = Path(temporary)
+        (root / "bin_internal").mkdir()
+        (root / "obj").mkdir()
+        (root / "bin_internal/filter_existing_source_objs.sh").write_text(
+            '#!/bin/bash\ncat inputs.lst\n')
+        output = root / "probe.lib"
+        output.touch()
+        inputs = [f"nested/obj/md/mock_function_{i:04d}_with_a_long_name.obj" for i in range(1000)]
+        (root / "inputs.lst").write_text("\n".join(inputs) + "\n", newline="\n")
+        state = root / "obj/probe.lib.link.mk"
+        state.write_text(f"_MAKEFW_LINKED_OUTPUT_probe.lib := {output.as_posix()}\n"
+                         + "_MAKEFW_LINKED_INPUTS_probe.lib := " + " ".join(inputs) + "\n", newline="\n")
+        (root / "makefile").write_text(
+            f"SHELL := {shutil.which('bash').replace(chr(92), '/')}\n"
+            f"MAKEFW_HOME := {root.as_posix()}\n"
+            "OBJDIR := obj\nOUTPUT_DIR := .\nTARGET := probe.lib\nLIB_TYPE := static\n"
+            "PLATFORM_WINDOWS := 1\nMSVC_CRT_SUBDIR := md\n"
+            f"include {MAKEFW.as_posix()}/makefiles/_link_objects.mk\n"
+            ".PHONY: check\ncheck: probe.lib\nprobe.lib: FORCE\n"
+            "\t@$(_MAKEFW_OBJLIST_WINDOWS); [ \"$$rebuild\" = \"$(EXPECTED)\" ] || exit 1; "
+            "_rc=0; $(_MAKEFW_SAVE_LINK_OBJECTS)\n.PHONY: FORCE\nFORCE:\n")
+        env = {key: value for key, value in os.environ.items()
+               if key not in ("MAKEFLAGS", "MFLAGS", "MAKELEVEL")}
+        argv = ["make", "--no-print-directory", "check"]
+        run([*argv, "EXPECTED=0"], cwd=root, env=env)
+        (root / "inputs.lst").write_text("\n".join(inputs[:-1]) + "\n", newline="\n")
+        run([*argv, "EXPECTED=1"], cwd=root, env=env)
+        run([*argv, "EXPECTED=0"], cwd=root, env=env)
+        print("PASS: 長いリンク入力一覧の比較、削除検出、保存後の再比較")
+
+
 def main():
     if sys.argv[1:] and sys.argv[1] == "--fake-msvc":
         fake_msvc(sys.argv[2:])
         return
+    if sys.argv[1:] == ["--long-command"]:
+        check_long_command()
+        return
+    check_long_command()
     with tempfile.TemporaryDirectory(prefix="makefw-link-selftest-") as temporary:
         root = Path(temporary)
         for platform in ("Linux", "Windows"):
