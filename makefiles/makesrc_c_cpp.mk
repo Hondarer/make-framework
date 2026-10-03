@@ -98,38 +98,6 @@ else ifdef PLATFORM_WINDOWS
             $(firstword $(foreach dir,$(LIBSDIR),$(wildcard $(dir)/lib$(lib).lib)))))
 endif
 
-define _MAKEFW_OBJLIST_LINUX
-objs_file="$(OBJDIR)/objs_$$.lst"; \
-bash "$(MAKEFW_HOME)/bin_internal/filter_existing_source_objs.sh" linux all > "$$objs_file"; \
-if [ ! -f "$$objs_file" ]; then : > "$$objs_file"; fi; \
-trap 'rm -f "$$objs_file" "$$rsp_file"' EXIT; \
-rebuild=0; \
-if [ ! -f "$@" ]; then \
-    rebuild=1; \
-else \
-    while IFS= read -r obj; do \
-        [ -n "$$obj" ] || continue; \
-        if [ "$$obj" -nt "$@" ]; then rebuild=1; break; fi; \
-    done < "$$objs_file"; \
-fi
-endef
-
-define _MAKEFW_OBJLIST_WINDOWS
-objs_file="$(OBJDIR)/objs_$$.lst"; \
-bash "$(MAKEFW_HOME)/bin_internal/filter_existing_source_objs.sh" windows all "$(MSVC_CRT_SUBDIR)" > "$$objs_file"; \
-if [ ! -f "$$objs_file" ]; then : > "$$objs_file"; fi; \
-trap 'rm -f "$$objs_file" "$$rsp_file"' EXIT; \
-rebuild=0; \
-if [ ! -f "$@" ]; then \
-    rebuild=1; \
-else \
-    while IFS= read -r obj; do \
-        [ -n "$$obj" ] || continue; \
-        if [ "$$obj" -nt "$@" ]; then rebuild=1; break; fi; \
-    done < "$$objs_file"; \
-fi
-endef
-
 #$(info NO_GTEST_MAIN: $(NO_GTEST_MAIN))
 #$(info USE_WRAP_MAIN: $(USE_WRAP_MAIN))
 #$(info LIBS: $(LIBS))
@@ -403,8 +371,8 @@ ifndef NO_LINK
     ifdef PLATFORM_LINUX
 $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(LINK_INPUTS) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_LINUX); \
-				if [ ! -s "$$objs_file" ] && [ -z "$(strip $(LINK_INPUTS))" ]; then \
-					_rc=0; \
+				if [ ! -s "$$objs_file" ] && [ -z "$(strip $(filter-out $(_IDENT_MANIFEST_OBJ),$(MAKEFW_EXTRA_OBJS)) $(LINK_INPUTS))" ]; then \
+					$(_MAKEFW_REMOVE_EMPTY_ARTIFACT); \
 				else \
 				if [ "$$rebuild" = 0 ]; then \
 					for dep in $(MAKEFW_EXTRA_OBJS) $(LINK_INPUTS) $(LIBSFILES); do \
@@ -418,6 +386,7 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(LINK_
 					printf '%s\n' "$(strip $(LD) $(LDFLAGS) -o $(call _relpath,$@) $$all_objs $(LINK_INPUTS) $(LIBS))"; \
 					set -o pipefail; LANG=$(FILES_LANG) $(LD) $(LDFLAGS) -o $@ $$all_objs $(LINK_INPUTS) $(LIBS) -fdiagnostics-color=always 2>&1 | $(ICONV) | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
+					$(_MAKEFW_SAVE_LINK_OBJECTS); \
 				else \
 					_rc=0; \
 				fi; fi; \
@@ -426,8 +395,8 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(LINK_
     else ifdef PLATFORM_WINDOWS
 $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_MSVC_COMPILE) $(LINK_INPUTS) $(LIBSFILES) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_WINDOWS); \
-				if [ ! -s "$$objs_file" ] && [ -z "$(strip $(LINK_INPUTS))" ]; then \
-					_rc=0; \
+				if [ ! -s "$$objs_file" ] && [ -z "$(strip $(filter-out $(_IDENT_MANIFEST_OBJ),$(MAKEFW_EXTRA_OBJS)) $(LINK_INPUTS))" ]; then \
+					$(_MAKEFW_REMOVE_EMPTY_ARTIFACT); \
 				else \
 				if [ "$$rebuild" = 0 ]; then \
 					for dep in $(MAKEFW_EXTRA_OBJS) $(LINK_INPUTS) $(LIBSFILES); do \
@@ -442,6 +411,7 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_MSVC_COMPILE)
 					echo "$(strip $(basename $(notdir $(LD))) $(LDFLAGS) /PDB:$(call _relpath,$(patsubst %.exe,%.pdb,$@)) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(LIBS))" | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_format_cmd.ps1"; \
 					set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" $(LDFLAGS) /PDB:$(patsubst %.exe,%.pdb,$@) /ILK:$(OBJDIR)/$(patsubst %.exe,%.ilk,$@) /OUT:$@ @$$rsp_file $(LIBS) 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_link_filter.ps1" | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
+					$(_MAKEFW_SAVE_LINK_OBJECTS); \
 				else \
 					_rc=0; \
 				fi; fi; \
@@ -670,3 +640,5 @@ endif
 ifeq ($(IDENT_ENABLED),1)
 include $(MAKEFW_HOME)/makefiles/_ident.mk
 endif
+
+include $(MAKEFW_HOME)/makefiles/_link_objects.mk

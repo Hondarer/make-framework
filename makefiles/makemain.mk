@@ -63,6 +63,10 @@ ifeq ($(MAKEFW_BUILD),)
     ifneq (,$(findstring /libsrc/,$(CURDIR))$(findstring /src/,$(CURDIR)))
         ifneq ($(strip $(wildcard *.c) $(wildcard *.cc) $(wildcard *.cpp) $(wildcard *.csproj) $(if $(PLATFORM_WINDOWS),$(wildcard *.mc) $(wildcard *.rc)) $(TEST_SRCS) $(ADD_SRCS)),)
             MAKEFW_BUILD := 1
+        else ifneq ($(wildcard $(if $(PLATFORM_WINDOWS),obj/*/*.obj obj/*/*.res obj/*/*.link.mk,obj/*.o obj/*.link.mk)),)
+            # 最後のソースを削除した場合も、C/C++ テンプレートで古い成果物を処理する。
+            # Windows は CRT 切り替え前の残存物も確認する。
+            MAKEFW_BUILD := 1
         else
             MAKEFW_BUILD := 0
         endif

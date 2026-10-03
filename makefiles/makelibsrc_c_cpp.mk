@@ -80,38 +80,6 @@ _makefw_artifact_recheck: ;
 _makefw_parent_artifact:
 	$(MAKE) -C "$(MAKEFW_ARTIFACT_ROOT)" MAKEFW_ARTIFACT_ONLY=1 _build_main
 
-define _MAKEFW_OBJLIST_LINUX
-objs_file="$(OBJDIR)/objs_$$.lst"; \
-bash "$(MAKEFW_HOME)/bin_internal/filter_existing_source_objs.sh" linux all > "$$objs_file"; \
-if [ ! -f "$$objs_file" ]; then : > "$$objs_file"; fi; \
-trap 'rm -f "$$objs_file" "$$rsp_file"' EXIT; \
-rebuild=0; \
-if [ ! -f "$@" ]; then \
-    rebuild=1; \
-else \
-    while IFS= read -r obj; do \
-        [ -n "$$obj" ] || continue; \
-        if [ "$$obj" -nt "$@" ]; then rebuild=1; break; fi; \
-    done < "$$objs_file"; \
-fi
-endef
-
-define _MAKEFW_OBJLIST_WINDOWS
-objs_file="$(OBJDIR)/objs_$$.lst"; \
-bash "$(MAKEFW_HOME)/bin_internal/filter_existing_source_objs.sh" windows all "$(MSVC_CRT_SUBDIR)" > "$$objs_file"; \
-if [ ! -f "$$objs_file" ]; then : > "$$objs_file"; fi; \
-trap 'rm -f "$$objs_file" "$$rsp_file"' EXIT; \
-rebuild=0; \
-if [ ! -f "$@" ]; then \
-    rebuild=1; \
-else \
-    while IFS= read -r obj; do \
-        [ -n "$$obj" ] || continue; \
-        if [ "$$obj" -nt "$@" ]; then rebuild=1; break; fi; \
-    done < "$$objs_file"; \
-fi
-endef
-
 # LIB_TYPE の設定 (デフォルトは static)
 # LIB_TYPE setting (default is static)
 # make LIB_TYPE=shared で、shared となる
@@ -340,8 +308,8 @@ ifndef NO_LINK
         ifdef PLATFORM_LINUX
 $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(STATIC_LIBS) $(LINK_INPUTS) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_LINUX); \
-				if [ ! -s "$$objs_file" ] && [ -z "$(strip $(STATIC_LIBS) $(LINK_INPUTS) $(DYNAMIC_LIBS))" ]; then \
-					_rc=0; \
+				if [ ! -s "$$objs_file" ] && [ -z "$(strip $(filter-out $(_IDENT_MANIFEST_OBJ),$(MAKEFW_EXTRA_OBJS)) $(STATIC_LIBS) $(LINK_INPUTS) $(DYNAMIC_LIBS))" ]; then \
+					$(_MAKEFW_REMOVE_EMPTY_ARTIFACT); \
 				else \
 				if [ "$$rebuild" = 0 ]; then \
 					for dep in $(MAKEFW_EXTRA_OBJS) $(STATIC_LIBS) $(LINK_INPUTS); do \
@@ -355,6 +323,7 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(STATI
 					printf '%s\n' "$(strip $(CC) -shared -o $(call _relpath,$@) $$all_objs $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
 					set -o pipefail; $(CC) -shared -o $@ $$all_objs $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
+					$(_MAKEFW_SAVE_LINK_OBJECTS); \
 				else \
 					_rc=0; \
 				fi; fi; \
@@ -372,8 +341,8 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) $(STATI
             endif
 $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_MSVC_COMPILE) $(STATIC_LIBS) $(LINK_INPUTS) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_WINDOWS); \
-				if [ ! -s "$$objs_file" ] && [ -z "$(strip $(STATIC_LIBS) $(LINK_INPUTS) $(DYNAMIC_LIBS))" ]; then \
-					_rc=0; \
+				if [ ! -s "$$objs_file" ] && [ -z "$(strip $(filter-out $(_IDENT_MANIFEST_OBJ),$(MAKEFW_EXTRA_OBJS)) $(STATIC_LIBS) $(LINK_INPUTS) $(DYNAMIC_LIBS))" ]; then \
+					$(_MAKEFW_REMOVE_EMPTY_ARTIFACT); \
 				else \
 				if [ "$$rebuild" = 0 ]; then \
 					for dep in $(MAKEFW_EXTRA_OBJS) $(STATIC_LIBS) $(LINK_INPUTS); do \
@@ -387,6 +356,7 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_MSVC_COMPILE)
 					echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))" | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_format_cmd.ps1"; \
 					set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ @$$rsp_file $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_link_filter.ps1" | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
+					$(_MAKEFW_SAVE_LINK_OBJECTS); \
 				else \
 					_rc=0; \
 				fi; fi; \
@@ -399,8 +369,8 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_MSVC_COMPILE)
 # static lib: objects をアーカイブ
 $(OUTPUT_DIR)/$(TARGET_STATIC): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_LINUX); \
-				if [ ! -s "$$objs_file" ]; then \
-					_rc=0; \
+				if [ ! -s "$$objs_file" ] && [ -z "$(strip $(filter-out $(_IDENT_MANIFEST_OBJ),$(MAKEFW_EXTRA_OBJS)))" ]; then \
+					$(_MAKEFW_REMOVE_EMPTY_ARTIFACT); \
 				else \
 				if [ "$$rebuild" = 0 ]; then \
 					for dep in $(MAKEFW_EXTRA_OBJS); do \
@@ -412,8 +382,11 @@ $(OUTPUT_DIR)/$(TARGET_STATIC): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) 
 					extra_objs="$(strip $(MAKEFW_EXTRA_OBJS))"; \
 					if [ -n "$$extra_objs" ]; then all_objs="$$all_objs $$extra_objs"; fi; \
 					printf '%s\n' "$(strip $(AR) rvs $(call _relpath,$@) $$all_objs)"; \
-					set -o pipefail; $(AR) rvs $@ $$all_objs 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET_STATIC).warn; \
+					makefw_archive_tmp="$@.$$$$.tmp"; \
+					set -o pipefail; $(AR) rvs "$$makefw_archive_tmp" $$all_objs 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET_STATIC).warn; \
 					_rc=$$?; \
+					if [ "$$_rc" = 0 ]; then mv "$$makefw_archive_tmp" "$@" || _rc=$$?; fi; \
+					$(_MAKEFW_SAVE_LINK_OBJECTS); \
 				else \
 					_rc=0; \
 				fi; fi; \
@@ -422,8 +395,8 @@ $(OUTPUT_DIR)/$(TARGET_STATIC): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) 
 # shared lib: static lib 完成後にリンク
 $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS) $(LINK_INPUTS) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_LINUX); \
-				if [ ! -s "$$objs_file" ] && [ -z "$(strip $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS))" ]; then \
-					_rc=0; \
+				if [ ! -s "$$objs_file" ] && [ -z "$(strip $(filter-out $(_IDENT_MANIFEST_OBJ),$(MAKEFW_EXTRA_OBJS)) $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS))" ]; then \
+					$(_MAKEFW_REMOVE_EMPTY_ARTIFACT); \
 				else \
 				if [ "$$rebuild" = 0 ]; then \
 					for dep in $(MAKEFW_EXTRA_OBJS) $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS) $(LINK_INPUTS); do \
@@ -437,6 +410,7 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(OUTPUT_DIR)/$(TARGET_STATIC) 
 					printf '%s\n' "$(strip $(CC) -shared -o $(call _relpath,$@) $$all_objs $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))"; \
 					set -o pipefail; $(CC) -shared -o $@ $$all_objs $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
+					$(_MAKEFW_SAVE_LINK_OBJECTS); \
 				else \
 					_rc=0; \
 				fi; fi; \
@@ -454,8 +428,8 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(OUTPUT_DIR)/$(TARGET_STATIC) 
 # static lib: objects をアーカイブ
 $(OUTPUT_DIR)/$(TARGET_STATIC): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_MSVC_COMPILE) $(RESOURCE_OBJS) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_WINDOWS); \
-				if [ ! -s "$$objs_file" ] && [ -z "$(strip $(RESOURCE_OBJS))" ]; then \
-					_rc=0; \
+				if [ ! -s "$$objs_file" ] && [ -z "$(strip $(filter-out $(_IDENT_MANIFEST_OBJ),$(MAKEFW_EXTRA_OBJS)) $(RESOURCE_OBJS))" ]; then \
+					$(_MAKEFW_REMOVE_EMPTY_ARTIFACT); \
 				else \
 				if [ "$$rebuild" = 0 ]; then \
 					for dep in $(MAKEFW_EXTRA_OBJS) $(RESOURCE_OBJS); do \
@@ -469,6 +443,7 @@ $(OUTPUT_DIR)/$(TARGET_STATIC): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_MSVC_C
 					echo "$(strip $(AR) /NOLOGO $(LIB_LTCG) /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/lib_$$.rsp)" | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_format_cmd.ps1"; \
 					set -o pipefail; MSYS_NO_PATHCONV=1 "$(AR)" /NOLOGO $(LIB_LTCG) /OUT:$@ @$$rsp_file 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_lib_filter.ps1" | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET_STATIC).warn; \
 					_rc=$$?; \
+					$(_MAKEFW_SAVE_LINK_OBJECTS); \
 				else \
 					_rc=0; \
 				fi; fi; \
@@ -477,8 +452,8 @@ $(OUTPUT_DIR)/$(TARGET_STATIC): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_MSVC_C
 # DLL: static lib 完成後にリンク
 $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS) $(LINK_INPUTS) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_WINDOWS); \
-				if [ ! -s "$$objs_file" ] && [ -z "$(strip $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS))" ]; then \
-					_rc=0; \
+				if [ ! -s "$$objs_file" ] && [ -z "$(strip $(filter-out $(_IDENT_MANIFEST_OBJ),$(MAKEFW_EXTRA_OBJS)) $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS))" ]; then \
+					$(_MAKEFW_REMOVE_EMPTY_ARTIFACT); \
 				else \
 				if [ "$$rebuild" = 0 ]; then \
 					for dep in $(MAKEFW_EXTRA_OBJS) $(OUTPUT_DIR)/$(TARGET_STATIC) $(STATIC_LIBS) $(LINK_INPUTS); do \
@@ -492,6 +467,7 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(OUTPUT_DIR)/$(TARGET_STATIC) 
 					echo "$(strip $(basename $(notdir $(LD))) /DLL /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/link_$$.rsp $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS))" | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_format_cmd.ps1"; \
 					set -o pipefail; MSYS_NO_PATHCONV=1 "$(LD)" /DLL /OUT:$@ @$$rsp_file $(LINK_INPUTS) $(STATIC_LIBS) $(DYNAMIC_LIBS) $(LDFLAGS) 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_link_filter.ps1" | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
+					$(_MAKEFW_SAVE_LINK_OBJECTS); \
 				else \
 					_rc=0; \
 				fi; fi; \
@@ -503,8 +479,8 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(OUTPUT_DIR)/$(TARGET_STATIC) 
         ifdef PLATFORM_LINUX
 $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_LINUX); \
-				if [ ! -s "$$objs_file" ]; then \
-					_rc=0; \
+				if [ ! -s "$$objs_file" ] && [ -z "$(strip $(filter-out $(_IDENT_MANIFEST_OBJ),$(MAKEFW_EXTRA_OBJS)))" ]; then \
+					$(_MAKEFW_REMOVE_EMPTY_ARTIFACT); \
 				else \
 				if [ "$$rebuild" = 0 ]; then \
 					for dep in $(MAKEFW_EXTRA_OBJS); do \
@@ -516,8 +492,11 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) | $(OUT
 					extra_objs="$(strip $(MAKEFW_EXTRA_OBJS))"; \
 					if [ -n "$$extra_objs" ]; then all_objs="$$all_objs $$extra_objs"; fi; \
 					printf '%s\n' "$(strip $(AR) rvs $(call _relpath,$@) $$all_objs)"; \
-					set -o pipefail; $(AR) rvs $@ $$all_objs 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
+					makefw_archive_tmp="$@.$$$$.tmp"; \
+					set -o pipefail; $(AR) rvs "$$makefw_archive_tmp" $$all_objs 2>&1 | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
+					if [ "$$_rc" = 0 ]; then mv "$$makefw_archive_tmp" "$@" || _rc=$$?; fi; \
+					$(_MAKEFW_SAVE_LINK_OBJECTS); \
 				else \
 					_rc=0; \
 				fi; fi; \
@@ -526,8 +505,8 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_OBJS) | $(OUT
         else ifdef PLATFORM_WINDOWS
 $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_MSVC_COMPILE) $(RESOURCE_OBJS) | $(OUTPUT_DIR) $(OBJDIR)
 				@$(_MAKEFW_OBJLIST_WINDOWS); \
-				if [ ! -s "$$objs_file" ] && [ -z "$(strip $(RESOURCE_OBJS))" ]; then \
-					_rc=0; \
+				if [ ! -s "$$objs_file" ] && [ -z "$(strip $(filter-out $(_IDENT_MANIFEST_OBJ),$(MAKEFW_EXTRA_OBJS)) $(RESOURCE_OBJS))" ]; then \
+					$(_MAKEFW_REMOVE_EMPTY_ARTIFACT); \
 				else \
 				if [ "$$rebuild" = 0 ]; then \
 					for dep in $(MAKEFW_EXTRA_OBJS) $(RESOURCE_OBJS); do \
@@ -541,6 +520,7 @@ $(OUTPUT_DIR)/$(TARGET): $(MAKEFW_ARTIFACT_DEPS) $(MAKEFW_ARTIFACT_MSVC_COMPILE)
 					echo "$(strip $(AR) /NOLOGO $(LIB_LTCG) /OUT:$(call _relpath,$@) @$(call _relpath,$(OBJDIR))/lib_$$.rsp)" | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_format_cmd.ps1"; \
 					set -o pipefail; MSYS_NO_PATHCONV=1 "$(AR)" /NOLOGO $(LIB_LTCG) /OUT:$@ @$$rsp_file 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MAKEFW_HOME)/bin_internal/msvc_lib_filter.ps1" | $(CAPTURE_WARNINGS) $(OUTPUT_DIR)/$(TARGET).warn; \
 					_rc=$$?; \
+					$(_MAKEFW_SAVE_LINK_OBJECTS); \
 				else \
 					_rc=0; \
 				fi; fi; \
@@ -766,3 +746,5 @@ ifneq (,$(filter 1,$(IDENT_ENABLED) $(MAKEFW_DLL_IDENT_ENABLED)))
 include $(MAKEFW_HOME)/makefiles/_ident.mk
 endif
 endif
+
+include $(MAKEFW_HOME)/makefiles/_link_objects.mk
