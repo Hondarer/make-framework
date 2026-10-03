@@ -28,7 +28,7 @@ RCFLAGS ?=
 CVTRES ?= cvtres.exe
 
 MAKEFW_CVTRES_ARCH := $(or $(ARCH),$(lastword $(subst _, ,$(TARGET_ARCH))))
-MAKEFW_CVTRES_MACHINE ?= $(if $(filter x64,$(MAKEFW_CVTRES_ARCH)),X64,$(if $(filter x86 i386 i686,$(MAKEFW_CVTRES_ARCH)),X86,$(if $(filter arm64 aarch64,$(MAKEFW_CVTRES_ARCH)),ARM64,$(MAKEFW_CVTRES_ARCH))))
+MAKEFW_CVTRES_MACHINE ?= $(if $(filter x64,$(MAKEFW_CVTRES_ARCH)),X64,$(if $(filter arm64 aarch64,$(MAKEFW_CVTRES_ARCH)),ARM64,$(MAKEFW_CVTRES_ARCH)))
 
 # 生成する .res の一覧 (cwd の *.mc / *.rc から導出)
 RES_OUTPUTS := $(addprefix $(OBJDIR)/, $(SRCS_MC:.mc=.res) $(SRCS_RC:.rc=.res))
