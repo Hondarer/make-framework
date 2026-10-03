@@ -10,6 +10,11 @@ import tempfile
 import time
 import unittest
 
+# Windows の subprocess は System32 を PATH より先に探すため、名前だけで起動すると
+# WSL の bash.exe を選ぶことがある。PATH 上の bash (Git Bash など) を明示して使う。
+# see: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw
+BASH = shutil.which("bash") or "bash"
+
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
@@ -254,7 +259,7 @@ inspect:
         for mode in ("--write", "--check"):
             for relative in scripts:
                 result = subprocess.run(
-                    ["bash", str(self.root / relative), mode], cwd=self.root, env=self.env,
+                    [BASH, str(self.root / relative), mode], cwd=self.root, env=self.env,
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                     encoding="utf-8", errors="replace", timeout=120,
                 )
