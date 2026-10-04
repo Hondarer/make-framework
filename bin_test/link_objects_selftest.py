@@ -102,7 +102,9 @@ class Fixture:
         self.env = {key: value for key, value in os.environ.items()
                     if not key.startswith("MAKEFW_") and key not in
                     ("MAKEFLAGS", "MFLAGS", "MAKELEVEL", "IDENT_ENABLED", "PLATFORM_LINUX", "PLATFORM_WINDOWS")}
-        self.env.update(MAKEFW_HOME=str(MAKEFW), MAKEFW_FILES_LANG="C.UTF-8",
+        # テンプレートの include は MAKEFW_HOME をそのまま使うため、空白を含む配置先でも
+        # 分割されないよう、作業ディレクトリ内のシンボリック リンクを指す。
+        self.env.update(MAKEFW_HOME=str(self.root / "framework" / "makefw"), MAKEFW_FILES_LANG="C.UTF-8",
                         MAKEFW_CPU_BUDGET="2", PLATFORM=platform,
                         MAKEFW_TARGET_ARCH="windows_x64" if platform == "Windows" else "linux_el8_x64")
         self.args = ["CONFIG=Debug", "IDENT=0"]
@@ -324,7 +326,8 @@ def check_long_command():
             f"MAKEFW_HOME := {root.as_posix()}\n"
             "OBJDIR := obj\nOUTPUT_DIR := .\nTARGET := probe.lib\nLIB_TYPE := static\n"
             "PLATFORM_WINDOWS := 1\nMSVC_CRT_SUBDIR := md\n"
-            f"include {MAKEFW.as_posix()}/makefiles/_link_objects.mk\n"
+            # 空白を含む配置先でも 1 つのパスとして読み込むため、空白を \ で保護する。
+            f"include {MAKEFW.as_posix().replace(' ', chr(92) + ' ')}/makefiles/_link_objects.mk\n"
             ".PHONY: check\ncheck: probe.lib\nprobe.lib: FORCE\n"
             "\t@$(_MAKEFW_OBJLIST_WINDOWS); [ \"$$rebuild\" = \"$(EXPECTED)\" ] || exit 1; "
             "_rc=0; $(_MAKEFW_SAVE_LINK_OBJECTS)\n.PHONY: FORCE\nFORCE:\n")
