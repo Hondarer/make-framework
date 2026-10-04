@@ -79,7 +79,7 @@ MAKEFW_EXTRA_OBJS += $(if $(PLATFORM_WINDOWS),$(patsubst %.o,%.obj,$(GENDIR_OBJS
 # GENDIR_EXTRA_C 経由でアプリが自前生成する .c (flex/bison 由来ではない) は、
 # アプリ側のコード品質に責任があるため、ここでの抑制対象に含めない。
 ifdef PLATFORM_LINUX
-MAKEFW_FLEXBISON_WARN_SUPPRESS := -Wno-conversion -Wno-sign-conversion -Wno-sign-compare -Wno-switch-default -Wno-padded
+MAKEFW_FLEXBISON_WARN_SUPPRESS := -Wno-conversion -Wno-sign-conversion -Wno-sign-compare -Wno-switch-default -Wno-switch-enum -Wno-padded
 
 $(OBJDIR)/%.o: $(GENDIR)/%.c $(GEN_TAB_H) | $(OBJDIR)
 	@echo "$(CC) -I. -I$(GENDIR) -c -o $@ $<"
