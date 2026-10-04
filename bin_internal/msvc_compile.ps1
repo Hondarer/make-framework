@@ -143,6 +143,41 @@ foreach ($line in $output -split "`r?`n") {
     }
 }
 
+# 8.3 形式の短い名前 (RUNNER~1 など) を含むパスを、長い形式へ展開して返す。
+# /sourceDependencies の JSON は長い形式で出力されるため、比較の前に揃える。
+# see: https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#short-vs-long-names
+function Get-MsvcLongPath {
+    param([string]$Path)
+
+    if ($Path -notlike '*~*') {
+        return $Path
+    }
+    try {
+        $full = [System.IO.Path]::GetFullPath($Path)
+        $root = [System.IO.Path]::GetPathRoot($full)
+        $current = $root
+        foreach ($part in $full.Substring($root.Length).Split([char[]]@('\', '/'), [System.StringSplitOptions]::RemoveEmptyEntries)) {
+            $match = $null
+            if ($part -like '*~*') {
+                # 検索パターンは短い名前にも一致し、結果は長い形式で返る。
+                $match = [System.IO.Directory]::GetFileSystemEntries($current, $part) | Select-Object -First 1
+            }
+            $current = if ($match) { $match } else { Join-Path $current $part }
+        }
+        return $current
+    }
+    catch {
+        return $Path
+    }
+}
+
+# ワークスペースの判定は長い形式で行い、.d には呼び出し元の表記で書き出す。
+$workspaceCaller = $WorkspaceDir.Replace('\', '/').TrimEnd('/')
+$workspaceLong = $workspaceCaller
+if ($WorkspaceDir -ne "") {
+    $workspaceLong = (Get-MsvcLongPath $WorkspaceDir).Replace('\', '/').TrimEnd('/')
+}
+
 # 各ソースファイルの .d ファイルを JSON から生成
 # /sourceDependencies <dir> の出力ファイル名: <ソースファイル名>.json
 # 例: foo.cc → <ObjDir>\foo.cc.json
@@ -163,7 +198,14 @@ foreach ($src in $sourceList) {
                 # 配置先との比較は実パスで行い、その後で make 用に空白を保護する。
                 $normalized = $inc.Replace('\', '/')
                 # WorkspaceDir が指定されている場合、ワークスペース内のみ追加
-                if ($WorkspaceDir -eq "" -or $normalized.StartsWith($WorkspaceDir.Replace('\', '/').TrimEnd('/') + '/', [System.StringComparison]::OrdinalIgnoreCase)) {
+                if ($WorkspaceDir -eq "") {
+                    $includes += $normalized.Replace(' ', '\ ')
+                }
+                elseif ($normalized.StartsWith($workspaceLong + '/', [System.StringComparison]::OrdinalIgnoreCase)) {
+                    $callerPath = $workspaceCaller + $normalized.Substring($workspaceLong.Length)
+                    $includes += $callerPath.Replace(' ', '\ ')
+                }
+                elseif ($normalized.StartsWith($workspaceCaller + '/', [System.StringComparison]::OrdinalIgnoreCase)) {
                     $includes += $normalized.Replace(' ', '\ ')
                 }
             }

@@ -37,11 +37,38 @@ WORKSPACE_DIR=$(find_workspace_root "$SCRIPT_DIR") || {
 }
 APP_ROOT_DIR="$WORKSPACE_DIR/app"
 
+# pwd -P は 8.3 形式の短い名前 (RUNNER~1 など) を長い形式へ展開する。
+# 呼び出し元の make が短い名前のままのパスを持つ場合、長い形式で返すと相対化できないため、
+# 出力するワークスペースの接頭辞を呼び出し元の表記 (MAKEFW_WORKSPACE_DIR) へ戻す。
+# see: https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#short-vs-long-names
+LONG_WORKSPACE_PREFIX=""
+CALLER_WORKSPACE_PREFIX=""
+if [[ "${MAKEFW_WORKSPACE_DIR:-}" == *"~"* ]] && command -v cygpath >/dev/null 2>&1; then
+    _long_ws=$(cygpath -m "$WORKSPACE_DIR")
+    _caller_ws=$(cygpath -m "$MAKEFW_WORKSPACE_DIR")
+    if [[ "$(cygpath -l -m "$MAKEFW_WORKSPACE_DIR")" == "$_long_ws" && "$_caller_ws" != "$_long_ws" ]]; then
+        LONG_WORKSPACE_PREFIX="$_long_ws"
+        CALLER_WORKSPACE_PREFIX="$_caller_ws"
+    fi
+    unset _long_ws _caller_ws
+fi
+
+# cygpath -m で変換したパスのワークスペースの接頭辞を、呼び出し元の表記へ置き換える。
+to_caller_workspace_form() {
+    local path="$1"
+
+    if [[ -n "$LONG_WORKSPACE_PREFIX" ]] &&
+        [[ "$path" == "$LONG_WORKSPACE_PREFIX" || "$path" == "$LONG_WORKSPACE_PREFIX"/* ]]; then
+        path="${CALLER_WORKSPACE_PREFIX}${path#"$LONG_WORKSPACE_PREFIX"}"
+    fi
+    printf '%s\n' "$path"
+}
+
 to_make_include_path() {
     local path="$1"
 
     if command -v cygpath >/dev/null 2>&1; then
-        cygpath -m "$path"
+        to_caller_workspace_form "$(cygpath -m "$path")"
         return 0
     fi
 
@@ -369,6 +396,11 @@ emit_paths_all() {
         if [[ ${#paths[@]} -ne ${#kinds[@]} ]]; then
             echo "ERROR: cygpath returned an unexpected number of dependency paths." >&2
             return 1
+        fi
+        if [[ -n "$LONG_WORKSPACE_PREFIX" ]]; then
+            for ((i = 0; i < ${#paths[@]}; i++)); do
+                paths[i]=$(to_caller_workspace_form "${paths[i]}")
+            done
         fi
     fi
     for ((i = 0; i < ${#paths[@]}; i++)); do
