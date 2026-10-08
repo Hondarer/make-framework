@@ -301,7 +301,7 @@ ifdef PLATFORM_WINDOWS
     TARGET := $(TARGET).exe
 endif
 
-# デフォルト ターゲットの設定
+# 既定ターゲットの設定
 # Default target setting
 ifeq ($(call should_skip,$(SKIP_BUILD)),true)
     .DEFAULT_GOAL := skip_build

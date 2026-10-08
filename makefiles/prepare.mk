@@ -172,18 +172,18 @@ endif
 export MAKEFW_TARGET_ARCH
 TARGET_ARCH := $(MAKEFW_TARGET_ARCH)
 
-# デフォルト設定 START ##############################################################
+# 既定値設定 START ##############################################################
 
 # コンフィグ設定 (RelWithDebInfo, Debug, Release)
 # "make CONFIG=Debug" のように引数で指定するか、この先の makefile で置換する
 CONFIG ?= RelWithDebInfo
 
 # origin 関数は変数がどこから来たかを返します。
-# - default: Make の組み込みデフォルト値
+# - default: Make の組み込み既定値
 # - environment: 環境変数から
 # - file: makefile で定義
 # - command line: コマンド ライン引数から
-# 以下は、make のデフォルト値の場合のみ、値を置き換えます。
+# 次は、make の既定値の場合のみ、値を置き換えます。
 # 環境変数やコマンド ライン引数で指定された場合はそちらが優先されます。
 ifdef PLATFORM_LINUX
     # Linux (gcc/g++)
@@ -313,7 +313,7 @@ export MAKEFW_REQUEST_ROOT
 #$(info C_STANDARD: $(C_STANDARD))
 #$(info CXX_STANDARD: $(CXX_STANDARD))
 
-# デフォルト設定 END ################################################################
+# 既定値設定 END ################################################################
 
 # MYAPP_DIR: app/<appname> のルート絶対パス
 # APP_DIR: app/ のルート絶対パス

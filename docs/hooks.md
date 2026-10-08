@@ -56,9 +56,9 @@ _pre_build_hook:
 endif
 ```
 
-### install ターゲットのデフォルト定義
+### install ターゲットの既定の定義
 
-`install` ターゲットは、検出されない場合に無処理のデフォルト ターゲットとして定義します。
+`install` ターゲットは、検出されない場合に無処理の既定ターゲットとして定義します。
 
 ```makefile
 ifdef HAS_INSTALL

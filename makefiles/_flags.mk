@@ -1,7 +1,7 @@
 # _flags.mk 自身のディレクトリを include 時に確定 (後から MAKEFILE_LIST が変化するため)
 _MAKEFW_MAKEFILES_DIR := $(MAKEFW_HOME)/makefiles
 
-# ユーザー設定のデフォルト値
+# ユーザー設定の既定値
 C_STANDARD        ?= 17             # 90, 99, 11, 17, 23
 CXX_STANDARD      ?= 17             # 14, 17, 20, 23
 C_EXTENSIONS      ?= OFF            # ON or OFF (GNU 拡張)

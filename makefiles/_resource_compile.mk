@@ -20,7 +20,7 @@ ifdef PLATFORM_WINDOWS
 # メッセージ コンパイラ / リソース コンパイラのフラグ (上書き可)
 # MCFLAGS の -U は Unicode メッセージ テーブルを生成する。
 # -cp utf-8 は生成される .h / .rc の文字コードを UTF-8 (BOM 付き) に固定する。
-# 既定 (ansi) はビルド環境のシステム ロケール (ANSI コードページ) に依存し、
+# 既定 (ansi) はビルド環境のシステム ロケール (ANSI コード ページ) に依存し、
 # 日本語コメントなどが環境によって文字化けするため指定する。
 # see: https://learn.microsoft.com/en-us/windows/win32/wes/message-compiler--mc-exe-
 MCFLAGS ?= -U -cp utf-8

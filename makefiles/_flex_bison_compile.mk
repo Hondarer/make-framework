@@ -1,6 +1,6 @@
 # flex (.l) / bison (.y) を GENDIR で C ソースへ変換し、OBJDIR でコンパイルする。
 #
-# flex / bison はクロスプラットフォームな外部コマンドとして扱い、mc.exe/rc.exe の
+# flex / bison はクロス プラットフォームな外部コマンドとして扱い、mc.exe/rc.exe の
 # ような Windows 専用ツールと異なり PLATFORM_* によるコンパイル対象の出し分けは
 # 行わない。Windows で win_flex/win_bison を使う場合は、BISON / FLEX で実行する
 # コマンド名を指定する。

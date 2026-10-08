@@ -57,7 +57,7 @@ endif
 
 LINK_SRCS := $(filter-out $(CP_SRCS) $(DIRECT_SRCS),$(TEST_SRCS) $(ADD_SRCS))
 
-# 以下の処理は、ADD_SRCS に inject ファイルや filter ファイルを指定するための追加処理
+# 次の処理は、ADD_SRCS に inject ファイルや filter ファイルを指定するための追加処理
 # make 開始時点でファイルが配置されていない場合は、CP_SRCS に正しく移動しきれないファイルがあるため
 # This additional process allows specifying inject/filter files under ADD_SRCS before make begins, in case files aren't placed initially
 
@@ -133,7 +133,7 @@ endif
 
 # flex (.l) / bison (.y) ソースの自動収集
 # Auto-collect flex (.l) / bison (.y) sources
-# flex/bison はクロスプラットフォームな外部コマンドとして扱うため、
+# flex/bison はクロス プラットフォームな外部コマンドとして扱うため、
 # .mc/.rc と異なり PLATFORM_* 分岐は行わない。コンパイルは _flex_bison_compile.mk が担当する。
 SRCS_L := $(sort $(wildcard *.l))
 SRCS_Y := $(sort $(wildcard *.y))

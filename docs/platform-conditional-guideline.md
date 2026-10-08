@@ -57,7 +57,7 @@ endif
 
 ## 禁止する書き方
 
-以下の新規使用を禁止します。
+次の新規使用を禁止します。
 
 - `ifeq ($(OS),Windows_NT)`
 - `ifneq ($(OS),Windows_NT)`

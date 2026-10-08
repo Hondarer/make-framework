@@ -1,4 +1,4 @@
-# LIB_TYPE の設定 (デフォルトは static)
+# LIB_TYPE の設定 (既定値は static)
 # LIB_TYPE setting (default is static)
 # make LIB_TYPE=shared で、shared となる
 ifeq ($(LIB_TYPE),)
@@ -163,7 +163,7 @@ ifdef PLATFORM_WINDOWS
     endif
 endif
 
-# デフォルト ターゲットの設定
+# 既定ターゲットの設定
 # Default target setting
 # makemain.mk で定義される default ターゲットを使用
 # Use the default target defined in makemain.mk

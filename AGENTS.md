@@ -32,14 +32,14 @@ C/C++ と .NET のビルドを支える Make テンプレート、補助スク�
 ## 注意点
 
 - パスに `/libsrc/` または `/src/` を含む前提や、`.csproj` の有無で切り替える前提を維持してください。
-- Linux で `LIBSDIR` を `LDFLAGS` へ展開するときは、`-L` と `-rpath-link` を対で与えること。  
-  `-L` は間接依存 (`DT_NEEDED`) の探索に使われず、リンクの成否が `LD_LIBRARY_PATH` に依存するため。  
+- Linux で `LIBSDIR` を `LDFLAGS` へ展開するときは、`-L` と `-rpath-link` を対で与えてください。  
+  `-L` は間接依存 (`DT_NEEDED`) の探索に使われず、リンクの成否が `LD_LIBRARY_PATH` に依存するためです。  
   see: `docs/library-search-paths.md`
 - `makepart.mk` 系の継承順序は互換性に直結するため、`prepare.mk` とドキュメントを合わせて確認してください。
 - テンプレートと補助ファイルで拡張する方針を維持してください。
 - `bin/`、`bin_internal/`、`bin_test/` 配下の Python スクリプトで日本語を出力するときは、モジュール レベル (関数定義より前) に  
-  以下を追加して stdout/stderr を UTF-8 に固定してください。  
-  Windows のデフォルト `sys.stdout.encoding` は `cp932` であり、出力が文字化けします。
+  次を追加して stdout/stderr を UTF-8 に固定してください。  
+  Windows の既定の `sys.stdout.encoding` は `cp932` であり、出力が文字化けします。
 
   ```python
   sys.stdout.reconfigure(encoding="utf-8")

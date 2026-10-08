@@ -45,7 +45,7 @@ prod/
             +-- makefile # 上記すべての設定が有効
 ```
 
-上記の例で `prod/myapp/libsrc/mylib/` でビルドを実行すると、インクルード順は以下のようになります。
+上記の例で `prod/myapp/libsrc/mylib/` でビルドを実行すると、インクルード順は次のようになります。
 
 1. `prod/makepart.mk`
 2. `prod/myapp/makepart.mk`
@@ -79,7 +79,7 @@ MAKE_INCLUDE_MK += $(wildcard $(CURDIR)/makepart.mk)
 | `CFLAGS` | C コンパイラ フラグ | `CFLAGS += -DMYAPP_VERSION=\"1.0.0\"` |
 | `CXXFLAGS` | C++ コンパイラ フラグ | `CXXFLAGS += -std=c++17` |
 | `OUTPUT_DIR` | 出力先ディレクトリ | `OUTPUT_DIR := $(MYAPP_DIR)/prod/cbin` |
-| `LIB_TYPE` | ライブラリ種別 | `LIB_TYPE = shared` (デフォルトは static、`both` で両方生成) |
+| `LIB_TYPE` | ライブラリ種別 | `LIB_TYPE = shared` (既定値は static、`both` で両方生成) |
 | `LDFLAGS += /NOENTRY` | Windows のリソース専用 DLL | `.mc` / `.rc` のリソースだけを含む DLL を生成します。`LIB_TYPE = shared` と併用します。 |
 | `LINK_INPUTS` | リンカーへ直接渡す追加入力 (EXE / DLL) | `LINK_INPUTS += path/to/prebuilt.res` |
 | `LINK_TEST` | テスト フレームワーク リンク | `LINK_TEST = 1` |
@@ -105,7 +105,7 @@ ifeq ($(OS),Windows_NT)
     CXXFLAGS += /DCALC_EXPORTS
 endif
 
-# 生成されるライブラリを動的ライブラリ (shared) とする (デフォルトは static)
+# 生成されるライブラリを動的ライブラリ (shared) とする (既定値は static)
 LIB_TYPE = shared
 ```
 
@@ -324,7 +324,7 @@ OSS の一次ソースに必要な警告抑制は、そのソースをコンパ�
 
 ### スコープの詳細
 
-以下のディレクトリ構成を例に説明します。
+次のディレクトリ構成を例に説明します。
 
 ```
 prod/
@@ -386,7 +386,7 @@ CFLAGS += -DMYAPP_CHILD_BUILD
 
 ```makefile
 # prod/myapp/makechild.mk
-# myapp/ 以下のすべてのビルドの出力先を統一 (myapp/ 自身は除く)
+# myapp/ 配下のすべてのビルドの出力先を統一 (myapp/ 自身は除く)
 OUTPUT_DIR := $(WORKSPACE_DIR)/bin/myapp
 ```
 
@@ -409,7 +409,7 @@ NO_LINK = 1
 `makelocal.mk` は、自ディレクトリに限定される設定ファイルです。  
 `makepart.mk` の階層継承とは異なり、定義した内容は子階層に継承されません。
 
-特定のディレクトリのみに適用したい設定 (フック、ローカル フラグなど) を `makepart.mk` に定義すると、そのディレクトリ以下のすべてのサブフォルダーでも有効になってしまいます。  
+特定のディレクトリのみに適用したい設定 (フック、ローカル フラグなど) を `makepart.mk` に定義すると、そのディレクトリ配下のすべてのサブフォルダーでも有効になってしまいます。  
 このような場合に `makelocal.mk` を使用します。
 
 ### 実装
@@ -548,7 +548,7 @@ INCDIR += $(call _makefw_escape_path,$(FOO_SDK_DIR))/include
 
 ## インクルード順序
 
-3 種類の設定ファイルは、`prepare.mk` 内で以下の順序でインクルードされます。
+3 種類の設定ファイルは、`prepare.mk` 内で次の順序でインクルードされます。
 
 ```
 1. prepare.mk
@@ -659,7 +659,7 @@ ADD_SRCS := \
 
 ### ビルド システムによるソース ファイルの分類
 
-`TEST_SRCS` と `ADD_SRCS` に指定したソース ファイルは、`make test` 時に `_collect_srcs.mk` が以下の 3 種類に自動分類し、テストのビルド ディレクトリへ取り込みます。
+`TEST_SRCS` と `ADD_SRCS` に指定したソース ファイルは、`make test` 時に `_collect_srcs.mk` が次の 3 種類に自動分類し、テストのビルド ディレクトリへ取り込みます。
 
 | 分類 | 説明 | 条件 |
 |------|------|------|

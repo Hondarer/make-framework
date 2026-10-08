@@ -1,7 +1,7 @@
 #!/bin/bash
 #set -x
 
-# NOTE: settings.json に以下記載すれば環境変数を設定できるが、
+# NOTE: settings.json に次のように記載すれば環境変数を設定できるが、
 #       統合ターミナル外から make された場合を考慮して、自身で files.encoding の内容を得る。
 # 
 #     "terminal.integrated.env.linux": {
@@ -10,7 +10,7 @@
 
 # NOTE: jq コマンドは、json フォーマットを厳密にチェックするので
 #       setting.json 記載時に注意が必要。末尾にカンマがある等で失敗する。
-#       sed を使った実装をデフォルトにしているが、この場合、setting.json の改行位置に注意。
+#       sed を使った実装を既定にしているが、この場合、setting.json の改行位置に注意。
 
 # このスクリプトのパス
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
@@ -32,7 +32,7 @@ find_workspace_root() {
 # ワークスペースのディレクトリ
 WORKSPACE_DIR=$(find_workspace_root "$SCRIPT_DIR") || exit 0
 
-# LANG 環境変数の言語指定部分を取得 (デフォルトは "ja_JP")
+# LANG 環境変数の言語指定部分を取得 (既定値は "ja_JP")
 default_lang=$(echo "$LANG" | sed -E 's/\..*//' | grep -E '^[a-zA-Z]+(-[a-zA-Z]+)?$' || echo "ja_JP")
 
 # ワークスペースの .vscode/settings.json のパス

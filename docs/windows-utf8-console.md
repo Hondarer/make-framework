@@ -111,7 +111,7 @@ CodeBlock: PowerShell 7 を使用する場合
 
 makefw は `WIN32_MANIFEST` 変数を使ったマニフェスト埋め込み機能を提供します。MSVC の `link.exe` に `/MANIFEST:EMBED /MANIFESTINPUT:` オプションを指定してリンク時に直接 EXE へ埋め込みます。
 
-`makepart.mk` に以下を追加します。
+`makepart.mk` に次を追加します。
 
 ```makefile
 # Windows EXE に activeCodePage=UTF-8 マニフェストを埋め込む
@@ -128,9 +128,9 @@ WIN32_MANIFEST = path/to/custom.manifest
 
 CodeBlock: カスタム マニフェストを指定する場合
 
-`makepart.mk` を配置するディレクトリ以下のすべての EXE に継承されます。Linux 環境では、Windows 専用のリンク オプションは追加されません。
+`makepart.mk` を配置するディレクトリ配下のすべての EXE に継承されます。Linux 環境では、Windows 専用のリンク オプションは追加されません。
 
-Windows ビルド時に `_flags.mk` が LDFLAGS を以下のように拡張します。
+Windows ビルド時に `_flags.mk` が LDFLAGS を次のように拡張します。
 
 ```text
 link.exe /NOLOGO /SUBSYSTEM:CONSOLE /MANIFEST:EMBED /MANIFESTINPUT:C:\...\utf8_manifest.manifest ...
@@ -140,7 +140,7 @@ link.exe /NOLOGO /SUBSYSTEM:CONSOLE /MANIFEST:EMBED /MANIFESTINPUT:C:\...\utf8_m
 
 ## 埋め込み確認方法
 
-ビルド後に以下のコマンドでマニフェストが正しく埋め込まれているか確認できます。
+ビルド後に次のコマンドでマニフェストが正しく埋め込まれているか確認できます。
 
 ```bat
 mt.exe -inputresource:send.exe;#1

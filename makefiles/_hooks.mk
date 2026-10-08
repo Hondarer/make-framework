@@ -110,7 +110,7 @@ endif
 # Install target
 # ============================================================================
 
-# install ターゲットが makelocal.mk で定義されていない場合のデフォルト
+# install ターゲットが makelocal.mk で定義されていない場合の既定処理
 # Default install target if not defined in makelocal.mk
 ifndef HAS_INSTALL
 .PHONY: install

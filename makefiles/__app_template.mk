@@ -137,7 +137,7 @@ test : submodule
 		"$(MAKEFW_HOME)/bin_internal/run_ordered_subdir_target.sh" \
 		--app-deps --silent-missing --echo-command --progress \
 		"$$app_test_jobs" test $(SUBDIRS)
-    # このフォルダー以下の coverage.xml をマージする
+    # このフォルダー配下の coverage.xml をマージする
 	-python "$(TESTFW_HOME)/bin_internal/cobertura_merge.py" . > /dev/null
 
 .PHONY: doxy
