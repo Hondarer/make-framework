@@ -23,8 +23,7 @@ $text = [Text.Encoding]::ASCII.GetString($bytes)
 
 ## 性能影響
 
-一般的な構成では、`IDENT=1` を指定した場合の実行時間の増加は、  
-build で 4% 程度、clean から build まで含めた場合で 3% 程度が実測の目安です。  
+一般的な構成では、`IDENT=1` を指定した場合の実行時間の増加は、build で 4% 程度、clean から build まで含めた場合で 3% 程度が実測の目安です。  
 実際の値は、ソース数、ヘッダー依存数、ストレージ性能、並列度、ツールチェーンにより変動します。
 
 ## 確認方法
@@ -65,8 +64,7 @@ $text = [Text.Encoding]::ASCII.GetString($bytes)
 [regex]::Matches($text, '@\(#\)IDENT-[^\x00\r\n]*') | ForEach-Object { $_.Value }
 ```
 
-出力に `IDENT-BEGIN`、`IDENT-C`、`IDENT-CH`、`IDENT-END` が含まれていれば、  
-ソースとヘッダーのハッシュが最終成果物へ埋め込まれています。
+出力に `IDENT-BEGIN`、`IDENT-C`、`IDENT-CH`、`IDENT-END` が含まれていれば、ソースとヘッダーのハッシュが最終成果物へ埋め込まれています。
 
 exe で確認する場合は、`prod/src/cmd/` 配下のターゲットを使用します。
 

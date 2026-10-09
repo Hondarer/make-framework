@@ -2,8 +2,7 @@
 
 ## 概要
 
-`update_template_makefiles.py` は、makefw のテンプレートから生成・配置した `makefile` を、  
-最新テンプレート内容へ一括同期する保守コマンドです。
+`update_template_makefiles.py` は、makefw のテンプレートから生成・配置した `makefile` を、最新テンプレート内容へ一括同期する保守コマンドです。
 
 対象は `.workspaceRoot` を持つ makefw ワークスペース全体です。  
 手書きの `makefile` は変更しません。

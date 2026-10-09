@@ -398,8 +398,7 @@ OUTPUT_DIR := $(WORKSPACE_DIR)/bin/myapp
 NO_LINK = 1
 ```
 
-`NO_LINK = 1` を `makechild.mk` に設定することで、カレント ディレクトリ (`libsubfolder-sample/`) は  
-全サブフォルダーのオブジェクトを収集してリンクし、子ディレクトリ (`audio/` 等) はコンパイルのみとなります。  
+`NO_LINK = 1` を `makechild.mk` に設定することで、カレント ディレクトリ (`libsubfolder-sample/`) は全サブフォルダーのオブジェクトを収集してリンクし、子ディレクトリ (`audio/` 等) はコンパイルのみとなります。  
 詳細は [サブフォルダー コンパイル](subfolder-compilation.md) を参照してください。
 
 ## makelocal.mk
@@ -456,8 +455,7 @@ SUBDIRS := \
     src
 ```
 
-`prod/test` 配下の中間階層走査 makefile では、`SUBDIRS` を `makelocal.mk` に置くことで  
-継承なしで順序だけを制御できます。
+`prod/test` 配下の中間階層走査 makefile では、`SUBDIRS` を `makelocal.mk` に置くことで継承なしで順序だけを制御できます。
 
 ## MYAPP_DIR / APP_DIR
 
