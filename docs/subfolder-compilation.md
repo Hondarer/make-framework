@@ -409,7 +409,7 @@ results/
 ### summary.md の内容例
 
 ````markdown
-# `hierarchy-exampleTest` のテスト結果サマリー
+# hierarchy-exampleTest のテスト結果サマリー
 
 - 開始日時: Sat Jan 24 07:55:31 JST 2026
 
@@ -417,13 +417,17 @@ results/
 
 | MD5 | ファイル |
 | --- | --- |
-| 8c18e38566df7a9630b40ca18881a5d4 | `app/hierarchy-example/prod/libsrc/libhierarchy-example/func.c` |
+| 8c18e38566df7a9630b40ca18881a5d4 | app/hierarchy-example/prod/libsrc/libhierarchy-example/func.c |
+
+Table: テスト対象ソースのファイル別の MD5 チェックサム
 
 ## テスト結果
 
 | テスト ID | 結果 | 備考 |
 | --- | --- | --- |
-| [`subfolder_sampleTest.test_func`](../subfolder_sampleTest.test_func/results.md) | PASSED | |
+| [subfolder_sampleTest.test_func](../subfolder_sampleTest.test_func/results.md) | PASSED | |
+
+Table: テスト ID 別の判定と備考
 
 ## 集計
 
@@ -434,12 +438,16 @@ results/
 | Warning(s) | 0 |
 | Failed | 0 |
 
+Table: 判定別のテスト件数
+
 ## 確認件数
 
 | テスト定義 | 正常系 | 異常系 | 計 |
 | --- | ---: | ---: | ---: |
-| [`subfolder_sampleTest.test_func`](../subfolder_sampleTest.test_func/results.md) | 1 | 0 | 1 |
+| [subfolder_sampleTest.test_func](../subfolder_sampleTest.test_func/results.md) | 1 | 0 | 1 |
 | 合計 | 1 | 0 | 1 |
+
+Table: テスト定義別の正常系と異常系の確認件数
 
 ## カバレッジ
 
@@ -447,15 +455,17 @@ results/
 | --- | --- | --- | --- | --- | --- | --- |
 | func.c | 2 | 2 | 100% | - | - | |
 | TOTAL | 2 | 2 | 100% | - | - | |
+
+Table: ソース ファイル別の行とブランチのカバレッジ
 ````
 
 ### 個別テスト結果 (results.md) の内容例
 
 ````markdown
-# `subfolder_sampleTest.test_func`
+# subfolder_sampleTest.test_func
 
 - 判定: PASSED
-- テスト バイナリ: `bin/hierarchy-exampleTest`
+- テスト バイナリ: bin/hierarchy-exampleTest
 
 ## テスト項目
 
@@ -496,9 +506,9 @@ TEST_F(subfolder_sampleTest, test_func)
 ### カバレッジ ファイル (*.gcov.md) の内容例
 
 ````markdown
-# `func.c` のカバレッジ
+# func.c のカバレッジ
 
-- ソース: `func.c`
+- ソース: func.c
 
 ```text
         -:    0:Source:func.c
