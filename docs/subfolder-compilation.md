@@ -266,20 +266,20 @@ app/hierarchy-example/test/src/
     |   +-- hierarchy-exampleTest.o          # テストコードのオブジェクト
     +-- results/                            # テスト結果出力先
     |   +-- all_tests/                      # 全体テスト結果
-    |   |   +-- summary.log
+    |   |   +-- summary.md
     |   |   +-- coverage.xml
-    |   |   +-- func.c.gcov.txt
-    |   |   +-- func_a.c.gcov.txt
-    |   |   +-- func_b.c.gcov.txt
+    |   |   +-- func.c.gcov.md
+    |   |   +-- func_a.c.gcov.md
+    |   |   +-- func_b.c.gcov.md
     |   +-- subfolder_sampleTest.test_func/
-    |   |   +-- results.log
-    |   |   +-- func.c.gcov.txt
+    |   |   +-- results.md
+    |   |   +-- func.c.gcov.md
     |   +-- subfolder_sampleTest_a.test_func_a/
-    |   |   +-- results.log
-    |   |   +-- func_a.c.gcov.txt
+    |   |   +-- results.md
+    |   |   +-- func_a.c.gcov.md
     |   +-- subfolder_sampleTest_b.test_func_b/
-    |       +-- results.log
-    |       +-- func_b.c.gcov.txt
+    |       +-- results.md
+    |       +-- func_b.c.gcov.md
     +-- subfolder_a/
     |   +-- makefile                        # サブディレクトリ (makechild.mk により NO_LINK 適用)
     |   +-- makelocal.mk                    # TEST_SRCS 設定 (サブディレクトリのテスト対象)
@@ -395,93 +395,110 @@ fi
 ```text
 results/
 +-- all_tests/                              # 全体テスト結果
-|   +-- summary.log                         # テストサマリー
+|   +-- summary.md                         # テストサマリー
 |   +-- coverage.xml                        # 全体カバレッジ (Cobertura形式)
-|   +-- func.c.gcov.txt                     # func.c のカバレッジ詳細
-|   +-- func_a.c.gcov.txt                   # func_a.c のカバレッジ詳細
-|   +-- func_b.c.gcov.txt                   # func_b.c のカバレッジ詳細
+|   +-- func.c.gcov.md                     # func.c のカバレッジ詳細
+|   +-- func_a.c.gcov.md                   # func_a.c のカバレッジ詳細
+|   +-- func_b.c.gcov.md                   # func_b.c のカバレッジ詳細
 |   +-- lcov/                               # HTML カバレッジレポート (Linux)
 +-- <テストクラス>.<テスト名>/              # 個別テスト結果
-    +-- results.log                         # テスト実行ログ
-    +-- <ソースファイル>.gcov.txt           # 個別テストのカバレッジ
+    +-- results.md                         # テスト実行ログ
+    +-- <ソースファイル>.gcov.md           # 個別テストのカバレッジ
 ```
 
-### summary.log の内容例
+### summary.md の内容例
 
-```text
-Test start on Sat Jan 24 07:55:31 JST 2026.
-----
-MD5 checksums of files in TEST_SRCS:
-8c18e38566df7a9630b40ca18881a5d4  app/hierarchy-example/prod/libsrc/libhierarchy-example/func.c
-----
-subfolder_sampleTest_a.test_func_a	PASSED
-subfolder_sampleTest_b.test_func_b	PASSED
-subfolder_sampleTest.test_func	PASSED
-Test results:
-----
-Total tests	3
-Passed		3
-Warning(s)	0
-Failed		0
+````markdown
+# `hierarchy-exampleTest` のテスト結果サマリー
 
-------------------------------------------------------------------------------
-                             Code Coverage Report
-------------------------------------------------------------------------------
-File                                       Lines    Exec  Cover   Missing
-------------------------------------------------------------------------------
-func.c                                         2       2   100%
-func_a.c                                       2       2   100%
-func_b.c                                       2       2   100%
-------------------------------------------------------------------------------
-TOTAL                                          6       6   100%
-------------------------------------------------------------------------------
-```
+- 開始日時: Sat Jan 24 07:55:31 JST 2026
 
-### 個別テスト結果 (results.log) の内容例
+## テスト対象ソースの MD5
 
-```text
-Running test: subfolder_sampleTest.test_func on bin/hierarchy-exampleTest
-----
+| MD5 | ファイル |
+| --- | --- |
+| 8c18e38566df7a9630b40ca18881a5d4 | `app/hierarchy-example/prod/libsrc/libhierarchy-example/func.c` |
+
+## テスト結果
+
+| テスト ID | 結果 | 備考 |
+| --- | --- | --- |
+| [`subfolder_sampleTest.test_func`](../subfolder_sampleTest.test_func/results.md) | PASSED | |
+
+## 集計
+
+| 項目 | 件数 |
+| --- | --- |
+| Total tests | 1 |
+| Passed | 1 |
+| Warning(s) | 0 |
+| Failed | 0 |
+
+## 確認件数
+
+| テスト定義 | 正常系 | 異常系 | 計 |
+| --- | ---: | ---: | ---: |
+| [`subfolder_sampleTest.test_func`](../subfolder_sampleTest.test_func/results.md) | 1 | 0 | 1 |
+| 合計 | 1 | 0 | 1 |
+
+## カバレッジ
+
+| File | Lines | Exec | Cover | Branch | BrCov | Missing |
+| --- | --- | --- | --- | --- | --- | --- |
+| func.c | 2 | 2 | 100% | - | - | |
+| TOTAL | 2 | 2 | 100% | - | - | |
+````
+
+### 個別テスト結果 (results.md) の内容例
+
+````markdown
+# `subfolder_sampleTest.test_func`
+
+- 判定: PASSED
+- テスト バイナリ: `bin/hierarchy-exampleTest`
+
 ## テスト項目
 
 ### 状態
+
+なし
 
 ### 手順
 
 - func() を呼び出す。
 
-### 確認内容 (1)
+### 確認内容 (正常系:1)
 
 - func() から 0 が返されること。
-----
+
+## テスト コード
+
+```cpp
 TEST_F(subfolder_sampleTest, test_func)
 {
     // Arrange
-
-    // Pre-Assert
-
     // Act
     int actual_ret = func(); // [手順] - func() を呼び出す。
-
     // Assert
-    EXPECT_EQ(0, actual_ret); // [確認] - func() から 0 が返されること。
+    EXPECT_EQ(0, actual_ret); // [確認_正常系] - func() から 0 が返されること。
 }
-----
-./bin/hierarchy-exampleTest --gtest_filter=subfolder_sampleTest.test_func
-Running main() from .../gtest_main.cc
-[==========] Running 1 test from 1 test suite.
-[----------] Global test environment set-up.
-[----------] 1 test from subfolder_sampleTest
-[ RUN      ] subfolder_sampleTest.test_func
-[       OK ] subfolder_sampleTest.test_func (0 ms)
-[----------] 1 test from subfolder_sampleTest (0 ms total)
-
-[----------] Global test environment tear-down
-[==========] 1 test from 1 test suite ran. (0 ms total)
-[  PASSED  ] 1 test.
 ```
 
-### カバレッジ ファイル (*.gcov.txt) の内容例
+## 実行結果
+
+```text
+./bin/hierarchy-exampleTest --gtest_filter=subfolder_sampleTest.test_func
+[ RUN      ] subfolder_sampleTest.test_func
+[       OK ] subfolder_sampleTest.test_func (0 ms)
+```
+````
+
+### カバレッジ ファイル (*.gcov.md) の内容例
+
+````markdown
+# `func.c` のカバレッジ
+
+- ソース: `func.c`
 
 ```text
         -:    0:Source:func.c
@@ -496,6 +513,7 @@ Running main() from .../gtest_main.cc
         1:    5:    return 0;
         -:    6:}
 ```
+````
 
 各行の先頭の数字は実行回数を示します:
 
