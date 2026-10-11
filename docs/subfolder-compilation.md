@@ -411,7 +411,7 @@ results/
 ````markdown
 # hierarchy-exampleTest のテスト結果サマリー
 
-- 開始日時: Sat Jan 24 07:55:31 JST 2026
+- 実施日時: 2026-01-24 07:55:31 JST
 
 ## テスト対象ソースの MD5
 
@@ -465,7 +465,7 @@ Table: ソース ファイル別の行とブランチのカバレッジ
 # subfolder_sampleTest.test_func
 
 - 判定: PASSED
-- テスト バイナリ: bin/hierarchy-exampleTest
+- 実施日時: 2026-01-24 07:55:31 JST
 
 ## テスト項目
 
