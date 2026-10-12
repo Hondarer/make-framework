@@ -490,7 +490,7 @@ TEST_F(subfolder_sampleTest, test_func)
     // Act
     int actual_ret = func(); // [手順] - func() を呼び出す。
     // Assert
-    EXPECT_EQ(0, actual_ret); // [確認_正常系] - func() から 0 が返されること。
+    EXPECT_EQ(0, actual_ret); // [確認_正常系] - func() の戻り値が 0 であること。
 }
 ```
 
