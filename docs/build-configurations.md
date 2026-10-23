@@ -111,7 +111,19 @@ INFO: Skipping build (dependencies are unchanged and clean)
 - 依存閉包に含まれる各 app の `prod/` 配下のソース、ヘッダー、make ファイル
 - `test/` 配下 (`app/<name>.assured.stamp` の省略が有効な対象 app では `test/libsrc` のモックだけ)
 - ワークスペース直下の `Directory.Build.props` / `Directory.Build.targets`
+- `test/` を持つ app では、testfw の入力 (後述)
 - `CONFIG` / `MSVC_CRT` / `TARGET_ARCH` / `CFLAGS` / `CXXFLAGS` / `LDFLAGS` / `DEFINES` / `LIBS` の値
+
+testfw のライブラリとスクリプトは、テストのビルドと結果の生成の入力です。  
+`make` を実行した app が `test/` を持つ場合は、`make` と `make test` の両方の署名に、`framework/testfw` の次の入力を含めます。  
+`make` もテストをビルドするため、`make test` の署名だけに含めると、ライブラリを変えた後の `make` が古いライブラリとリンクしたテストを残します。
+
+- `makefile` / `makepart.mk`
+- `libsrc/`、`include/`、`include_internal/`、`include_override/` 配下のソース、ヘッダー、make ファイル (`obj/` などの生成物は含めない)
+- `gtest/TARGET_GTEST_VERSION` (Google Test の版。ビルド済みのライブラリは含めない)
+- `bin_internal/list_signature_scripts.sh` が出力するスクリプト (範囲は [再テストのスキップ](../../testfw/docs/how-to-test.md#再テストのスキップ) を参照)
+
+testfw がワークスペースの外にある場合や、存在しない場合は、testfw の入力を含めません。
 
 サブディレクトリへの再帰が省略されると、`makepart.mk` の `$(shell)` でサブディレクトリの make 読み込み時に実行される処理も実行されません。  
 `app/cjson` / `app/sqlite` / `app/lua` のように、`packages/` の配布アーカイブを `bin_internal/extract_package.py` で展開し、`patches/` のパッチを適用してから prod/ を構成する app では、展開処理自体がこの `$(shell)` の中で実行されます。  

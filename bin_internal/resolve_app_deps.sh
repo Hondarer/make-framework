@@ -558,6 +558,10 @@ emit_signature() {
         collect_signature_files "$app" "$mode" "$root_app" "$assured"
     done < <(collect_app_closure "$root_app")
 
+    if [[ -d "$APP_ROOT_DIR/$root_app/test" ]]; then
+        collect_testfw_signature_files
+    fi
+
     # 収集した全ファイルを 1 回の sha256sum 起動で一括ハッシュする
     # (xargs が引数長制限に応じて自動分割する)。
     # sha256sum 出力 "<64桁hash>  <abspath>" を "<rel>\t<hash>" 形式へ変換する。
@@ -882,6 +886,40 @@ collect_signature_files() {
                     ' "$make_config"
                 done
         )
+    fi
+}
+
+# テストを持つ app の署名へ testfw の入力を加える。build と test の両方の署名に加える。
+# app 直下の make はテストもビルドするため、test の署名だけに加えると、testfw の
+# ライブラリを変えた後の make がテストのビルドを省略し、古いライブラリとリンクした
+# テストが残る。
+#   - make ファイル、libsrc/、include*/ : テストがリンク・インクルードするライブラリの入力。
+#                                         既存のツリー走査で obj/ などの生成物を除く。
+#   - gtest/TARGET_GTEST_VERSION        : ビルド済みの Google Test の版。
+#   - list_signature_scripts.sh の出力 : テストの実行と結果の生成に使うスクリプト。
+#                                         範囲はテスト ディレクトリ単位の判定と共有する。
+# testfw やスクリプトがない構成 (makefw 単体のテストなど) では、存在する入力だけを加える。
+collect_testfw_signature_files() {
+    local testfw_dir="$WORKSPACE_DIR/framework/testfw"
+    local dir
+    local script
+
+    if [[ ! -d "$testfw_dir" ]]; then
+        return 0
+    fi
+
+    add_signature_file "$testfw_dir/makefile"
+    add_signature_file "$testfw_dir/makepart.mk"
+    for dir in libsrc include include_internal include_override; do
+        collect_tree_signature_files "$testfw_dir/$dir"
+    done
+    add_signature_file_direct "$testfw_dir/gtest/TARGET_GTEST_VERSION"
+
+    if [[ -f "$testfw_dir/bin_internal/list_signature_scripts.sh" ]]; then
+        while IFS= read -r script; do
+            [[ -z "$script" ]] && continue
+            add_signature_file_direct "$script"
+        done < <(bash "$testfw_dir/bin_internal/list_signature_scripts.sh")
     fi
 }
 
