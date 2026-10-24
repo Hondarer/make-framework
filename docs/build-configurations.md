@@ -99,7 +99,7 @@ app 直下の make は、子 make を起動する必要がある場合にだけ�
 製品とテストのパスをまとめて解決し、同じ app の子 make へ環境変数で渡して再利用します。  
 Windows では全パスを 1 回の `cygpath` 呼び出しで変換し、Linux では変換せずに出力します。
 
-解決のタイミング、子 make への継承、一括出力は、`python framework/makefw/bin_internal/app_paths_selftest.py` で局所確認します。
+解決のタイミング、子 make への継承、一括出力は、`python framework/makefw/bin_test/app_paths_selftest.py` で局所確認します。
 
 ```text
 INFO: Skipping build (dependencies are unchanged and clean)
@@ -111,8 +111,20 @@ INFO: Skipping build (dependencies are unchanged and clean)
 - 依存閉包に含まれる各 app の `prod/` 配下のソース、ヘッダー、make ファイル
 - `test/` 配下 (`app/<name>.assured.stamp` の省略が有効な対象 app では `test/libsrc` のモックだけ)
 - ワークスペース直下の `Directory.Build.props` / `Directory.Build.targets`
+- makefw の入力 (後述)
 - `test/` を持つ app では、testfw の入力 (後述)
 - `CONFIG` / `MSVC_CRT` / `TARGET_ARCH` / `CFLAGS` / `CXXFLAGS` / `LDFLAGS` / `DEFINES` / `LIBS` の値
+
+makefw のテンプレートとスクリプトは、テストの有無にかかわらず、すべての app のビルドの入力です。  
+すべての app の `make` と `make test` の署名に、`framework/makefw` の次の入力を含めます。  
+コンパイル オプションやリンクの規則を変えると、ソースに変更のない app もビルドとテストを再実行します。
+
+- `makefiles/` 直下のすべてのファイル (テンプレート、テンプレートが読み込む make ファイル、`utf8_manifest.manifest`)
+- `bin_internal/` 直下の `*.sh`、`*.py`、`*.ps1` (署名を計算する `resolve_app_deps.sh` 自体を含む)
+
+範囲は `bin_internal/list_signature_inputs.sh` だけで定義し、テスト対象ディレクトリ単位の再テストの判定 ([再テストのスキップ](../../testfw/docs/how-to-test.md#再テストのスキップ)) と共有します。  
+ディレクトリと拡張子で範囲を決めるのは、スクリプトの追加で一覧の更新が漏れ、古い成果物を残さないためです。  
+`bin/` の開発環境の補助スクリプトと、`bin_internal/` のサブディレクトリは含めません。
 
 testfw のライブラリとスクリプトは、テストのビルドと結果の生成の入力です。  
 `make` を実行した app が `test/` を持つ場合は、`make` と `make test` の両方の署名に、`framework/testfw` の次の入力を含めます。  

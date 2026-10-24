@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ビルド署名に testfw の入力が含まれることを、空白を含む一時ワークスペースで確認する。"""
+"""ビルド署名に makefw と testfw の入力が含まれることを、空白を含む一時ワークスペースで確認する。"""
 
 import os
 from pathlib import Path
@@ -29,7 +29,8 @@ class BuildSignatureTest(unittest.TestCase):
         temp = tempfile.TemporaryDirectory(prefix="makefw signature ")
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name).resolve() / "workspace space"
-        shutil.copytree(MAKEFW / "bin_internal", self.root / "framework/makefw/bin_internal")
+        for directory in ("makefiles", "bin_internal"):
+            shutil.copytree(MAKEFW / directory, self.root / "framework/makefw" / directory)
         self.write(".workspaceRoot", "")
         self.write("app/tested/makefile", "")
         self.write("app/tested/prod/libsrc/tested.c", "int tested(void) { return 1; }\n")
@@ -70,6 +71,35 @@ class BuildSignatureTest(unittest.TestCase):
         signature = next(line for line in lines if line.startswith("BUILD_SIGNATURE="))
         entries = [line.split("\t")[0] for line in lines if "\t" in line]
         return signature, entries
+
+    def test_makefw_inputs_change_all_signatures(self):
+        for app in ("tested", "untested"):
+            for mode in ("build", "test"):
+                with self.subTest(app=app, mode=mode):
+                    _, entries = self.signature(app, mode)
+                    self.assertIn("framework/makefw/makefiles/__template.mk", entries)
+                    self.assertIn("framework/makefw/makefiles/utf8_manifest.manifest", entries)
+                    self.assertIn("framework/makefw/bin_internal/resolve_app_deps.sh", entries)
+                    self.assertIn("framework/makefw/bin_internal/msvc_compile.ps1", entries)
+
+        for path in ("framework/makefw/makefiles/_flags.mk", "framework/makefw/bin_internal/normalize_paths.sh",
+                     "framework/makefw/bin_internal/msvc_compile.ps1"):
+            for app in ("tested", "untested"):
+                with self.subTest(path=path, app=app):
+                    before, _ = self.signature(app, "build")
+                    with open(self.root / path, "a", encoding="utf-8", newline="\n") as handle:
+                        handle.write("# changed\n")
+                    after, _ = self.signature(app, "build")
+                    self.assertNotEqual(before, after)
+
+    def test_makefw_subdirectories_and_other_files_do_not_change_signature(self):
+        before, _ = self.signature("untested", "build")
+        self.write("framework/makefw/bin_internal/__pycache__/helper.cpython-311.pyc", "cache\n")
+        self.write("framework/makefw/bin_internal/notes.txt", "notes\n")
+        self.write("framework/makefw/bin/sync.sh", "echo sync\n")
+        after, entries = self.signature("untested", "build")
+        self.assertEqual(before, after)
+        self.assertNotIn("framework/makefw/bin_internal/notes.txt", entries)
 
     def test_testfw_inputs_change_both_signatures(self):
         self.write_testfw()

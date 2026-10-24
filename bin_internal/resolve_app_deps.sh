@@ -558,6 +558,7 @@ emit_signature() {
         collect_signature_files "$app" "$mode" "$root_app" "$assured"
     done < <(collect_app_closure "$root_app")
 
+    collect_makefw_signature_files
     if [[ -d "$APP_ROOT_DIR/$root_app/test" ]]; then
         collect_testfw_signature_files
     fi
@@ -887,6 +888,26 @@ collect_signature_files() {
                 done
         )
     fi
+}
+
+# すべての app の署名へ makefw の入力を加える。build と test の両方の署名に加える。
+# makefw のテンプレートとスクリプトは、テストの有無にかかわらずすべての app のビルドの入力であり、
+# コンパイル オプションやリンクの規則を変えた後も、ソースに変更のない app のビルドを省略しないため。
+# 範囲は list_signature_inputs.sh で定義し、テスト ディレクトリ単位の判定と共有する。
+# makefiles/ の .manifest や bin_internal/ の .ps1 はソースの拡張子の絞り込みの対象外のため、
+# 絞り込みを通さずに加える。スクリプトがない構成では、makefw の入力を加えない。
+collect_makefw_signature_files() {
+    local list_script="$WORKSPACE_DIR/framework/makefw/bin_internal/list_signature_inputs.sh"
+    local path
+
+    if [[ ! -f "$list_script" ]]; then
+        return 0
+    fi
+
+    while IFS= read -r path; do
+        [[ -z "$path" ]] && continue
+        add_signature_file_direct "$path"
+    done < <(bash "$list_script")
 }
 
 # テストを持つ app の署名へ testfw の入力を加える。build と test の両方の署名に加える。

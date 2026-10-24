@@ -11,6 +11,11 @@ import tempfile
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
+# Windows の subprocess は System32 を PATH より先に探すため、名前だけで起動すると
+# WSL の bash.exe を選ぶことがある。PATH 上の bash (Git Bash など) を明示して使う。
+# see: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw
+BASH = shutil.which("bash") or "bash"
+
 MAKEFW = Path(__file__).resolve().parents[1]
 
 
@@ -29,6 +34,8 @@ def run(args, cwd, env, success=True):
 
 def check_template(root):
     app = root / "app" / "sample"
+    # テンプレートが読み込む make ファイルを個別に挙げず、追加にも追随させる。
+    shutil.copytree(MAKEFW / "makefiles", root / "framework" / "makefw" / "makefiles")
     shutil.copyfile(MAKEFW / "makefiles" / "__each_app_template.mk", app / "makefile")
     write(root / "framework" / "makefw" / "bin_internal" / "resolve_app_deps.sh", '''#!/bin/bash
 case "$1" in
@@ -107,7 +114,7 @@ def check_resolver(root):
     env = os.environ.copy()
     app = root / "app" / "sample"
     for test in (False, True):
-        output = run(["bash", str(resolver), "--paths-all", str(app),
+        output = run([BASH, str(resolver), "--paths-all", str(app),
                       *(["test"] if test else [])], root, env)
         kinds = [line.split(":", 1)[0] for line in output.splitlines()]
         assert kinds == ["INCLUDE", "SYSTEM_INCLUDE", "INTERNAL", "LIB", "LIB"] + (
@@ -116,7 +123,7 @@ def check_resolver(root):
                              ("TESTINC", "test_include"), ("TESTLIB", "test_lib")):
             if not test and kind.startswith("TEST"):
                 continue
-            individual = run(["bash", str(resolver), "--paths", str(app), suffix], root, env)
+            individual = run([BASH, str(resolver), "--paths", str(app), suffix], root, env)
             combined = [line.split(":", 1)[1] for line in output.splitlines()
                         if line.startswith(kind + ":") or
                         (kind == "INCLUDE" and line.startswith("SYSTEM_INCLUDE:"))]
@@ -128,18 +135,18 @@ def check_resolver(root):
 export -f cygpath
 exec bash "$@"
 '''
-        run(["bash", "-c", wrapper, "selftest", str(resolver), "--paths-all",
+        run([BASH, "-c", wrapper, "selftest", str(resolver), "--paths-all",
              str(app), "test"], root, env)
         assert (root / "cygpath.log").read_text().splitlines() == ["call"]
         for conversion in ("return 9", "printf 'one-path\\n'"):
             wrapper = f'cygpath() {{ {conversion}; }}; export -f cygpath; exec bash "$@"'
-            run(["bash", "-c", wrapper, "selftest", str(resolver), "--paths-all",
+            run([BASH, "-c", wrapper, "selftest", str(resolver), "--paths-all",
                  str(app), "test"], root, env, success=False)
         print("PASS: cygpath の起動 1 回、変換失敗、出力件数の不一致")
     write(root / "app" / "vendor" / "appdeps.mk", "APP_PROD_INCLUDE_CLASS := invalid\n")
-    run(["bash", str(resolver), "--paths-all", str(app)], root, env, success=False)
+    run([BASH, str(resolver), "--paths-all", str(app)], root, env, success=False)
     write(root / "app" / "sample" / "appdeps.mk", "APP_DEPS := missing\n")
-    run(["bash", str(resolver), "--paths-all", str(app)], root, env, success=False)
+    run([BASH, str(resolver), "--paths-all", str(app)], root, env, success=False)
     print("PASS: 一括出力と個別出力の一致、system include、test の有無、無効な種別")
 
 
