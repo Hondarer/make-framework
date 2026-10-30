@@ -172,6 +172,15 @@ ifdef PLATFORM_LINUX
     else
       $(error CONFIG は Debug, Release, RelWithDebInfo のいずれか)
     endif
+
+    # test/libsrc のモックは、多数の ON_CALL を並べたコンストラクターのように巨大な関数を持つ。
+    # GCC は変数追跡の上限を超えた関数を追跡なしでコンパイルし直し、そのたびに備考を出力するため、
+    # 最初から追跡しない。モック内部の変数表示を失う代わりに、コンパイル時間と成果物も小さくなる。
+    # see: https://gcc.gnu.org/onlinedocs/gcc/Debugging-Options.html#index-fvar-tracking-assignments
+    ifneq (,$(findstring /test/libsrc/,$(CURDIR)/))
+      CFLAGS   += -fno-var-tracking-assignments
+      CXXFLAGS += -fno-var-tracking-assignments
+    endif
 else ifdef PLATFORM_WINDOWS
     # 共通フラグ
     # /FS は共有 PDB への同時書き込みをコンパイラ側で直列化し、静的ライブラリの並列ビルドで C1041 を防ぐ
@@ -215,6 +224,15 @@ else ifdef PLATFORM_WINDOWS
       LDFLAGS  += /DEBUG /INCREMENTAL:NO
     else
       $(error CONFIG は Debug, Release, RelWithDebInfo のいずれか)
+    endif
+
+    # test/libsrc のモックは、多数の ON_CALL を並べたコンストラクターのように巨大な関数を持つ。
+    # gmock のテンプレート展開でオブジェクトのセクション数が COFF の上限 (65535) を超え、
+    # C1128 で停止するため、上限を約 4G に引き上げる。生成されるコードとデバッグ情報は変わらない。
+    # see: https://learn.microsoft.com/cpp/build/reference/bigobj-increase-number-of-sections-in-dot-obj-file
+    ifneq (,$(findstring /test/libsrc/,$(CURDIR)/))
+      CFLAGS   += /bigobj
+      CXXFLAGS += /bigobj
     endif
 endif
 
