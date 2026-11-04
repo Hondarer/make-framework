@@ -45,3 +45,7 @@ C/C++ と .NET のビルドを支える Make テンプレート、補助スク�
   sys.stdout.reconfigure(encoding="utf-8")
   sys.stderr.reconfigure(encoding="utf-8")
   ```
+
+- 同じディレクトリのモジュールを import する Python は、import より前に `sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))` を置いてください。  
+  埋め込み版 Python (`._pth`) はスクリプトのディレクトリを `sys.path` に入れず、`ModuleNotFoundError` になるためです。  
+  c-modernization-kit では `app/general/bin/check-python-import-path.py` と `PYTHONSAFEPATH=1` での実行で検証します。
