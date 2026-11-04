@@ -20,10 +20,13 @@ param(
     [string]$Sources = "",
     [string]$ExtraFlags = "",
     [string]$WorkspaceDir = "",
-    [switch]$DryRun
+    [switch]$DryRun,
+    [switch]$DisablePch,
+    [string]$PchDependencyFile = ""
 )
 
 . "$PSScriptRoot/_msvc_utils.ps1"
+. "$PSScriptRoot/_msvc_pch.ps1"
 
 # cl.exe の出力は現在のコンソール出力コード ページでデコードする。
 $consoleOutputEncoding = Get-ConsoleOutputEncoding
@@ -33,7 +36,7 @@ $utf8NoBom = Get-Utf8NoBomEncoding
 if ([string]::IsNullOrWhiteSpace($Sources)) {
     exit 0
 }
-if (Test-Path -LiteralPath $Sources -PathType Leaf) {
+if ($Sources -notmatch '"' -and (Test-Path -LiteralPath $Sources -PathType Leaf)) {
     $sourceList = @($Sources)
 }
 else {
@@ -47,6 +50,51 @@ if ($sourceList.Count -eq 0) {
 # ObjDir が存在しなければ作成
 if (-not (Test-Path $ObjDir)) {
     New-Item -ItemType Directory -Path $ObjDir -Force | Out-Null
+}
+
+# app/framework、prod/test を区別せず、同じ設定と include 接頭辞の群で PCH を作る。
+# 作成元も実際のソースとしてコンパイルし、その .obj を従来どおりリンクする。
+# /Yu は指定ヘッダーまでの前処理を置き換えるため、接頭辞が一致する群だけに使う。
+# see: https://learn.microsoft.com/en-us/cpp/build/reference/yu-use-precompiled-header-file
+if (-not $DisablePch -and -not $DryRun -and $env:MAKEFW_MSVC_PCH -ne '0' -and
+    "$Flags $ExtraFlags" -notmatch '(?i)(?:^|\s)[/-](?:Y|Z7)') {
+    $groups = @(Get-MsvcPchGroups $sourceList)
+    $plainSources = @()
+    $parallelism = 1
+    if ($Flags -match '(?i)/MP(\d+)') { $parallelism = [int]$Matches[1] }
+    foreach ($group in $groups) {
+        $common = @{ Compiler = $Compiler; Flags = $Flags; ObjDir = $ObjDir
+                     ExtraFlags = $ExtraFlags; WorkspaceDir = $WorkspaceDir; DisablePch = $true }
+        if ($group.Sources.Count -lt (2 * $parallelism) -or $group.Prefix.Count -eq 0) {
+            $plainSources += $group.Sources
+            continue
+        }
+        $identity = "$Compiler|$Flags|$ExtraFlags|$($group.Sources[0])|$($group.Prefix -join '|')"
+        $sha = [Security.Cryptography.SHA256]::Create()
+        try { $hash = [BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($identity))).Replace('-', '').Substring(0, 16) }
+        finally { $sha.Dispose() }
+        $pch = (Join-Path (Resolve-Path $ObjDir).Path "auto_$hash.pch").Replace('\', '/')
+        $header = $group.Prefix[-1].Substring(1, $group.Prefix[-1].Length - 2)
+        $common.Flags = [regex]::Replace($Flags, '(?i)(?:^|\s)/MP\d*\b', ' ')
+        # 作成元だけを通常コンパイルし直しても、利用側に未解決の PCH 参照を残さない。
+        # /Z7 はデバッグ情報を作成元 .obj に置くため、自動 PCH の対象から除く。
+        # see: https://learn.microsoft.com/en-us/cpp/build/reference/yl-inject-pch-reference-for-debug-library
+        $common.ExtraFlags = "$ExtraFlags /Yl- /Yc`"$header`" /Fp`"$pch`""
+        Invoke-MsvcPchMake -Pch $pch -Source $group.Sources[0] -CompileParameters $common -CompileScript $PSCommandPath
+        $common.Flags = $Flags
+        $common.ExtraFlags = "$ExtraFlags /Yl- /Yu`"$header`" /Fp`"$pch`""
+        $dependency = Join-Path $ObjDir ([IO.Path]::GetFileName($group.Sources[0]) + '.json')
+        $remaining = ($group.Sources | Select-Object -Skip 1 | ForEach-Object { '"{0}"' -f $_ }) -join ' '
+        & $PSCommandPath @common -Sources $remaining -PchDependencyFile $dependency
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    }
+    if ($plainSources.Count) {
+        & $PSCommandPath -Compiler $Compiler -Flags $Flags -ObjDir $ObjDir -ExtraFlags $ExtraFlags `
+            -WorkspaceDir $WorkspaceDir -DisablePch `
+            -Sources (($plainSources | ForEach-Object { '"{0}"' -f $_ }) -join ' ')
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    }
+    exit 0
 }
 
 # 引用符直前のバックスラッシュによるエスケープを避け、末尾の / でディレクトリを指定する。
@@ -193,7 +241,15 @@ foreach ($src in $sourceList) {
     if (Test-Path $jsonPath) {
         try {
             $json = Get-Content $jsonPath -Raw -Encoding UTF8 | ConvertFrom-Json
-            $rawIncludes = $json.Data.Includes
+            $rawIncludes = @($json.Data.Includes)
+            if ($PchDependencyFile -ne '') {
+                $pchJson = Get-Content -LiteralPath $PchDependencyFile -Raw -Encoding UTF8 | ConvertFrom-Json
+                $rawIncludes += @($pchJson.Data.Includes)
+                $rawIncludes = @($rawIncludes | Sort-Object -Unique)
+            }
+            if ("$Flags $ExtraFlags" -match '/Fp"([^"]+)"') {
+                $rawIncludes += $Matches[1]
+            }
             foreach ($inc in $rawIncludes) {
                 # 配置先との比較は実パスで行い、その後で make 用に空白を保護する。
                 $normalized = $inc.Replace('\', '/')

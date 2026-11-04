@@ -42,7 +42,7 @@ for src in $SRCS; do
         for h in "${tokens[@]}"; do
             [[ "$h" == *: ]] && continue
             [[ "${h,,}" == "$ws_lower"* ]] || continue
-            if [[ "$h" -nt "$obj" ]]; then
+            if [[ "$h" -nt "$obj" || ( "$h" == *.pch && ! -f "$h" ) ]]; then
                 dirty=1
                 break 2
             fi
