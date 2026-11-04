@@ -643,6 +643,10 @@ for dir in "$@"; do
     if [ "$leaf" = "1" ]; then
         dirs+=("$dir")
         leaves+=(1)
+    elif [ "$target" = "_test_run" ]; then
+        # グループも同じスケジューラーで実行する。スロットは末端だけが取得する。
+        dirs+=("$dir")
+        leaves+=(0)
     else
         nested_dirs+=("$dir")
     fi
