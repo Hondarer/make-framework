@@ -95,6 +95,7 @@ define _run_msvc_compile_body
 			if [ -n "$$chunk" ]; then \
 				$(MAKEFW_POWERSHELL_COMMAND) -File "$(MSVC_COMPILE_SCRIPT)" \
 					-Compiler "$(1)" -Flags "$(2)" -ObjDir "$(3)" \
+					-PchRoot "$(if $(MAKEFW_ARTIFACT_ROOT),$(MAKEFW_ARTIFACT_ROOT),$(CURDIR))" \
 					-Sources "$$chunk" -WorkspaceDir "$(WORKSPACE_DIR)" $(5) || return $$?; \
 				chunk=""; chunk_sources=0; \
 			fi; \

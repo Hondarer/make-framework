@@ -22,7 +22,9 @@ param(
     [string]$WorkspaceDir = "",
     [switch]$DryRun,
     [switch]$DisablePch,
-    [string]$PchDependencyFile = ""
+    [string]$PchDependencyFile = "",
+    [string]$PchRoot = "",
+    [switch]$PchCreation
 )
 
 . "$PSScriptRoot/_msvc_utils.ps1"
@@ -57,34 +59,56 @@ if (-not (Test-Path $ObjDir)) {
 # /Yu は指定ヘッダーまでの前処理を置き換えるため、接頭辞が一致する群だけに使う。
 # see: https://learn.microsoft.com/en-us/cpp/build/reference/yu-use-precompiled-header-file
 if (-not $DisablePch -and -not $DryRun -and $env:MAKEFW_MSVC_PCH -ne '0' -and
-    "$Flags $ExtraFlags" -notmatch '(?i)(?:^|\s)[/-](?:Y|Z7)') {
+    "$Flags $ExtraFlags $env:CL $env:_CL_" -notmatch '(?i)(?:^|\s)[/-](?:Y|Z7)') {
     $groups = @(Get-MsvcPchGroups $sourceList)
     $plainSources = @()
+    $canonicalFlags = ConvertTo-MsvcPchFlags $Flags
+    $pchFlags = [regex]::Replace($canonicalFlags, '(?i)(?:^|\s)/MP\d*\b', ' ')
+    $sharedObjDir = $ObjDir
+    if ($PchRoot -ne '') { $sharedObjDir = [IO.Path]::Combine($PchRoot, $ObjDir) }
+    $sharedObjDir = [IO.Path]::GetFullPath([IO.Path]::Combine((Get-Location).Path, $sharedObjDir))
+    [IO.Directory]::CreateDirectory($sharedObjDir) | Out-Null
     $parallelism = 1
     if ($Flags -match '(?i)/MP(\d+)') { $parallelism = [int]$Matches[1] }
     foreach ($group in $groups) {
         $common = @{ Compiler = $Compiler; Flags = $Flags; ObjDir = $ObjDir
                      ExtraFlags = $ExtraFlags; WorkspaceDir = $WorkspaceDir; DisablePch = $true }
-        if ($group.Sources.Count -lt (2 * $parallelism) -or $group.Prefix.Count -eq 0) {
+        if ($group.Prefix.Count -eq 0) {
             $plainSources += $group.Sources
             continue
         }
-        $identity = "$Compiler|$Flags|$ExtraFlags|$($group.Sources[0])|$($group.Prefix -join '|')"
+        $context = ''
+        if (@($group.Prefix | Where-Object { $_.StartsWith('"') }).Count) {
+            $context = Split-Path (Resolve-Path -LiteralPath $group.Sources[0]).Path
+        }
+        if ("$Flags $ExtraFlags $env:CL $env:_CL_" -match '(?i)(?:^|\s)[/-]FI') {
+            $context += '|' + (Split-Path (Resolve-Path -LiteralPath $group.Sources[0]).Path) + '|' + (Get-Location).Path
+        }
+        $compilerPath = (Get-Command $Compiler -ErrorAction Stop).Source
+        $identity = "$compilerPath|$([IO.File]::GetLastWriteTimeUtc($compilerPath).Ticks)|$($group.Language)|$pchFlags|$ExtraFlags|$context|$($group.Prefix -join '|')|$env:CL|$env:_CL_|$env:INCLUDE"
         $sha = [Security.Cryptography.SHA256]::Create()
         try { $hash = [BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($identity))).Replace('-', '').Substring(0, 16) }
         finally { $sha.Dispose() }
-        $pch = (Join-Path (Resolve-Path $ObjDir).Path "auto_$hash.pch").Replace('\', '/')
+        $pch = (Join-Path $sharedObjDir "auto_$hash.pch").Replace('\', '/')
+        if (Test-Path -LiteralPath "$pch.disabled") { $plainSources += $group.Sources; continue }
+        if ($group.Sources.Count -lt (2 * $parallelism) -and -not (Test-Path -LiteralPath $pch)) {
+            $plainSources += $group.Sources
+            continue
+        }
         $header = $group.Prefix[-1].Substring(1, $group.Prefix[-1].Length - 2)
-        $common.Flags = [regex]::Replace($Flags, '(?i)(?:^|\s)/MP\d*\b', ' ')
+        $common.Flags = $pchFlags
         # 作成元だけを通常コンパイルし直しても、利用側に未解決の PCH 参照を残さない。
         # /Z7 はデバッグ情報を作成元 .obj に置くため、自動 PCH の対象から除く。
         # see: https://learn.microsoft.com/en-us/cpp/build/reference/yl-inject-pch-reference-for-debug-library
         $common.ExtraFlags = "$ExtraFlags /Yl- /Yc`"$header`" /Fp`"$pch`""
-        Invoke-MsvcPchMake -Pch $pch -Source $group.Sources[0] -CompileParameters $common -CompileScript $PSCommandPath
-        $common.Flags = $Flags
+        $dependency = ''
+        Invoke-MsvcPchMake -Pch $pch -Source $group.Sources[0] -CompileParameters $common -CompileScript $PSCommandPath `
+            -Prefix $group.Prefix -DependencyPath ([ref]$dependency)
+        if (Test-Path -LiteralPath "$pch.disabled") { $plainSources += $group.Sources; continue }
+        $header = (Get-Content -LiteralPath $dependency -Raw -Encoding UTF8 | ConvertFrom-Json).MakefwPchHeader
+        $common.Flags = $canonicalFlags
         $common.ExtraFlags = "$ExtraFlags /Yl- /Yu`"$header`" /Fp`"$pch`""
-        $dependency = Join-Path $ObjDir ([IO.Path]::GetFileName($group.Sources[0]) + '.json')
-        $remaining = ($group.Sources | Select-Object -Skip 1 | ForEach-Object { '"{0}"' -f $_ }) -join ' '
+        $remaining = ($group.Sources | ForEach-Object { '"{0}"' -f $_ }) -join ' '
         & $PSCommandPath @common -Sources $remaining -PchDependencyFile $dependency
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
@@ -146,6 +170,11 @@ $run = Invoke-MsvcCompilerWithHeapRetry -SourceList $sourceList -CompileOnce {
 }
 $compileExitCode = $run.ExitCode
 $output = $run.Output
+if ($PchCreation -and $compileExitCode -ne 0 -and $output -match '\berror C2857:') {
+    # 先行ヘッダー経由で読み込み済みの境界は、手前の直接 include へ戻して再試行する。
+    Remove-Item -LiteralPath $rspFile -Force -ErrorAction SilentlyContinue
+    exit 87
+}
 
 # ソースファイルごとに警告を収集
 # /sourceDependencies 使用時は "Note: including file:" 行が出ないため、
