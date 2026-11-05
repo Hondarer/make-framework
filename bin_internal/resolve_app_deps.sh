@@ -24,7 +24,7 @@ Usage:
   resolve_app_deps.sh --paths <app-dir> <include|include_internal|lib|test_include|test_lib>
   resolve_app_deps.sh --paths-all <app-dir> [test]
   resolve_app_deps.sh --signature <app-dir> [build|test]
-  resolve_app_deps.sh --assured <app-dir>
+  resolve_app_deps.sh --assured <app-dir|framework-dir>
   resolve_app_deps.sh --assured-selftest
   resolve_app_deps.sh --app-order
   resolve_app_deps.sh --coverity-apps
@@ -410,7 +410,8 @@ emit_paths_all() {
     return 0
 }
 
-# app/<name>.assured.stamp の省略が有効なら 1、無効なら 0 を stdout へ出す。
+# <親>/<name>.assured.stamp の省略が有効なら 1、無効なら 0 を stdout へ出す。
+# 対象は app/<name> と framework/<name> のように、ワークスペース配下のサブモジュールとする。
 # スタンプが無いときは 0 で、警告しない。
 # 有効条件は、対象がワークスペースのサブモジュールであり、スタンプの
 # 16 進ハッシュが HEAD と一致し、作業ツリーに追加・削除・変更が無いこと。
@@ -437,7 +438,18 @@ query_assured_active() {
         return 0
     fi
 
-    rel="app/${name}"
+    # サブモジュールの判定には、ワークスペースからの相対パスを使う。
+    # app/ 以外 (framework/ など) の配置でも同じ条件で判定する。
+    case "$app_dir" in
+        "$WORKSPACE_DIR"/*)
+            rel=${app_dir#"$WORKSPACE_DIR"/}
+            ;;
+        *)
+            echo "Warning: ${app_dir} is outside the workspace. Ignoring ${name}.assured.stamp." >&2
+            printf '0\n'
+            return 0
+            ;;
+    esac
     if ! stage=$(git -C "$WORKSPACE_DIR" ls-files --stage -- ":(literal)${rel}"); then
         echo "Warning: failed to inspect the git index for ${rel}. Ignoring ${name}.assured.stamp." >&2
         printf '0\n'
@@ -1062,7 +1074,7 @@ _assured_selftest_expect() {
 
 # 一時的な gitlink と通常ディレクトリで、省略条件と署名からの test/src 除外を確認する。
 run_assured_selftest() {
-    local tmp ws sample hash stamp sig errfile
+    local tmp ws sample hash fw_hash stamp sig errfile
     local saved_ws saved_app
 
     tmp=$(mktemp -d)
@@ -1199,6 +1211,24 @@ run_assured_selftest() {
         ASSURED_SELFTEST_FAIL=1
     fi
     rm -f "$errfile"
+
+    # framework/ 配下のサブモジュールも同じ条件で判定する。
+    mkdir -p "$ws/framework"
+    git init -q -b main "$ws/framework/fw"
+    printf 'x\n' > "$ws/framework/fw/x.txt"
+    git -C "$ws/framework/fw" add x.txt
+    _assured_selftest_commit "$ws/framework/fw" init
+    fw_hash=$(git -C "$ws/framework/fw" rev-parse HEAD)
+    git -C "$ws" update-index --add --cacheinfo "160000,${fw_hash},framework/fw"
+    _assured_selftest_expect 0 "$ws/framework/fw" "framework without stamp"
+    printf '%s\n' "$fw_hash" > "$ws/framework/fw.assured.stamp"
+    _assured_selftest_expect 1 "$ws/framework/fw" "framework submodule with matching stamp"
+    printf 'y\n' > "$ws/framework/fw/y.txt"
+    _assured_selftest_expect 0 "$ws/framework/fw" "framework submodule with untracked addition"
+    rm -f "$ws/framework/fw/y.txt"
+    mkdir -p "$ws/framework/plainfw"
+    printf '%s\n' "$fw_hash" > "$ws/framework/plainfw.assured.stamp"
+    _assured_selftest_expect 0 "$ws/framework/plainfw" "framework plain directory" "framework/plainfw is not a submodule"
 
     printf '%s\n' "$hash" > "$ws/app/plain.assured.stamp"
     _assured_selftest_expect 0 "$ws/app/plain" "plain directory" "is not a submodule"

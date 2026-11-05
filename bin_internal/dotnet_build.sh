@@ -48,10 +48,15 @@ buf=$("$DOTNET_CMD" build "$@" 2>&1)
 rc=$?
 
 # 警告行を WARN_FILE に書き出す (警告がなければファイルを作成しない)
-# Write warning lines to WARN_FILE (do not create file when no warnings)
+# ビルドが失敗すると出力先ディレクトリ (bin/ など) が作られないため、書き出す前に作成する。
+# Write warning lines to WARN_FILE (do not create file when no warnings).
+# Create the parent directory first because a failed build may not create it.
 if [ -n "$WARN_FILE" ]; then
-    echo "$buf" | grep -E ': warning ' > "$WARN_FILE" 2>/dev/null || true
-    if [ ! -s "$WARN_FILE" ]; then
+    warnings=$(echo "$buf" | grep -E ': warning ' || true)
+    if [ -n "$warnings" ]; then
+        mkdir -p "$(dirname -- "$WARN_FILE")"
+        printf '%s\n' "$warnings" > "$WARN_FILE"
+    else
         rm -f "$WARN_FILE"
     fi
 fi

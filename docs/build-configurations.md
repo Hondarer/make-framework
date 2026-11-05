@@ -160,29 +160,35 @@ testfw がワークスペースの外にある場合や、存在しない場合�
 ## assured.stamp による保証済み app の扱い
 
 `app/<name>.assured.stamp` は、サブモジュールの app が記録したコミットのままであることを示すスタンプです。  
-ルートからのビルド確認にその app を含めたまま、`test/src` のコンパイルとテスト実行、および成功済みビルドの `clean` を省きます。
+ルートからのビルド確認にその app を含めたまま、`test/src` のコンパイルとテスト実行、および成功済みビルドの `clean` を省きます。  
+同じスタンプを `framework/<name>.assured.stamp` に置くと、サブモジュールのフレームワークのテストも省略できます (後述の [framework の省略](#framework-の省略))。
 
-ファイルは `app/` 直下に置きます。app ディレクトリの中には置きません。  
-名前は `<name>.assured.stamp` です。`app/cplat` なら `app/cplat.assured.stamp` です。
+ファイルはサブモジュールの親ディレクトリ (`app/` または `framework/`) の直下に置きます。サブモジュールのディレクトリの中には置きません。  
+名前は `<name>.assured.stamp` です。`app/cplat` なら `app/cplat.assured.stamp`、`framework/testfw` なら `framework/testfw.assured.stamp` です。
 
-中身は、その app のコミット ハッシュ 1 個です。make はこのファイルを作りません。  
+中身は、そのサブモジュールのコミット ハッシュ 1 個です。make はこのファイルを作りません。  
 次のコマンドで、現在の HEAD を書き込めます。
 
 ```bash
 git -C app/cplat rev-parse HEAD > app/cplat.assured.stamp
 ```
 
-ワークスペースの `.gitignore` は `*.assured.stamp` を無視します。コミット対象にしません。
+フレームワークを利用するプロジェクトでは、上流で検証済みのコミットを書いたスタンプをコミットし、サブモジュールの参照と一緒に管理します。  
+CI は clone したスタンプをそのまま使います。CI の中で HEAD を書き込むと、どのコミットでも一致し、保証の意味がなくなります。  
+サブモジュールの参照を更新したときは、検証済みであることを確かめてからスタンプも更新します。参照だけを進めると、ハッシュが一致せず、テストを通常どおり実行します。
+
+c-modernization-kit 自身はフレームワークと app を開発する場であり、常にテストを実行するため、`.gitignore` で `*.assured.stamp` を無視しています。  
+このワークスペースでは、スタンプは手元での確認を速める目的に限って使います。
 
 省略が有効になるのは、次をすべて満たすときだけです。
 
-- 対象 app がワークスペースのサブモジュールである
+- 対象がワークスペースのサブモジュールである
 - スタンプのハッシュが、そのサブモジュールの HEAD と一致する
 - 作業ツリーに追加、削除、変更がない (未追跡の追加、インデックスへ載せた追加、追跡ファイルの変更と削除を含む。`.gitignore` されたビルド成果物は含めない)
 
 1 つでも欠けるときは省略せず、通常の `make` / `make test` / `make clean` を行います。  
 ハッシュ不一致や差分があるだけのときは警告しません。  
-対象 app がサブモジュールではないときにスタンプがあると、警告を出して省略しません。
+対象がサブモジュールではないときにスタンプがあると、警告を出して省略しません。
 
 ```text
 Warning: app/calc is not a submodule. Ignoring calc.assured.stamp.
@@ -227,6 +233,20 @@ I/O エラーやコマンド失敗で終了コードが 0 以外になったと�
 手順は [clean の扱い](coverity-with-cov.md#clean-の扱い) を参照してください。
 
 構成切り替えのように、本来 `make clean` が必要な操作で app 直下の `clean` が省略されるときは、スタンプを削除してから `make clean` するか、`prod/` や `test/` 直下で `make clean` します。
+
+### framework の省略
+
+`framework/<name>.assured.stamp` の判定は、app と同じ `bin_internal/resolve_app_deps.sh --assured` で行います。  
+省略が有効なときの動作は、フレームワークごとに次のとおりです。
+
+- `framework/testfw`: testfw 直下の `make test` は、`libsrc/` のライブラリを通常どおりビルドし、`test/` と `bin_test/` のテストを実行しません。ルートの `make test` もこの経路を通ります。
+- すべてのフレームワーク: c-modernization-kit の `make bin-test` は、そのフレームワークの `bin_test/` を実行せず、保証済みとして結果に表示します。
+
+```text
+INFO: Skipping test and bin_test (testfw.assured.stamp matches the commit and the tree is clean)
+```
+
+app 用ライブラリのビルドは省略しないため、利用者の app は、保証済みのフレームワークのライブラリとリンクしてテストできます。
 
 ## Windows のランタイム指定
 
