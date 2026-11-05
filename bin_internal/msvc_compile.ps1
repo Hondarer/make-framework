@@ -170,8 +170,8 @@ $run = Invoke-MsvcCompilerWithHeapRetry -SourceList $sourceList -CompileOnce {
 }
 $compileExitCode = $run.ExitCode
 $output = $run.Output
-if ($PchCreation -and $compileExitCode -ne 0 -and $output -match '\berror C2857:') {
-    # 先行ヘッダー経由で読み込み済みの境界は、手前の直接 include へ戻して再試行する。
+if ($PchCreation -and $compileExitCode -ne 0 -and $output -match '\berror C285[67]:') {
+    # 読み込み済み、または条件分岐内で検出された境界は、手前の直接 include へ戻す。
     Remove-Item -LiteralPath $rspFile -Force -ErrorAction SilentlyContinue
     exit 87
 }

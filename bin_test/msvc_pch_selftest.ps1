@@ -164,6 +164,13 @@ try {
     if ($LASTEXITCODE) { throw 'transitively included boundary broke C compilation' }
     $guardMetadata = Get-ChildItem obj/guards -Filter '*.pch.deps.json' | Get-Content -Raw -Encoding UTF8 | ConvertFrom-Json
     if ($guardMetadata.MakefwPchHeader -ne 'wrapper.h') { throw 'redundant boundary did not fall back to the direct header' }
+    foreach ($name in 'conditional_first', 'conditional_second') {
+        [IO.File]::WriteAllText("$root/$name.cc", "#include <wrapper.h>`n#include <common.h>`n#if defined(_WIN32)`n#include <common.h>`n#endif`nint $name() { return sizeof(Common); }`n", $utf8)
+    }
+    & $script -Flags $flags -ObjDir 'obj/conditional' -Sources 'conditional_first.cc conditional_second.cc' -WorkspaceDir $root
+    if ($LASTEXITCODE) { throw 'transitive conditional include broke PCH boundary selection' }
+    $conditionalMetadata = Get-ChildItem obj/conditional -Filter '*.pch.deps.json' | Get-Content -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($conditionalMetadata.MakefwPchHeader -ne 'wrapper.h') { throw 'conditional boundary did not fall back to the direct header' }
     & $script -Flags ($flags + ' /FI"common.h"') -ObjDir 'obj/forced' -Sources 'first.cc second.cc' -WorkspaceDir $root
     if ($LASTEXITCODE) { throw 'forced include prevented compilation' }
     if (-not (Test-Path obj/forced/first.obj) -or -not (Test-Path obj/forced/second.obj)) { throw 'fallback objects missing' }
