@@ -1,11 +1,26 @@
 ﻿# ソース先頭の無条件 include だけを共有する。define や条件分岐を越えない。
 function Get-MsvcIncludePrefix {
     param([string]$Source)
-    $text = [IO.File]::ReadAllText((Resolve-Path -LiteralPath $Source).Path)
-    $text = [regex]::Replace($text, '(?s)/\*.*?\*/', '')
-    foreach ($line in $text -split '\r?\n') {
+    $inComment = $false
+    foreach ($line in [IO.File]::ReadAllLines((Resolve-Path -LiteralPath $Source).Path)) {
         $line = $line.Trim()
-        if ($line -eq '' -or $line.StartsWith('//')) { continue }
+        while ($true) {
+            if ($inComment) {
+                $end = $line.IndexOf('*/')
+                if ($end -lt 0) { $line = ''; break }
+                $line = $line.Substring($end + 2).TrimStart()
+                $inComment = $false
+            }
+            elseif ($line.StartsWith('/*')) {
+                $inComment = $true
+                $line = $line.Substring(2)
+            }
+            else { break }
+        }
+        if ($line -eq '') { continue }
+        # 行継続はコメントや directive の解釈を変えるため、自動共有を打ち切る。
+        if ($line.EndsWith('\')) { break }
+        if ($line.StartsWith('//')) { continue }
         if ($line -match '^#\s*include\s*([<"][^>"]+[>"])\s*(?://.*)?$') {
             $Matches[1]
         }

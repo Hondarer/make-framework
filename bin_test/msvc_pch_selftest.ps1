@@ -73,7 +73,12 @@ try {
     }
     & $script -Flags ($flags.Replace('/EHsc', '')) -ObjDir 'obj/c' -Sources 'cfirst.c csecond.c' -WorkspaceDir $root
     if ($LASTEXITCODE -or @(Get-ChildItem obj/c -Filter '*.pch').Count -ne 1) { throw 'C PCH compilation failed' }
-    Write-Output 'PASS: automatic PCH, macro boundary, objects, dependencies, configuration separation, header rebuild'
+    [IO.File]::WriteAllText("$root/distinct.h", "#define CREATOR_ONLY 1`n", $utf8)
+    [IO.File]::WriteAllText("$root/comment_first.cc", "// /* literal in a line comment`n#include <distinct.h>`n/* real comment */`n#include <common.h>`nint comment_first() { return CREATOR_ONLY; }`n", $utf8)
+    [IO.File]::WriteAllText("$root/comment_second.cc", "#include <common.h>`n#ifdef CREATOR_ONLY`n#error unrelated include prefix leaked`n#endif`nint comment_second() { return 0; }`n", $utf8)
+    & $script -Flags $flags -ObjDir 'obj/comments' -Sources 'comment_first.cc comment_second.cc' -WorkspaceDir $root
+    if ($LASTEXITCODE) { throw 'comment parsing shared unrelated include prefixes' }
+    Write-Output 'PASS: automatic PCH, macro boundary, objects, dependencies, configuration separation, header rebuild, comments'
 }
 finally {
     [Environment]::CurrentDirectory = $originalDirectory
