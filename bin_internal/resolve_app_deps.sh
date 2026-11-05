@@ -580,7 +580,7 @@ emit_signature() {
     # (xargs が引数長制限に応じて自動分割する)。
     # sha256sum 出力 "<64桁hash>  <abspath>" を "<rel>\t<hash>" 形式へ変換する。
     if [[ -s "$tmp_paths" ]]; then
-        xargs -0 sha256sum < "$tmp_paths" \
+        LC_ALL=C sort -zu "$tmp_paths" | xargs -0 sha256sum \
             | awk -v ws="$WORKSPACE_DIR/" '
                 {
                     hash = substr($0, 1, 64)

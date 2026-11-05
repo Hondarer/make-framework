@@ -72,6 +72,26 @@ class BuildSignatureTest(unittest.TestCase):
         entries = [line.split("\t")[0] for line in lines if "\t" in line]
         return signature, entries
 
+    def test_shared_input_is_hashed_once(self):
+        self.write("app/tested/appdeps.mk", "APP_DEPS := untested\n")
+        self.write("Directory.Build.props", "<Project />\n")
+        real_hash = shutil.which("sha256sum")
+        self.assertIsNotNone(real_hash)
+        wrapper = self.write("tools/sha256sum", "#!/bin/bash\n"
+                             'printf "%s\\n" "$@" >> "$HASH_CALLS"\n'
+                             'exec "$REAL_HASH" "$@"\n')
+        wrapper.chmod(0o755)
+        calls = self.root / "hash-calls"
+        self.env.update(PATH=str(wrapper.parent) + os.pathsep + self.env["PATH"],
+                        HASH_CALLS=str(calls), REAL_HASH=real_hash)
+        before, entries = self.signature("tested", "build")
+        hashed = calls.read_text(encoding="utf-8").splitlines()
+        self.assertEqual(1, sum(path.endswith("/Directory.Build.props") for path in hashed))
+        self.assertIn("Directory.Build.props", entries)
+        self.write("Directory.Build.props", "<Project><!-- changed --></Project>\n")
+        after, _ = self.signature("tested", "build")
+        self.assertNotEqual(before, after)
+
     def test_debug_compression_changes_build_and_test_signatures(self):
         for mode in ("build", "test"):
             with self.subTest(mode=mode):
