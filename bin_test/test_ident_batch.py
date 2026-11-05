@@ -63,6 +63,13 @@ result: obj/a.ident obj/b.ident
             outputs[1].unlink()
             build()
             self.assertTrue(outputs[1].is_file())
+            links_before_failure = (root / 'links').read_bytes()
+            wrapper.write_text('#!/bin/sh\nexit 9\n', encoding='utf-8')
+            (root / 'a.c').write_text('int a = 99;\n', encoding='utf-8')
+            failed = subprocess.run(['make', '-j4'], cwd=root, env=environment,
+                                    capture_output=True)
+            self.assertNotEqual(0, failed.returncode)
+            self.assertEqual(links_before_failure, (root / 'links').read_bytes())
 
 
 if __name__ == '__main__':
