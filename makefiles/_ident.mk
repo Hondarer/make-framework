@@ -38,21 +38,22 @@ endif
 
 else ifdef PLATFORM_WINDOWS
 
-# _msvc_compile が .d を生成するため、その完了後に .ident を生成
-# _msvc_compile generates .d files; build .ident after it completes
-# _msvc_compile は PHONY のため、変更が無くても毎回すべての .ident が生成対象になる。
-# .ident ごとに Python を起動すると 1 回あたり 100 [ms] 以上かかるため、1 回の起動でまとめて生成する。
-# 各 .ident は空レシピで待ち合わせる。make は空レシピの後も更新日時を読み直し、
-# 内容が変わらない .ident は書き換えない (write_if_changed) ため、依存側は不要に再ビルドされない。
-# Generate all .ident files in one Python process and let each .ident wait with an empty recipe.
+# Wait for MSVC dependency generation before checking object timestamps.
 ifneq ($(strip $(_IDENT_LOCAL_IDENT_FILES)),)
 .PHONY: _ident_source_info
 _ident_source_info: _msvc_compile | $(OBJDIR)
-	@python3 "$(MAKEFW_HOME)/bin_internal/gen_ident_manifest.py" \
-		--mode source-info-batch \
-		--dep-files $(patsubst %.ident,"%.d",$(_IDENT_LOCAL_IDENT_FILES)) \
-		--src-dir "$(CURDIR)" \
-		--workspace "$(WORKSPACE_DIR)"
+	@set --; \
+	for ident in $(_IDENT_LOCAL_IDENT_FILES); do \
+		obj="$${ident%.ident}.obj"; \
+		if [ ! -f "$$ident" ] || [ "$$obj" -nt "$$ident" ]; then \
+			set -- "$$@" "$${ident%.ident}.d"; \
+		fi; \
+	done; \
+	if [ "$$#" -gt 0 ]; then \
+		python3 "$(MAKEFW_HOME)/bin_internal/gen_ident_manifest.py" \
+			--mode source-info-batch --dep-files "$$@" \
+			--src-dir "$(CURDIR)" --workspace "$(WORKSPACE_DIR)"; \
+	fi
 
 $(_IDENT_LOCAL_IDENT_FILES): _ident_source_info ;
 endif
