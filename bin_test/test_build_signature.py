@@ -92,6 +92,18 @@ class BuildSignatureTest(unittest.TestCase):
         after, _ = self.signature("tested", "build")
         self.assertNotEqual(before, after)
 
+    def test_dependency_content_change_with_restored_timestamp(self):
+        self.write("app/tested/appdeps.mk", "APP_DEPS := untested\n")
+        dependency = self.root / "app/untested/prod/libsrc/untested.c"
+        original_stat = dependency.stat()
+        before, _ = self.signature("tested", "build")
+        content = dependency.read_text(encoding="utf-8")
+        dependency.write_text(content.replace("return 1", "return 2"), encoding="utf-8")
+        os.utime(dependency, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
+        self.assertEqual(original_stat.st_size, dependency.stat().st_size)
+        after, _ = self.signature("tested", "build")
+        self.assertNotEqual(before, after)
+
     def test_debug_compression_changes_build_and_test_signatures(self):
         for mode in ("build", "test"):
             with self.subTest(mode=mode):
