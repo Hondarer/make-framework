@@ -72,6 +72,15 @@ class BuildSignatureTest(unittest.TestCase):
         entries = [line.split("\t")[0] for line in lines if "\t" in line]
         return signature, entries
 
+    def test_debug_compression_changes_build_and_test_signatures(self):
+        for mode in ("build", "test"):
+            with self.subTest(mode=mode):
+                self.env.pop("MAKEFW_GCC_DEBUG_COMPRESSION", None)
+                before, _ = self.signature("untested", mode)
+                self.env["MAKEFW_GCC_DEBUG_COMPRESSION"] = "zlib"
+                after, _ = self.signature("untested", mode)
+                self.assertNotEqual(before, after)
+
     def test_makefw_inputs_change_all_signatures(self):
         for app in ("tested", "untested"):
             for mode in ("build", "test"):

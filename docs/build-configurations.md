@@ -48,6 +48,11 @@ Table: ビルド構成別の用途およびコンパイラ フラグ一覧
 Linux では `-flto` を使うため、既定の `ar` が使われている場合は `gcc-ar` に切り替えます。  
 MSVC では `/GL` と `/LTCG` を組み合わせます。
 
+Linux の成果物がディスク容量を圧迫する場合は、`MAKEFW_GCC_DEBUG_COMPRESSION=zlib` を指定します。  
+C、C++ のコンパイルとリンクに `-gz=zlib` を追加し、DWARF デバッグ情報を圧縮します。  
+警告、最適化、カバレッジの設定は維持します。Windows のフラグには影響しません。  
+設定を切り替えるときは、`make clean` で既存の成果物を削除してから再ビルドしてください。
+
 ## テスト ビルドでの扱い
 
 `LINK_TEST=1` のテスト対象では、ステップ実行とカバレッジ計測を優先します。  
@@ -119,7 +124,7 @@ INFO: Skipping build (dependencies are unchanged and clean)
 - ワークスペース直下の `Directory.Build.props` / `Directory.Build.targets`
 - makefw の入力 (後述)
 - `test/` を持つ app では、testfw の入力 (後述)
-- `CONFIG` / `MSVC_CRT` / `TARGET_ARCH` / `CFLAGS` / `CXXFLAGS` / `LDFLAGS` / `DEFINES` / `LIBS` の値
+- `CONFIG` / `MSVC_CRT` / `TARGET_ARCH` / `CFLAGS` / `CXXFLAGS` / `LDFLAGS` / `DEFINES` / `LIBS` / `MAKEFW_GCC_DEBUG_COMPRESSION` の値
 
 makefw のテンプレートとスクリプトは、テストの有無にかかわらず、すべての app のビルドの入力です。  
 すべての app の `make` と `make test` の署名に、`framework/makefw` の次の入力を含めます。  

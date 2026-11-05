@@ -531,6 +531,7 @@ emit_signature() {
     local digest
     local msvc_crt="${MSVC_CRT_SUBDIR:-}"
     local config="${CONFIG:-}"
+    local debug_compression="${MAKEFW_GCC_DEBUG_COMPRESSION:-}"
     local target_arch="${TARGET_ARCH:-${MAKEFW_TARGET_ARCH:-}}"
     local cflags="${CFLAGS:-}"
     local cxxflags="${CXXFLAGS:-}"
@@ -598,6 +599,7 @@ emit_signature() {
             printf 'ASSURED\t1\n'
         fi
         printf 'CONFIG\t%s\n' "$config"
+        printf 'MAKEFW_GCC_DEBUG_COMPRESSION\t%s\n' "$debug_compression"
         printf 'MSVC_CRT\t%s\n' "$msvc_crt"
         printf 'TARGET_ARCH\t%s\n' "$target_arch"
         printf 'CFLAGS\t%s\n' "$cflags"

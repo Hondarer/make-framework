@@ -152,6 +152,15 @@ endif
 
 # runtime
 ifdef PLATFORM_LINUX
+    # 多数のテスト実行体で複製される DWARF を、デバッグ情報を保ったまま圧縮する。
+    # makepart.mk の警告設定を上書きせず、CI など容量制約のある環境から選択する。
+    # see: https://gcc.gnu.org/onlinedocs/gcc-8.1.0/gcc/Debugging-Options.html
+    ifeq ($(MAKEFW_GCC_DEBUG_COMPRESSION),zlib)
+      CFLAGS   += -gz=zlib
+      CXXFLAGS += -gz=zlib
+      LDFLAGS  += -gz=zlib
+    endif
+
     # 構成別フラグ
     ifeq ($(CONFIG),Debug)
       CPPFLAGS += -D_DEBUG
