@@ -425,16 +425,16 @@ MAKE_INCLUDE_MK := $(shell \
 	while [ "$$dir" != "/" ]; do \
 		if [ "$$dir" != "$$cur" ] && [ -f "$$dir/makechild.mk" ]; then \
 			if command -v cygpath > /dev/null 2>&1; then \
-				cygpath -m "$$dir/makechild.mk" | sed 's/ /__MAKEFW_SPACE__/g'; \
+				cygpath -m "$$dir/makechild.mk"; \
 			else \
-				printf '%s\n' "$$dir/makechild.mk" | sed 's/ /__MAKEFW_SPACE__/g'; \
+				printf '%s\n' "$$dir/makechild.mk"; \
 			fi; \
 		fi; \
 		if [ -f "$$dir/makepart.mk" ]; then \
 			if command -v cygpath > /dev/null 2>&1; then \
-				cygpath -m "$$dir/makepart.mk" | sed 's/ /__MAKEFW_SPACE__/g'; \
+				cygpath -m "$$dir/makepart.mk"; \
 			else \
-				printf '%s\n' "$$dir/makepart.mk" | sed 's/ /__MAKEFW_SPACE__/g'; \
+				printf '%s\n' "$$dir/makepart.mk"; \
 			fi; \
 		fi; \
 		if [ -f "$$dir/.workspaceRoot" ]; then \
@@ -442,7 +442,7 @@ MAKE_INCLUDE_MK := $(shell \
 		fi; \
 		dir=$${dir%/*}; \
 		if [ -z "$$dir" ]; then dir=/; fi; \
-	done \
+	done | sed 's/ /__MAKEFW_SPACE__/g' \
 )
 
 # 逆順にする (seq コマンドの代わりに Make の関数で実現してプロセス生成を削減)
