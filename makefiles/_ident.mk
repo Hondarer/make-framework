@@ -16,13 +16,25 @@ _IDENT_LOCAL_IDENT_FILES := $(patsubst %.d,%.ident,$(DEPS))
 # Per-source .ident generation rules
 ifdef PLATFORM_LINUX
 
-$(OBJDIR)/%.ident: $(OBJDIR)/%.o | $(OBJDIR)
-	@python3 "$(MAKEFW_HOME)/bin_internal/gen_ident_manifest.py" \
-		--mode source-info \
-		--dep-file "$(OBJDIR)/$*.d" \
-		--src-dir "$(CURDIR)" \
-		--workspace "$(WORKSPACE_DIR)" \
-		--out "$@"
+ifneq ($(strip $(_IDENT_LOCAL_IDENT_FILES)),)
+# Wait for compilation, then generate only missing or outdated metadata in one process.
+.PHONY: _ident_source_info
+_ident_source_info: $(patsubst %.ident,%.o,$(_IDENT_LOCAL_IDENT_FILES)) | $(OBJDIR)
+	@set --; \
+	for ident in $(_IDENT_LOCAL_IDENT_FILES); do \
+		obj="$${ident%.ident}.o"; \
+		if [ ! -f "$$ident" ] || [ "$$obj" -nt "$$ident" ]; then \
+			set -- "$$@" "$${ident%.ident}.d"; \
+		fi; \
+	done; \
+	if [ "$$#" -gt 0 ]; then \
+		python3 "$(MAKEFW_HOME)/bin_internal/gen_ident_manifest.py" \
+			--mode source-info-batch --dep-files "$$@" \
+			--src-dir "$(CURDIR)" --workspace "$(WORKSPACE_DIR)"; \
+	fi
+
+$(_IDENT_LOCAL_IDENT_FILES): _ident_source_info ;
+endif
 
 else ifdef PLATFORM_WINDOWS
 
