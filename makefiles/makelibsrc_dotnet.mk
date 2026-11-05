@@ -23,7 +23,7 @@ endif
 OUTPUT_ASSEMBLY := $(OUTPUT_DIR)/$(TARGET)
 
 # ソース ファイルの検出 (obj/bin ディレクトリを除外)
-SOURCES := $(shell find . -name "*.cs" -not -path "*/obj/*" -not -path "*/bin/*" 2>/dev/null)
+SOURCES := $(shell find . -type d \( -name obj -o -name bin \) -prune -o -name "*.cs" -print 2>/dev/null)
 PROJECT_FILE := $(wildcard *.csproj)
 
 .DEFAULT_GOAL := default
