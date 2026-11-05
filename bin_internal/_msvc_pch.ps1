@@ -61,8 +61,16 @@ exit `$LASTEXITCODE
     [IO.File]::WriteAllText($regeneratePath, $regenerate, [Text.UTF8Encoding]::new($true))
     $dependency = Join-Path $CompileParameters.ObjDir ([IO.Path]::GetFileName($Source) + '.json')
     $headers = @()
+    $metadataMissing = $true
     if (Test-Path -LiteralPath $dependency) {
-        $headers = @((Get-Content -LiteralPath $dependency -Raw -Encoding UTF8 | ConvertFrom-Json).Data.Includes)
+        try {
+            $metadata = Get-Content -LiteralPath $dependency -Raw -Encoding UTF8 -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+            if ($null -ne $metadata.Data.Includes) {
+                $headers = @($metadata.Data.Includes)
+                $metadataMissing = $false
+            }
+        }
+        catch { $headers = @() }
     }
     # make のターゲットと前提条件では空白、#、$ を保護する。
     $escapeMake = { param($value) $value.Replace('\', '/').Replace('$', '$$').Replace('#', '\#').Replace(' ', '\ ') }
@@ -81,7 +89,7 @@ exit `$LASTEXITCODE
         $pdb = if ($Matches[1]) { $Matches[1] } else { $Matches[2] }
         $pdbMissing = -not (Test-Path -LiteralPath $pdb)
     }
-    if (-not (Test-Path $creatorObject) -or $pdbMissing) { $makeArguments = @('-B') + $makeArguments }
+    if (-not (Test-Path $creatorObject) -or $pdbMissing -or $metadataMissing) { $makeArguments = @('-B') + $makeArguments }
     & make @makeArguments
     if ($LASTEXITCODE) { throw "PCH make failed: $Pch" }
 }

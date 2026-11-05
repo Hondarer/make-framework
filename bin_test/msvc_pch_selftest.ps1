@@ -34,6 +34,17 @@ try {
     [IO.File]::AppendAllText("$root/detail.h", "`n", $utf8)
     & $script -Flags $flags -ObjDir 'obj/md' -Sources 'first.cc second.cc' -WorkspaceDir $root
     if ($LASTEXITCODE -or (Get-Item $pch.FullName).LastWriteTimeUtc -le $unchangedTime) { throw 'indirect header failed to regenerate PCH' }
+    $metadataTime = (Get-Item $pch.FullName).LastWriteTimeUtc
+    Remove-Item -LiteralPath 'obj/md/first.cc.json'
+    Start-Sleep -Milliseconds 1100
+    [IO.File]::AppendAllText("$root/detail.h", "`n", $utf8)
+    & $script -Flags $flags -ObjDir 'obj/md' -Sources 'first.cc second.cc' -WorkspaceDir $root
+    if ($LASTEXITCODE -or (Get-Item $pch.FullName).LastWriteTimeUtc -le $metadataTime) { throw 'missing dependency metadata allowed stale PCH reuse' }
+    $metadataTime = (Get-Item $pch.FullName).LastWriteTimeUtc
+    [IO.File]::WriteAllText("$root/obj/md/first.cc.json", '{', $utf8)
+    Start-Sleep -Milliseconds 1100
+    & $script -Flags $flags -ObjDir 'obj/md' -Sources 'first.cc second.cc' -WorkspaceDir $root
+    if ($LASTEXITCODE -or (Get-Item $pch.FullName).LastWriteTimeUtc -le $metadataTime) { throw 'invalid dependency metadata allowed stale PCH reuse' }
     Remove-Item -LiteralPath $pch.FullName
     $dirtyScript = Join-Path (Split-Path $script) 'find_dirty_srcs.sh'
     $dirty = @(& (Get-Command bash).Source $dirtyScript 'first.cc second.cc' 'obj/md' $root)
