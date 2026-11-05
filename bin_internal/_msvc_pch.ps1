@@ -154,6 +154,10 @@ try {
         `$metadata | Add-Member -NotePropertyName MakefwPchHeader -NotePropertyValue `$boundary -Force
         [IO.File]::WriteAllText('$quotedPch.deps.json', (`$metadata | ConvertTo-Json -Depth 20), [Text.UTF8Encoding]::new(`$false))
         `$successful = `$true
+        if (`$env:MAKEFW_PCH_RESULT) {
+            `$receipt = @{ Source = `$parameters.Sources; Object = (Join-Path `$parameters.ObjDir ([IO.Path]::GetFileNameWithoutExtension(`$parameters.Sources) + '.obj')) }
+            [IO.File]::WriteAllText(`$env:MAKEFW_PCH_RESULT, (`$receipt | ConvertTo-Json), [Text.UTF8Encoding]::new(`$false))
+        }
     }
     elseif (`$code -eq 87) {
         [IO.File]::WriteAllText('$quotedPch.disabled', 'No usable direct include boundary', [Text.UTF8Encoding]::new(`$false))
@@ -197,7 +201,21 @@ exit `$code
         $pdbMissing = -not (Test-Path -LiteralPath $pdb)
     }
     if (-not (Test-Path $creatorObject) -or $pdbMissing -or $metadataMissing -or $ForceRebuild) { $makeArguments = @('-B') + $makeArguments }
-    & make @makeArguments
-    if ($LASTEXITCODE) { throw "PCH make failed: $Pch" }
+    # 今回 make が実行した生成 recipe だけを通知する。日時や既存 .obj からは推測しない。
+    $receiptPath = Join-Path ([IO.Path]::GetTempPath()) ('makefw-pch-' + [guid]::NewGuid().ToString('N') + '.json')
+    $previousResult = $env:MAKEFW_PCH_RESULT
+    try {
+        $env:MAKEFW_PCH_RESULT = $receiptPath
+        # 関数の戻り値へコンパイラの標準出力を混入させない。
+        & make @makeArguments | Out-Host
+        if ($LASTEXITCODE) { throw "PCH make failed: $Pch" }
+        if (Test-Path -LiteralPath $receiptPath) {
+            Get-Content -LiteralPath $receiptPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        }
+    }
+    finally {
+        $env:MAKEFW_PCH_RESULT = $previousResult
+        Remove-Item -LiteralPath $receiptPath -Force -ErrorAction SilentlyContinue
+    }
     $DependencyPath.Value = $dependency
 }

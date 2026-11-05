@@ -102,13 +102,22 @@ if (-not $DisablePch -and -not $DryRun -and $env:MAKEFW_MSVC_PCH -ne '0' -and
         # see: https://learn.microsoft.com/en-us/cpp/build/reference/yl-inject-pch-reference-for-debug-library
         $common.ExtraFlags = "$ExtraFlags /Yl- /Yc`"$header`" /Fp`"$pch`""
         $dependency = ''
-        Invoke-MsvcPchMake -Pch $pch -Source $group.Sources[0] -CompileParameters $common -CompileScript $PSCommandPath `
+        $created = Invoke-MsvcPchMake -Pch $pch -Source $group.Sources[0] -CompileParameters $common -CompileScript $PSCommandPath `
             -Prefix $group.Prefix -DependencyPath ([ref]$dependency)
         if (Test-Path -LiteralPath "$pch.disabled") { $plainSources += $group.Sources; continue }
         $header = (Get-Content -LiteralPath $dependency -Raw -Encoding UTF8 | ConvertFrom-Json).MakefwPchHeader
         $common.Flags = $canonicalFlags
         $common.ExtraFlags = "$ExtraFlags /Yl- /Yu`"$header`" /Fp`"$pch`""
-        $remaining = ($group.Sources | ForEach-Object { '"{0}"' -f $_ }) -join ' '
+        $remainingSources = @($group.Sources | Where-Object {
+            $sourcePath = (Resolve-Path -LiteralPath $_).Path
+            $objectPath = [IO.Path]::GetFullPath((Join-Path $ObjDir ([IO.Path]::GetFileNameWithoutExtension($_) + '.obj')))
+            -not ($created -and $created.Source -eq $sourcePath -and $created.Object -eq $objectPath -and
+                (Test-Path -LiteralPath $objectPath) -and
+                (Test-Path -LiteralPath ([IO.Path]::ChangeExtension($objectPath, '.d'))) -and
+                (Test-Path -LiteralPath (Join-Path $ObjDir ([IO.Path]::GetFileName($_) + '.json'))))
+        })
+        if (-not $remainingSources.Count) { continue }
+        $remaining = ($remainingSources | ForEach-Object { '"{0}"' -f $_ }) -join ' '
         & $PSCommandPath @common -Sources $remaining -PchDependencyFile $dependency
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }

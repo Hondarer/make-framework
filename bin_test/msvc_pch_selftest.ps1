@@ -20,7 +20,9 @@ try {
         throw 'include prefix grouping failed'
     }
     $flags = '/nologo /EHsc /MD /Zi /FS /MP1 /I"' + $root + '" /Fd"' + $root + '/shared.pdb"'
-    & $script -Flags $flags -ObjDir 'obj/md' -Sources 'first.cc second.cc' -WorkspaceDir $root
+    $initialOutput = @(& $script -Flags $flags -ObjDir 'obj/md' -Sources 'first.cc second.cc' -WorkspaceDir $root)
+    $initialOutput | Write-Output
+    if (($initialOutput -join "`n") -match '"first\.cc"') { throw 'creator compiled again with /Yu' }
     if ($LASTEXITCODE) { throw 'automatic PCH compilation failed' }
     if (@(Get-ChildItem obj/md -Filter '*.pch').Count -ne 1) { throw 'PCH not generated' }
     foreach ($name in 'first', 'second') {
