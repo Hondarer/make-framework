@@ -97,8 +97,8 @@ class BuildSignatureTest(unittest.TestCase):
         dependency = self.root / "app/untested/prod/libsrc/untested.c"
         original_stat = dependency.stat()
         before, _ = self.signature("tested", "build")
-        content = dependency.read_text(encoding="utf-8")
-        dependency.write_text(content.replace("return 1", "return 2"), encoding="utf-8")
+        content = dependency.read_bytes()
+        dependency.write_bytes(content.replace(b"return 1", b"return 2"))
         os.utime(dependency, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
         self.assertEqual(original_stat.st_size, dependency.stat().st_size)
         after, _ = self.signature("tested", "build")

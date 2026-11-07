@@ -16,6 +16,14 @@ class IdentBatchTest(unittest.TestCase):
     def test_windows_rules(self):
         self.check_platform("WINDOWS", "obj")
 
+    @staticmethod
+    def rewrite_source(path, text):
+        # Windows のタイムスタンプ分解能では、直前の生成物と同時刻になり再生成が省かれることがある。
+        # 更新時刻を明示的に進めて、内容変更の検知だけを検証する。
+        path.write_text(text, encoding='utf-8')
+        stat = path.stat()
+        os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns + 5_000_000_000))
+
     def check_platform(self, platform, extension):
         home = pathlib.Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory(prefix='ident-batch-') as directory:
@@ -56,7 +64,7 @@ result: obj/a.ident obj/b.ident
             self.assertEqual('called\n', (root / 'python-calls').read_text(encoding='utf-8'))
             self.assertEqual(initial, [p.stat().st_mtime_ns for p in outputs])
             self.assertEqual('linked\n', (root / 'links').read_text(encoding='utf-8'))
-            (root / 'a.c').write_text('int a = 42;\n', encoding='utf-8')
+            self.rewrite_source(root / 'a.c', 'int a = 42;\n')
             build()
             self.assertNotEqual(first_hash, json.loads(outputs[0].read_text(encoding='utf-8'))['source_sha256'])
             self.assertEqual(initial[1], outputs[1].stat().st_mtime_ns)
@@ -65,7 +73,7 @@ result: obj/a.ident obj/b.ident
             self.assertTrue(outputs[1].is_file())
             links_before_failure = (root / 'links').read_bytes()
             wrapper.write_text('#!/bin/sh\nexit 9\n', encoding='utf-8')
-            (root / 'a.c').write_text('int a = 99;\n', encoding='utf-8')
+            self.rewrite_source(root / 'a.c', 'int a = 99;\n')
             failed = subprocess.run(['make', '-j4'], cwd=root, env=environment,
                                     capture_output=True)
             self.assertNotEqual(0, failed.returncode)
