@@ -37,4 +37,8 @@ fi
 idir="$workspace_dir/app/idir"
 mkdir -p "$idir"
 
+# Automatic PCH hides headers from the captured compile. Force both toolchains off.
+export MAKEFW_MSVC_PCH=0
+export MAKEFW_GCC_PCH=0
+
 exec "$cov_build" --append-log --dir "$idir" "$@"

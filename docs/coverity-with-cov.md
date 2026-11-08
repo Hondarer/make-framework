@@ -93,6 +93,12 @@ cov-build --append-log --dir app/idir make -C prod
 複数 app を連続実行すると、同じ `app/idir` に emit が蓄積されます。  
 `make -C app with-cov` のような一括実行では、対象 app ごとの `cov-build` が同じ `app/idir` に順次追記されます。
 
+## プリコンパイル済みヘッダーは収集に使わない
+
+`cov-build-app.sh` は `cov-build` の起動前に、`MAKEFW_MSVC_PCH=0` と `MAKEFW_GCC_PCH=0` をエクスポートします。  
+収集されるコンパイルは、Windows と Linux のどちらも自動 PCH を使わず、ヘッダーを通常の include として観測します。  
+ラッパーを通さない手動の `cov-build` には、この無効化は適用されません。
+
 ## skip 挙動
 
 `app/<appname>/makefile` の `with-cov` は、通常の `make` のような署名比較によるビルド スキップを行いません。  

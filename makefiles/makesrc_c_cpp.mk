@@ -443,32 +443,60 @@ show-exepath:
 
 # コンパイル ルールのテンプレート定義
 # Compile rule template definition
-# 引数: $(1)=拡張子 (c/cc/cpp), $(2)=コンパイラ変数名 (CC/CXX), $(3)=フラグ変数名 (CFLAGS/CXXFLAGS)
+# 引数: $(1)=拡張子 (c/cc/cpp), $(2)=コンパイラ変数名 (CC/CXX), $(3)=フラグ変数名 (CFLAGS/CXXFLAGS), $(4)=同言語のソース (SRCS_C/SRCS_CPP)
+# Arguments: $(1)=extension, $(2)=compiler variable, $(3)=flags variable, $(4)=same-language sources
 # Windows のコンパイルは _msvc_compile で処理するため、パターン ルールは Linux のみ定義する
+# Linux では gcc_pch.py が共通 include の .gch を用意し、コンパイルへ -include を足す
 define compile_rule_template
 ifdef PLATFORM_LINUX
 $$(OBJDIR)/%.o: %.$(1) $$(OBJDIR)/%.d $$(notdir $$(LINK_SRCS)) $$(notdir $$(CP_SRCS)) | $$(OBJDIR)
-		@set -o pipefail; if echo $$(TEST_SRCS) | grep -q $$(notdir $$<); then \
-			echo $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC -c -o $$@ $$<; \
-			LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)_TEST) -D_IN_TEST_SRC -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV) | $$(CAPTURE_WARNINGS) $$<.warn; \
+		@set -o pipefail; \
+		if echo $$(TEST_SRCS) | grep -q $$(notdir $$<); then \
+			_makefw_pch_for_test=1; \
+			_makefw_pch_flags=($$($(3)_TEST) -D_IN_TEST_SRC); \
 		else \
-			echo $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$<; \
-			LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) $$($(3)) -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV) | $$(CAPTURE_WARNINGS) $$<.warn; \
-		fi
+			_makefw_pch_for_test=0; \
+			_makefw_pch_flags=($$($(3))); \
+		fi; \
+		_makefw_pch_args="$$(OBJDIR)/$$(notdir $$<).pchargs"; \
+		_makefw_pch_deps="$$(OBJDIR)/$$(notdir $$<).pchdeps"; \
+		LANG=$$(FILES_LANG) python3 "$$(MAKEFW_HOME)/bin_internal/gcc_pch.py" prepare \
+			--compiler "$$($(2))" \
+			--objdir "$$(OBJDIR)" \
+			--pch-root "$$(MAKEFW_ARTIFACT_ROOT)" \
+			--source "$$<" \
+			--arg-file "$$$$_makefw_pch_args" \
+			--dep-list "$$$$_makefw_pch_deps" \
+			--for-test "$$$$_makefw_pch_for_test" \
+			--min-sources "$$(MAKEFW_GCC_PCH_MIN_SOURCES)" \
+			$$(foreach p,$$($(4)),--peer "$$(p)") \
+			$$(foreach n,$$(notdir $$(TEST_SRCS)),--test-name "$$(n)") \
+			-- $$$${_makefw_pch_flags[@]} || exit $$$$?; \
+		mapfile -t _makefw_pch_extra < "$$$$_makefw_pch_args"; \
+		echo $$($(2)) $$(DEPFLAGS) "$$$${_makefw_pch_flags[@]}" "$$$${_makefw_pch_extra[@]}" -c -o $$@ $$<; \
+		LANG=$$(FILES_LANG) $$($(2)) $$(DEPFLAGS) "$$$${_makefw_pch_flags[@]}" "$$$${_makefw_pch_extra[@]}" -c -o $$@ $$< -fdiagnostics-color=always 2>&1 | $$(ICONV) | $$(CAPTURE_WARNINGS) $$<.warn; \
+		_rc=$$$$?; \
+		if [ $$$$_rc -eq 0 ]; then \
+			python3 "$$(MAKEFW_HOME)/bin_internal/gcc_pch.py" record \
+				--dep "$$(OBJDIR)/$$*.d" \
+				--dep-list "$$$$_makefw_pch_deps" \
+				--target "$$(OBJDIR)/$$*.o" || exit $$$$?; \
+		fi; \
+		exit $$$$_rc
 endif
 endef
 
 # C ソース ファイルのコンパイル
 # Compile C source files
-$(eval $(call compile_rule_template,c,CC,CFLAGS))
+$(eval $(call compile_rule_template,c,CC,CFLAGS,SRCS_C))
 
 # C++ ソース ファイルのコンパイル (*.cc)
 # Compile C++ source files (*.cc)
-$(eval $(call compile_rule_template,cc,CXX,CXXFLAGS))
+$(eval $(call compile_rule_template,cc,CXX,CXXFLAGS,SRCS_CPP))
 
 # C++ ソース ファイルのコンパイル (*.cpp)
 # Compile C++ source files (*.cpp)
-$(eval $(call compile_rule_template,cpp,CXX,CXXFLAGS))
+$(eval $(call compile_rule_template,cpp,CXX,CXXFLAGS,SRCS_CPP))
 
 # シンボリック リンク対象のソース ファイルをシンボリック リンク
 # Create symbolic links for LINK_SRCS
