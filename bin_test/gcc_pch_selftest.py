@@ -350,6 +350,60 @@ def check_guards(root: Path) -> None:
     print("PASS: ガードの無い接頭辞は通常コンパイルへ戻る")
 
 
+def check_guard_boundaries(root: Path) -> None:
+    cases = {
+        "partial": ("#ifndef FEATURE\n#define FEATURE 1\n#endif\nstruct Item {int x;};\n", False),
+        "leading": ("struct Item {int x;};\n#ifndef H\n#define H\n#endif\n", False),
+        "outer_else": ("#ifndef H\n#define H\n#else\nstruct Item {int x;};\n#endif\n", False),
+        "conditional_once": ("#if 0\n#pragma once\n#endif\nstruct Item {int x;};\n", False),
+        "nested": ("#ifndef H\n#define H\n#if 1\nstruct Item {int x;};\n#endif\n#endif\n", True),
+        "defined": ("#if !defined(H)\n#define H\nstruct Item {int x;};\n#endif\n", True),
+    }
+    for name, (header, expected) in cases.items():
+        tree = Tree(root / name)
+        tree.write("common.h", header)
+        body = '#include "common.h"\nint value(void) {return 0;}\n'
+        a_c = tree.write("a.c", body)
+        b_c = tree.write("b.c", body)
+        extra = tree.prepare(a_c, [a_c, b_c], FLAGS)
+        if bool(extra) != expected:
+            raise AssertionError(f"ガード判定が不正です: {name}: {extra}")
+        _obj, _dep, stderr = tree.compile(a_c, FLAGS, extra)
+        if expected:
+            assert_used(stderr, tree.gchs()[0])
+    print("PASS: ファイル全体を保護するガードだけを共有する")
+
+
+def check_system_header_update(root: Path) -> None:
+    tree = Tree(root)
+    header = tree.write("sys/value.h", "#ifndef VALUE_H\n#define VALUE_H\n"
+                        "static inline int value(void) {return 1;}\n#endif\n")
+    body = '#include <value.h>\nint main(void) {return value() == 2 ? 0 : 1;}\n'
+    a_c = tree.write("a.c", body)
+    b_c = tree.write("b.c", body)
+    flags = [*FLAGS, "-isystem", str(header.parent)]
+    tree.prepare(a_c, [a_c, b_c], flags)
+    gch = tree.gchs()[0]
+    sidecar = gch.with_name(gch.name.removesuffix(".h.gch") + ".deps")
+    if str(header) not in sidecar.read_text(encoding="utf-8").splitlines():
+        raise AssertionError("システムヘッダーが依存情報にありません")
+    stamp = gch.stat().st_mtime_ns
+    header.write_text(header.read_text(encoding="utf-8").replace("return 1", "return 2"), encoding="utf-8")
+    # ファイルシステムの時刻分解能によらず、更新を明示する。
+    newer = max(time.time_ns(), stamp) + 1_000_000_000
+    os.utime(header, ns=(newer, newer))
+    extra = tree.prepare(a_c, [a_c, b_c], flags)
+    _obj, dep, stderr = tree.compile(a_c, flags, extra)
+    assert_used(stderr, gch)
+    invoke(["record", "--dep", str(dep), "--dep-list", str(tree.obj / "a.c.pchdeps")])
+    if str(header) not in dep.read_text(encoding="utf-8"):
+        raise AssertionError("オブジェクトの依存情報にシステムヘッダーがありません")
+    program = root / "prog"
+    run(["gcc", "-o", str(program), str(tree.obj / "a.o")])
+    run([str(program)])
+    print("PASS: システムヘッダー更新後は PCH の関数実装も更新する")
+
+
 def check_conditional(root: Path) -> None:
     tree = Tree(root)
     common_headers(tree)
@@ -509,6 +563,8 @@ def main() -> None:
         check_directories(root / "dirs")
         check_quoted(root / "quoted")
         check_guards(root / "guards")
+        check_guard_boundaries(root / "guard-boundaries")
+        check_system_header_update(root / "system-update")
         check_conditional(root / "cond")
         check_forced(root / "forced")
         check_test_split(root / "split")

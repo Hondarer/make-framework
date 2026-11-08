@@ -279,23 +279,38 @@ def _has_include_guard(path: Path) -> bool:
     except UnicodeDecodeError:
         # システム ヘッダーには UTF-8 でないコメントが残ることがある。判定文字は ASCII なので latin-1 で読む。
         text = data.decode("iso-8859-1")
-    stripped = _strip_comments(text)
-    if re.search(r"^\s*#\s*pragma\s+once\b", stripped, flags=re.M):
+    lines = [line.strip() for line in _strip_comments(text).splitlines() if line.strip()]
+    # 条件付き pragma や行継続の解釈は避け、確実な境界だけを共有する。
+    if not lines or any("\\" in line for line in lines):
+        return False
+    if re.fullmatch(r"#\s*pragma\s+once", lines[0]):
         return True
-    ifndef = re.search(r"^\s*#\s*ifndef\s+([A-Za-z_][A-Za-z0-9_]*)\b", stripped, flags=re.M)
-    if ifndef and re.search(
-        rf"^\s*#\s*define\s+{re.escape(ifndef.group(1))}\b", stripped, flags=re.M
-    ):
-        return True
-    plain = re.search(
-        r"^\s*#\s*if\s+!\s*defined\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)",
-        stripped,
-        flags=re.M,
+    opening = re.fullmatch(
+        r"#\s*ifndef\s+([A-Za-z_][A-Za-z0-9_]*)", lines[0]
+    ) or re.fullmatch(
+        r"#\s*if\s+!\s*defined\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)", lines[0]
     )
-    if plain and re.search(
-        rf"^\s*#\s*define\s+{re.escape(plain.group(1))}\b", stripped, flags=re.M
-    ):
-        return True
+    if opening is None or len(lines) < 3:
+        return False
+    guard = opening.group(1)
+    if not re.fullmatch(rf"#\s*define\s+{re.escape(guard)}(?:\s+.*)?", lines[1]):
+        return False
+    depth = 1
+    for index, line in enumerate(lines[2:], start=2):
+        directive = re.match(r"#\s*([A-Za-z_]+)\b(.*)", line)
+        if directive is None:
+            continue
+        name, argument = directive.groups()
+        if name in {"if", "ifdef", "ifndef"}:
+            depth += 1
+        elif name == "endif":
+            depth -= 1
+            if depth == 0:
+                return index == len(lines) - 1 and not argument.strip()
+        elif name in {"else", "elif"} and depth == 1:
+            return False
+        elif name == "undef" and argument.strip() == guard:
+            return False
     return False
 
 
@@ -402,6 +417,7 @@ def _provisional_key(
     quoted_context = str(source_directory) if any(_quoted(include) for include in prefix) else ""
     text = "\n".join(
         (
+            "gcc-pch-v2",
             _compiler_identity(compiler),
             language,
             "\n".join(_normalize_flags(flags, base)),
@@ -424,6 +440,7 @@ def _final_key(
     quoted_context = str(source_directory) if any(_quoted(include) for include in includes) else ""
     text = "\n".join(
         (
+            "gcc-pch-v2",
             _compiler_identity(compiler),
             language,
             "\n".join(_normalize_flags(flags, base)),
@@ -543,7 +560,7 @@ def _compile_gch(
         "-o",
         str(temporary_gch),
         str(synthetic),
-        "-MMD",
+        "-MD",
         "-MP",
         "-MF",
         str(temporary_dep),
