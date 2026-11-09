@@ -26,12 +26,10 @@ ifneq (,$(findstring /test/,$(CURDIR)))
     endif
 endif
 
-# $(MYAPP_DIR)/test/include_override が存在する場合だけ、テスト対象用優先 include override パスとして使用する
-ifeq ($(_MYAPP_IS_VALID),1)
-    ifneq ($(call _makefw_path_exists,$(MYAPP_DIR)/test/include_override),)
-        MYAPP_INCLUDE_OVERRIDE := -I$(call _makefw_normalize_path,$(MYAPP_DIR)/test/include_override)
-    endif
-endif
+# 自 app と依存 app の test/include_override のうち、存在するものをテスト対象用の優先 include override パスとして使用する。
+# 依存 app が提供する override ヘッダーで、静的ライブラリなどリンク時に差し替えられない関数もテスト対象から置き換える。
+# 順序は prepare.mk が求めた依存閉包の順 (自 app が先頭) とする。
+MYAPP_INCLUDE_OVERRIDE := $(foreach dir,$(MAKEFW_AUTO_TEST_INCLUDE_OVERRIDE),$(if $(call _makefw_path_exists,$(call _makefw_decode_path,$(dir))),-I$(call _makefw_normalize_path,$(call _makefw_decode_path,$(dir)))))
 
 ifeq ($(LINK_TEST), 1)
     ifeq ($(strip $(TESTFW_HOME)),)

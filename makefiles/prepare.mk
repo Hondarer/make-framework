@@ -558,6 +558,10 @@ ifneq (,$(findstring /test/,$(CURDIR)))
         INCDIR += $(MAKEFW_AUTO_TEST_INCDIR)
     endif
 
+    # 自 app と依存 app の test/include_override。テスト対象 (TEST_SRCS) のコンパイルだけに使うため、
+    # INCDIR へは加えず、makesrc_c_cpp.mk が存在するものを依存閉包の順で -I に展開する。
+    MAKEFW_AUTO_TEST_INCLUDE_OVERRIDE := $(patsubst TESTOVR:%,%,$(filter TESTOVR:%,$(_MAKEFW_PATHS_ALL)))
+
     MAKEFW_AUTO_TESTFW_INCDIR := $(TESTFW_HOME)/include
     MAKEFW_AUTO_GTEST_SYSTEM_INCDIR := $(TESTFW_HOME)/gtest/include
     INCDIR += $(MAKEFW_AUTO_TESTFW_INCDIR)

@@ -109,7 +109,8 @@ def check_resolver(root):
     write(root / "app" / "sample" / "appdeps.mk", "APP_DEPS := vendor\n")
     write(root / "app" / "vendor" / "appdeps.mk", "APP_PROD_INCLUDE_CLASS := system\n")
     for app_name in ("sample", "vendor"):
-        for suffix in ("prod/include", "prod/lib", "test/include", "test/lib"):
+        for suffix in ("prod/include", "prod/lib", "test/include", "test/include_override",
+                       "test/lib"):
             (root / "app" / app_name / suffix).mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     app = root / "app" / "sample"
@@ -118,9 +119,11 @@ def check_resolver(root):
                       *(["test"] if test else [])], root, env)
         kinds = [line.split(":", 1)[0] for line in output.splitlines()]
         assert kinds == ["INCLUDE", "SYSTEM_INCLUDE", "INTERNAL", "LIB", "LIB"] + (
-            ["TESTINC", "TESTINC", "TESTLIB", "TESTLIB"] if test else []), output
+            ["TESTINC", "TESTINC", "TESTOVR", "TESTOVR", "TESTLIB", "TESTLIB"]
+            if test else []), output
         for kind, suffix in (("INCLUDE", "include"), ("LIB", "lib"),
-                             ("TESTINC", "test_include"), ("TESTLIB", "test_lib")):
+                             ("TESTINC", "test_include"),
+                             ("TESTOVR", "test_include_override"), ("TESTLIB", "test_lib")):
             if not test and kind.startswith("TEST"):
                 continue
             individual = run([BASH, str(resolver), "--paths", str(app), suffix], root, env)

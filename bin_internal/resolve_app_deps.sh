@@ -21,7 +21,7 @@ find_workspace_root() {
 usage() {
     cat <<'EOF' >&2
 Usage:
-  resolve_app_deps.sh --paths <app-dir> <include|include_internal|lib|test_include|test_lib>
+  resolve_app_deps.sh --paths <app-dir> <include|include_internal|lib|test_include|test_include_override|test_lib>
   resolve_app_deps.sh --paths-all <app-dir> [test]
   resolve_app_deps.sh --signature <app-dir> [build|test]
   resolve_app_deps.sh --assured <app-dir|framework-dir>
@@ -292,6 +292,9 @@ emit_paths() {
         test_include)
             suffix="test/include"
             ;;
+        test_include_override)
+            suffix="test/include_override"
+            ;;
         test_lib)
             suffix="test/lib"
             ;;
@@ -331,6 +334,7 @@ emit_paths() {
 #   INTERNAL  : prod/include_internal (root app のみ。emit_paths と同じ扱い)
 #   LIB       : prod/lib          (閉包全体)
 #   TESTINC   : test/include      (want_test=test のときのみ、閉包全体)
+#   TESTOVR   : test/include_override (want_test=test のときのみ、閉包全体。自 app が先頭)
 #   TESTLIB   : test/lib          (want_test=test のときのみ、閉包全体)
 emit_paths_all() {
     local app_dir="$1"
@@ -379,6 +383,11 @@ emit_paths_all() {
         for app in "${closure[@]}"; do
             path="$APP_ROOT_DIR/$app/test/include"
             kinds+=(TESTINC)
+            paths+=("$path")
+        done
+        for app in "${closure[@]}"; do
+            path="$APP_ROOT_DIR/$app/test/include_override"
+            kinds+=(TESTOVR)
             paths+=("$path")
         done
         for app in "${closure[@]}"; do

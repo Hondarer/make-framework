@@ -10,7 +10,7 @@ makefw フレームワークでは、ビルド設定のカスタマイズに 3 �
 | `makepart.mk` | 階層継承 (親→子に伝播) | 自ディレクトリ + 子階層すべて |
 | `makechild.mk` | 子階層限定 (自身は除く) | 子階層以降のみ (自ディレクトリは除く) |
 | `makelocal.mk` | 自ディレクトリ限定 | 自ディレクトリのみ |
-| `appdeps.mk` | app 直下の省略可能な依存・公開ヘッダー分類 | 自 app と依存 app の `prod/include` / `prod/lib` / `test/include` / `test/lib` 自動解決 |
+| `appdeps.mk` | app 直下の省略可能な依存・公開ヘッダー分類 | 自 app と依存 app の `prod/include` / `prod/lib` / `test/include` / `test/include_override` / `test/lib` 自動解決 |
 
 Table: makefw 設定ファイルの種類とスコープ
 
@@ -286,6 +286,7 @@ APP_PROD_INCLUDE_CLASS := system
 - 解決済み app ごとに `app/<name>/prod/include` と `app/<name>/prod/lib` を自動追加します
 - `APP_PROD_INCLUDE_CLASS := system` の `prod/include` は `SYSTEM_INCDIR` に追加し、それ以外は `INCDIR` に追加します
 - `/test/` 配下では同じ依存閉包に対して `app/<name>/test/include` と `app/<name>/test/lib` を自動追加します
+- `/test/` 配下では同じ依存閉包の `app/<name>/test/include_override` のうち存在するものを、テスト対象 (`TEST_SRCS`) のコンパイルだけに、通常の include より優先して追加します。順序は自 app が先頭です
 - 自 app の `app/<name>/prod/include_internal` を自動追加します
 - `app/makepart.mk` が `/test/` 配下のビルドに対して `framework/testfw/lib` と `LINK_TEST = 1` を付与します
 - 依存 app の `prod/include_internal` は自動追加しません
