@@ -231,6 +231,9 @@ gen/example_meta.gen.c: example_types.h $(MYAPP_DIR)/prod/cbin/mytool-gen | gen
 GENDIR_EXTRA_C += gen/example_meta.gen.c
 ```
 
+この例のように、規則が同じ app でビルドする実行体 (`prod/cbin/mytool-gen`) を前提にする場合は、`appdeps.mk` で `APP_GEN_REQUIRES_BUILD := 1` を宣言します。  
+宣言すると、`make gen` がその app と依存先の `prod/` をビルドし、生成器を用意します ([appdeps.mk](#appdepsmk) を参照)。
+
 **例 7: app 直下で IntelliSense 用の正本を持つ**
 
 ```makefile
@@ -250,7 +253,7 @@ INCDIR += \
 ### 役割
 
 `appdeps.mk` は `app/<name>/` 直下に置く app 間依存と公開ヘッダー分類の一次情報です。  
-`APP_DEPS` と `APP_PROD_INCLUDE_CLASS` のどちらも不要な場合は、空ファイルを置かず `appdeps.mk` 自体を省略します。  
+`APP_DEPS`、`APP_PROD_INCLUDE_CLASS`、`APP_GEN_REQUIRES_BUILD` のいずれも不要な場合は、空ファイルを置かず `appdeps.mk` 自体を省略します。  
 利用側の定義である `APP_DEPS` には、直接依存する app 名を列挙します。  
 `APP_DEPS` は省略可能であり、依存先がない場合は原則として記載しません。  
 提供側の定義である `APP_PROD_INCLUDE_CLASS` には、自 app の `prod/include` を通常ヘッダーと外来ヘッダーのどちらとして提供するかを指定します。
@@ -277,6 +280,16 @@ APP_DEPS := \
 ```makefile
 # 提供側の定義: この app の prod/include を外来ヘッダーとして提供する。
 APP_PROD_INCLUDE_CLASS := system
+```
+
+`APP_GEN_REQUIRES_BUILD` は省略可能です。  
+app が `prod/` でビルドした生成器を使って `gen/` のソースを作る場合に、`1` を指定します。  
+`make gen` は、宣言した app と、その `APP_DEPS` の推移的な依存先について、`prod/` を通常どおりビルドします。  
+詳細は [生成ソースだけを作る (make gen)](build-configurations.md#生成ソースだけを作る-make-gen) を参照してください。
+
+```makefile
+# 自前でビルドした生成器が gen/ のソースを作るため、make gen では prod をビルドする。
+APP_GEN_REQUIRES_BUILD := 1
 ```
 
 ### 挙動

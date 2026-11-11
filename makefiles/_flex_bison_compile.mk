@@ -38,6 +38,13 @@ GEN_LEX_C := $(addprefix $(GENDIR)/,$(SRCS_L:.l=.lex.c))
 GENDIR_C := $(GEN_TAB_C) $(GEN_LEX_C) $(GENDIR_EXTRA_C)
 GENDIR_OBJS := $(patsubst $(GENDIR)/%.c,$(OBJDIR)/%.o,$(GENDIR_C))
 
+# _gen ゴールでは、生成ソースだけを作り、コンパイルは行わない (makemain.mk を参照)。
+# GENDIR_EXTRA_C の規則が同じ app でビルドする実行体を前提にする場合、その app は
+# appdeps.mk で APP_GEN_REQUIRES_BUILD := 1 を宣言する。宣言がなければ、実行体の規則が
+# 見つからず make がエラーで止まる (framework/makefw/docs/makeparts.md を参照)。
+.PHONY: _gen
+_gen: $(GENDIR_C) $(GEN_TAB_H)
+
 ifneq ($(strip $(GEN_TAB_C)$(GEN_LEX_C)),)
 
 # .y -> (bison) .tab.c / .tab.h

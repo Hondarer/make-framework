@@ -161,7 +161,7 @@ ifneq ($(SUBDIRS),)
     # direct test first ランナーで直下の末端テストを先に並列実行する。
     # Add subdirectory dependencies to main targets (process subdirectories first).
     # 'test' itself is a 2-phase entry (below); the phase targets recurse instead.
-    default build clean run restore rebuild _test_build: $(SUBDIRS)
+    default build clean run restore rebuild _gen _test_build: $(SUBDIRS)
 
     ifneq ($(MAKEFW_BUILD),1)
 _test_run:
@@ -203,6 +203,18 @@ test:
 # real build/run. Empty here so `make test` never errors in a bare directory.
 _test_build:
 _test_run:
+
+# _gen: 生成ソースだけを作る。通常のソースはコンパイルしない。
+# app 直下の `make gen` (__each_app_template.mk) が prod に対して起動する。
+# 末端のディレクトリでは、ターゲット名 gen が生成物の置き場所 $(GENDIR) の作成規則と
+# 重なるため、prod 配下のゴール名は _gen とする。
+# 中間集約ノードは上記の SUBDIRS 依存で下位へ伝える。末端では、生成の規則を持つ断片
+# (_flex_bison_compile.mk / _resource_compile.mk) が生成物を前提として追加する。
+# 生成物を持たないディレクトリでも `make _gen` がエラーにならないよう空定義を置く。
+# makepart.mk がパース時に実行する生成は、このゴールで makefile をパースした時点で完了する。
+# _gen: generate sources only (no compilation). Fragments add their outputs as prerequisites.
+.PHONY: _gen
+_gen:
 
 # ビルド対象もサブディレクトリも持たない階層 (例: 現在の OS に該当するソースがなく、
 # Windows でのみ *.mc / *.rc をビルドするディレクトリの Linux 側) では、

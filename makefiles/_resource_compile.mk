@@ -42,11 +42,33 @@ LINK_INPUTS += $(RES_OUTPUTS)
 # .mc -> (mc.exe) ヘッダー / .rc / MSG00001.bin -> (rc.exe) .res
 # mc.exe の生成物 (ヘッダー / .rc / .bin) は GENDIR に置く。
 # rc.exe は生成 .rc が参照する .bin を /i $(GENDIR) で解決し、コンパイル結果 .res は OBJDIR に置く。
-$(OBJDIR)/%.res: %.mc | $(GENDIR) $(OBJDIR)
+#
+# 生成 (mc.exe) とコンパイル (rc.exe) を別の規則にし、_gen ゴールで生成だけを実行できるようにする。
+# mc.exe は 1 回の実行で .rc / .h / .bin を出力する。複数のターゲットを 1 つの規則に並べると
+# GNU Make が規則を複製して mc.exe を複数回起動するため、正本のターゲットを .rc だけにし、
+# .h は .rc に依存させて存在だけを確認する。グループ化ターゲット (&:) は GNU Make 4.3 以降の
+# 機能であり、本リポジトリの最低要件 (4.0) では使えない。
+# see: https://www.gnu.org/software/make/manual/html_node/Multiple-Targets.html
+GEN_MC_RC := $(addprefix $(GENDIR)/,$(SRCS_MC:.mc=.rc))
+GEN_MC_H := $(addprefix $(GENDIR)/,$(SRCS_MC:.mc=.h))
+
+ifneq ($(strip $(GEN_MC_RC)),)
+
+$(GEN_MC_RC): $(GENDIR)/%.rc: %.mc | $(GENDIR)
 	@echo "mc.exe $(MCFLAGS) $<"
 	@set -o pipefail; MSYS_NO_PATHCONV=1 mc.exe $(MCFLAGS) -h $(GENDIR) -r $(GENDIR) $< 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MSVC_OUTPUT_FILTER_SCRIPT)" -InputEncoding Ansi
-	@echo "rc.exe $(GENDIR)/$*.rc"
-	@set -o pipefail; MSYS_NO_PATHCONV=1 rc.exe /nologo $(RCFLAGS) /i $(GENDIR) /fo $@ $(GENDIR)/$*.rc 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MSVC_OUTPUT_FILTER_SCRIPT)" -InputEncoding Ansi
+
+$(GEN_MC_H): $(GENDIR)/%.h: $(GENDIR)/%.rc
+	@test -f "$@"
+
+$(patsubst $(GENDIR)/%.rc,$(OBJDIR)/%.res,$(GEN_MC_RC)): $(OBJDIR)/%.res: $(GENDIR)/%.rc | $(OBJDIR)
+	@echo "rc.exe $<"
+	@set -o pipefail; MSYS_NO_PATHCONV=1 rc.exe /nologo $(RCFLAGS) /i $(GENDIR) /fo $@ $< 2>&1 | $(MAKEFW_POWERSHELL_COMMAND) -File "$(MSVC_OUTPUT_FILTER_SCRIPT)" -InputEncoding Ansi
+
+.PHONY: _gen
+_gen: $(GEN_MC_RC) $(GEN_MC_H)
+
+endif # GEN_MC_RC
 
 # 単体 .rc -> (rc.exe) .res
 # インクルード解決は OBJDIR、カレント ディレクトリ、INCDIR、SYSTEM_INCDIR を探索する。

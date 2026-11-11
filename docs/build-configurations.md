@@ -162,6 +162,41 @@ testfw がワークスペースの外にある場合や、存在しない場合�
 `bin_internal/extract_package.py` と `framework/makefw/bin_internal/apply_patches.py` はいずれも README.md を参照せず、実際の展開・パッチ適用に使うのはファイル名を正規表現やファイル名昇順で選んだアーカイブ本体・パッチ本体だけだからです。  
 署名は「ビルド入力かどうか」を基準に含めるため、文書だけを変更しても再ビルドは実行されません。
 
+## 生成ソースだけを作る (make gen)
+
+`make gen` は、各 app の `prod/` 配下の生成ソースだけを作ります。通常のソースはコンパイルせず、`test/` もビルドしません。  
+フル ビルドをせずに Doxygen の入力をそろえる用途で使います。Doxygen の入力には、`gen/` 配下の生成ソースが含まれるためです。
+
+```bash
+# ワークスペース直下、app/ 直下、app/<name>/ 直下のいずれでも実行できる
+make gen
+```
+
+生成ソースの種類ごとの扱いは、次のとおりです。
+
+| 種類 | 例 | `make gen` での扱い |
+| --- | --- | --- |
+| `makepart.mk` がパース時にスクリプトで生成する | 配布アーカイブの展開、定義ファイルからの生成 | `prod/` 配下の makefile をパースした時点で生成される |
+| ツールだけで生成する規則 | flex / bison、Windows の mc.exe | 生成物を作る。コンパイルは行わない |
+| app が自前でビルドした生成器で生成する | `GENDIR_EXTRA_C` の規則が `prod/cbin/` の実行体を前提にする | app の宣言に従い、`prod/` を通常どおりビルドする |
+
+Table: 生成ソースの種類と make gen での扱い
+
+自前でビルドした生成器が必要な app は、`appdeps.mk` で `APP_GEN_REQUIRES_BUILD := 1` を宣言します ([appdeps.mk](makeparts.md#appdepsmk) を参照)。  
+`app/makefile` の `make gen` は、宣言した app と、その `APP_DEPS` の推移的な依存先について、`prod/` を通常どおり make します。生成器と、生成器がリンクするライブラリを用意するためです。  
+それ以外の app では、`prod/` に対してゴール `_gen` を実行し、生成だけを行います。  
+対象の app は、`bin_internal/resolve_app_deps.sh --gen-build-apps` で確認できます。
+
+`prod/` 配下のゴール名は `gen` ではなく `_gen` です。末端のディレクトリでは、ターゲット名 `gen` が生成物の置き場所 (`$(GENDIR)`) を作る規則と重なるためです。  
+`_gen` は中間ディレクトリから下位のディレクトリへ伝わり、`SUBDIRS` の宣言順も維持します。
+
+`make gen` は署名を計算せず、`make_build.stamp` と `make_test.stamp` も更新しません (`test` をビルドしないため)。  
+app 直下で `make gen` を直接実行した場合は、依存先の app を make しません。app 直下の `make` が依存先をビルドしないことと同じです。
+
+宣言のない app で、`GENDIR_EXTRA_C` の規則がビルドした実行体を前提にしていると、`make gen` は実行体を作る規則が見つからずエラーで止まります。この場合は、`appdeps.mk` に宣言を追加します。
+
+動作は `python framework/makefw/bin_test/test_gen_goal.py` で局所確認します。
+
 ## assured.stamp による保証済み app の扱い
 
 `app/<name>.assured.stamp` は、サブモジュールの app が記録したコミットのままであることを示すスタンプです。  

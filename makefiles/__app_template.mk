@@ -18,7 +18,7 @@ include $(call _makefw_escape_path,$(MAKEFW_HOME)/makefiles/_parallel.mk)
 
 APP_ORDER_RESOLVER = $(MAKEFW_HOME)/bin_internal/resolve_app_deps.sh
 SUBDIRS := $(shell bash "$(APP_ORDER_RESOLVER)" --app-order)
-_MAKEFW_APP_RUNNER_GOALS := default with-cov clean test doxy
+_MAKEFW_APP_RUNNER_GOALS := default with-cov gen clean test doxy
 
 # 並列実行 (-j) 時に複数 app の出力が交錯しないよう、通常はターゲット単位で出力同期する。
 # ただしランナー経由ターゲットは run_ordered_subdir_target.sh が出力順序と進捗表示を制御するため、親 make では出力同期を付与しない。
@@ -112,6 +112,26 @@ with-cov : submodule
 			"$$app_with_cov_jobs" _makefw_with_cov_prod $$with_cov_subdirs; \
 	fi
 	@$(APP_POST_BUILD_CHECKS)
+
+# gen は、各 app の prod 配下の生成ソースだけを作る (Doxygen の入力をフル ビルドなしでそろえる用途)。
+# 自前でビルドした生成器が必要な app と、それらが依存する (推移的) app は prod を通常どおり make し、
+# それ以外の app は生成だけを行う。対象の一覧は 1 回だけ解決し、MAKEFW_GEN_BUILD_APPS で各 app へ渡す。
+# 該当が無いときも空の値を渡し、各 app が解決し直さないようにする。test はビルドしない。
+.PHONY: gen
+gen : submodule
+	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
+	app_gen_jobs="$$jobs"; \
+	if [ -z "$$app_gen_jobs" ]; then app_gen_jobs=1; fi; \
+	gen_build_apps=$$(bash "$(APP_ORDER_RESOLVER)" --gen-build-apps) || { \
+		echo "ERROR: Failed to resolve apps that require a prod build for gen." >&2; \
+		exit 1; \
+	}; \
+	gen_build_apps=$$(printf '%s' "$$gen_build_apps" | tr '\n' ' '); \
+	MAKEFW_GEN_BUILD_APPS="$$gen_build_apps" \
+	MAKEFW_SUBDIR_MAKE="$(MAKEFW_SUBDIR_MAKE_CMD)" "$(SHELL)" \
+		"$(MAKEFW_HOME)/bin_internal/run_ordered_subdir_target.sh" \
+		--app-deps --silent-missing --echo-command --progress \
+		"$$app_gen_jobs" gen $(SUBDIRS)
 
 .PHONY: clean
 clean : submodule

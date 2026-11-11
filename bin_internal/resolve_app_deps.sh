@@ -28,6 +28,7 @@ Usage:
   resolve_app_deps.sh --assured-selftest
   resolve_app_deps.sh --app-order
   resolve_app_deps.sh --coverity-apps
+  resolve_app_deps.sh --gen-build-apps
 EOF
 }
 
@@ -1044,6 +1045,49 @@ emit_coverity_apps() {
     fi
 }
 
+# appdeps.mk が APP_GEN_REQUIRES_BUILD := 1 を宣言しているとき 0 を返す。
+# 自前でビルドした生成器が gen/ のソースを作る app の宣言であり、make gen で prod をビルドする。
+# APP_DEPS と同じく自明な代入だけを awk で解析する (make の起動を避ける)。
+declares_gen_requires_build() {
+    local app_name="$1"
+    local deps_file="$APP_ROOT_DIR/$app_name/appdeps.mk"
+
+    [[ -f "$deps_file" ]] || return 1
+
+    awk '
+        {
+            line = $0
+            sub(/#.*/, "", line)
+            if (line ~ /^[[:space:]]*APP_GEN_REQUIRES_BUILD[[:space:]]*[:+]?=/) {
+                sub(/^[[:space:]]*APP_GEN_REQUIRES_BUILD[[:space:]]*[:+]?=/, "", line)
+                gsub(/[[:space:]]/, "", line)
+                value = line
+            }
+        }
+        END { exit (value == "1") ? 0 : 1 }
+    ' "$deps_file"
+}
+
+# make gen で prod をビルドする app を列挙する。
+# 宣言した app と、その APP_DEPS の推移的な依存先 (生成器がリンクするライブラリの供給元) を対象にする。
+emit_gen_build_apps() {
+    local app
+    local dep
+    local -A needed=()
+
+    while IFS= read -r app; do
+        [[ -z "$app" ]] && continue
+        declares_gen_requires_build "$app" || continue
+        while IFS= read -r dep; do
+            [[ -n "$dep" ]] && needed["$dep"]=1
+        done < <(collect_app_closure "$app")
+    done < <(list_apps)
+
+    if (( ${#needed[@]} > 0 )); then
+        printf '%s\n' "${!needed[@]}" | LC_ALL=C sort
+    fi
+}
+
 _assured_selftest_commit() {
     local repo="$1"
     local message="$2"
@@ -1301,6 +1345,9 @@ main() {
             ;;
         --coverity-apps)
             emit_coverity_apps
+            ;;
+        --gen-build-apps)
+            emit_gen_build_apps
             ;;
         *)
             usage
