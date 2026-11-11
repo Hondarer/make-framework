@@ -2,6 +2,7 @@
 import json
 import os
 import shlex
+import shutil
 import sys
 import pathlib
 import subprocess
@@ -10,6 +11,11 @@ import unittest
 
 
 class IdentBatchTest(unittest.TestCase):
+    def setUp(self):
+        # テスト用の makefile が cc を直接呼ぶ。無い環境では、makefw の不具合と区別するためスキップする。
+        if shutil.which('cc') is None:
+            self.skipTest('cc is not found')
+
     def test_linux(self):
         self.check_platform("LINUX", "o")
 

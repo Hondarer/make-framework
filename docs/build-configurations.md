@@ -182,6 +182,10 @@ make gen
 
 Table: 生成ソースの種類と make gen での扱い
 
+生成ソースは、生成物の置き場所 `$(GENDIR)` (`gen/`) に置きます。  
+makefw の生成規則 (flex / bison、mc.exe) は、この場所へ出力します。app が独自の規則で生成する場合も、同じ場所へ出力してください。  
+`make gen` の対象と Doxygen の入力を、`gen/` ディレクトリで判別するためです。
+
 自前でビルドした生成器が必要な app は、`appdeps.mk` で `APP_GEN_REQUIRES_BUILD := 1` を宣言します ([appdeps.mk](makeparts.md#appdepsmk) を参照)。  
 `app/makefile` の `make gen` は、宣言した app と、その `APP_DEPS` の推移的な依存先について、`prod/` を通常どおり make します。生成器と、生成器がリンクするライブラリを用意するためです。  
 それ以外の app では、`prod/` に対してゴール `_gen` を実行し、生成だけを行います。  
