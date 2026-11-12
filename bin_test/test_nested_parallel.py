@@ -15,7 +15,7 @@ BASH = shutil.which("bash") or "bash"
 
 
 class NestedParallelTest(unittest.TestCase):
-    def run_groups(self, leaves=1, barrier=True, failure=False):
+    def run_groups(self, leaves=1, barrier=True, failure=False, failing_date=False):
         with tempfile.TemporaryDirectory(prefix="nested parallel ") as temporary:
             root = Path(temporary)
             worker = root / "worker.py"
@@ -62,6 +62,14 @@ sys.exit(7 if fail == "1" else 0)
             env = dict(os.environ, MAKEFW_TEST_RUN_JOBS="2")
             for key in ("MAKEFLAGS", "MFLAGS", "MAKEFW_TEST_SLOT_DIR", "MAKEFW_FORCE_LEAF"):
                 env.pop(key, None)
+            if failing_date:
+                # 時刻を出力したうえで 0 以外の終了コードを返す date に差し替える。
+                fake_bin = root / "fake bin"
+                fake_bin.mkdir()
+                fake_date = fake_bin / "date"
+                fake_date.write_text("#!/bin/bash\nprintf '1700000000\\n'\nexit 1\n", encoding="utf-8", newline="\n")
+                fake_date.chmod(0o755)
+                env["PATH"] = str(fake_bin) + os.pathsep + env.get("PATH", "")
             result = subprocess.run(
                 [BASH, str(RUNNER), "2", "_test_run", "one", "two"], cwd=root, env=env,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -90,6 +98,12 @@ sys.exit(7 if fail == "1" else 0)
     def test_failure_propagates_after_other_group_finishes(self):
         result, intervals = self.run_groups(failure=True)
         self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(len(intervals), 2)
+
+    def test_failing_date_does_not_break_wait_loop(self):
+        result, intervals = self.run_groups(failing_date=True)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertNotIn("syntax error", result.stdout)
         self.assertEqual(len(intervals), 2)
 
 

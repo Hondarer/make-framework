@@ -178,8 +178,17 @@ if [ "$is_windows" -eq 0 ] && ! command -v setsid >/dev/null 2>&1; then
     exit 2
 fi
 
+# 現在時刻を秒で 1 行だけ出力する。取得できなければ 0 を出力する。
+# date は時刻を出力したうえで 0 以外の終了コードを返すことがあるため、
+# 終了コードではなく出力が数値かどうかで判定する。
 now_seconds() {
-    date +%s 2>/dev/null || echo 0
+    local value
+
+    value=$(date +%s 2>/dev/null) || true
+    case "$value" in
+        ''|*[!0-9]*) value=0 ;;
+    esac
+    printf '%s\n' "$value"
 }
 
 format_duration() {
