@@ -208,6 +208,27 @@ format_duration() {
     fi
 }
 
+# done / interrupted の行に付ける経過時間 (" elapsed=MM:SS") を node_elapsed_suffix に設定する。
+# 時刻は呼び出し側が取得済みの値を使い、date を追加で起動しない。
+# Windows ではプロセスの起動に時間がかかるため、コマンド置換 (サブシェル) も使わず printf -v で組み立てる。
+# 開始または終了の時刻を取得できなかった (0 の) 場合は空にする。
+set_node_elapsed_suffix() {
+    local started="${node_started_at[$1]:-0}"
+    local finished="$2"
+    local total
+
+    node_elapsed_suffix=""
+    if [ "$started" -gt 0 ] && [ "$finished" -ge "$started" ]; then
+        total=$((finished - started))
+        if [ "$total" -ge 3600 ]; then
+            printf -v node_elapsed_suffix ' elapsed=%02d:%02d:%02d' \
+                $((total / 3600)) $(((total % 3600) / 60)) $((total % 60))
+        else
+            printf -v node_elapsed_suffix ' elapsed=%02d:%02d' $((total / 60)) $((total % 60))
+        fi
+    fi
+}
+
 setup_progress_stream() {
     if [ "$progress" -eq 0 ]; then
         return 0
@@ -665,6 +686,7 @@ state=()
 status_values=()
 deps_by_index=()
 node_pids=()
+node_started_at=()
 count="${#dirs[@]}"
 i=0
 while [ "$i" -lt "$count" ]; do
@@ -672,6 +694,7 @@ while [ "$i" -lt "$count" ]; do
     status_values[$i]=
     deps_by_index[$i]=""
     node_pids[$i]=""
+    node_started_at[$i]=0
     i=$((i + 1))
 done
 
@@ -772,8 +795,9 @@ run_ordered_nodes() {
                     node_pids[$i]=""
                 fi
                 progress_made=1
-                progress_log "done [$completed/$count] ${dirs[$i]} rc=$status"
                 last_wait_report_at=$(now_seconds)
+                set_node_elapsed_suffix "$i" "$last_wait_report_at"
+                progress_log "done [$completed/$count] ${dirs[$i]} rc=$status$node_elapsed_suffix"
             elif [ "${state[$i]}" = "running" ] && [ "$abort" -eq 1 ] && ! is_pid_alive "${node_pids[$i]}"; then
                 status=$(status_for_signal "${signal_received:-INT}")
                 out_file="$tmp_root/node-$i.out"
@@ -793,8 +817,9 @@ run_ordered_nodes() {
                     node_pids[$i]=""
                 fi
                 progress_made=1
-                progress_log "interrupted [$completed/$count] ${dirs[$i]} rc=$status"
                 last_wait_report_at=$(now_seconds)
+                set_node_elapsed_suffix "$i" "$last_wait_report_at"
+                progress_log "interrupted [$completed/$count] ${dirs[$i]} rc=$status$node_elapsed_suffix"
             fi
             i=$((i + 1))
         done
@@ -843,6 +868,7 @@ run_ordered_nodes() {
                 running=$((running + 1))
                 progress_made=1
                 last_wait_report_at=$(now_seconds)
+                node_started_at[$i]="$last_wait_report_at"
             fi
             i=$((i + 1))
         done

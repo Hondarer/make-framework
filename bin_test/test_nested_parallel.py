@@ -15,7 +15,7 @@ BASH = shutil.which("bash") or "bash"
 
 
 class NestedParallelTest(unittest.TestCase):
-    def run_groups(self, leaves=1, barrier=True, failure=False, failing_date=False):
+    def run_groups(self, leaves=1, barrier=True, failure=False, failing_date=False, progress=False):
         with tempfile.TemporaryDirectory(prefix="nested parallel ") as temporary:
             root = Path(temporary)
             worker = root / "worker.py"
@@ -71,7 +71,8 @@ sys.exit(7 if fail == "1" else 0)
                 fake_date.chmod(0o755)
                 env["PATH"] = str(fake_bin) + os.pathsep + env.get("PATH", "")
             result = subprocess.run(
-                [BASH, str(RUNNER), "2", "_test_run", "one", "two"], cwd=root, env=env,
+                [BASH, str(RUNNER), *(["--progress"] if progress else []), "2", "_test_run", "one", "two"],
+                cwd=root, env=env,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 encoding="utf-8", errors="replace", timeout=240,
             )
@@ -99,6 +100,13 @@ sys.exit(7 if fail == "1" else 0)
         result, intervals = self.run_groups(failure=True)
         self.assertNotEqual(result.returncode, 0, result.stdout)
         self.assertEqual(len(intervals), 2)
+
+    def test_progress_shows_elapsed_on_done(self):
+        result, _ = self.run_groups(barrier=False, progress=True)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        for group in ("one", "two"):
+            self.assertRegex(
+                result.stdout, r"(?m)^INFO: done \[\d/2\] " + group + r" rc=0 elapsed=\d{2}:\d{2}$")
 
     def test_failing_date_does_not_break_wait_loop(self):
         result, intervals = self.run_groups(failing_date=True)
