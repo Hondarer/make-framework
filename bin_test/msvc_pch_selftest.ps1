@@ -60,6 +60,8 @@ try {
     & $script -Flags $flags -ExtraFlags '/D_IN_TEST_SRC' -ObjDir 'obj/md' -Sources 'first.cc second.cc' -WorkspaceDir $root
     if ($LASTEXITCODE) { throw 'test variant compilation failed' }
     if (@(Get-ChildItem obj/md -Filter '*.pch').Count -ne 2) { throw 'configuration PCH collision' }
+    # PCH の生成と同じ 1 秒以内に書き換えると、更新時刻の比較でヘッダーの変更を検出できないことがあるため待つ。
+    Start-Sleep -Milliseconds 1100
     [IO.File]::WriteAllText("$root/common.h", "#pragma once`nstruct Common { int value[2]; };`n", $utf8)
     & $script -Flags $flags -ObjDir 'obj/md' -Sources 'first.cc second.cc' -WorkspaceDir $root
     if ($LASTEXITCODE) { throw 'changed header compilation failed' }
