@@ -32,66 +32,45 @@ framework/makefw/makefiles/
 
 ### 処理フロー
 
-```plantuml
-@startuml
-start
-:makefile (__template.mk);
-:(1) ワークスペース検索 (find-up 関数);
-:(2) prepare.mk を include;
-note right
-  - コンパイラ設定 (CC, CXX, LD, AR)
-  - makechild.mk の読み込み（親階層から順次、自身を除く）
-  - makepart.mk の読み込み（親階層から順次）
-  - makelocal.mk の読み込み（カレントディレクトリのみ）
-end note
-:(3) makemain.mk を include;
-:(4) サブディレクトリ検出;
-note right
-  GNUmakefile/makefile/Makefile を
-  含むサブディレクトリを検出
-end note
-:(5) サブディレクトリの OS フィルタリング;
-note right
-  最終ディレクトリ名 (大文字小文字無視) で判定:
-  "linux"   → Linux のみ有効
-  "windows" → Windows のみ有効
-  "shared" / その他 → 両 OS で有効
-  詳細: os-subdirectory-filtering.md
-end note
-:(6) MAKEFW_BUILD フラグの確認;
+```mermaid
+flowchart TD
+    startNode((開始)) --> step1["makefile (__template.mk)"]
+    step1 --> step2["(1) ワークスペース検索 (find-up 関数)"]
+    step2 --> step3["(2) prepare.mk を include"]
+    note_step3["注:<br>- コンパイラ設定 (CC, CXX, LD, AR)<br>- makechild.mk の読み込み（親階層から順次、自身を除く）<br>- makepart.mk の読み込み（親階層から順次）<br>- makelocal.mk の読み込み（カレントディレクトリのみ）"]
+    step3 --- note_step3
 
-if (MAKEFW_BUILD = 1 ?) then (yes)
-  :(7) パス判定による分岐;
-  if (パスに /libsrc/ を含む?) then (yes)
-    :ライブラリ;
-    if (.csproj が存在?) then (yes)
-      :makelibsrc_dotnet.mk;
-      stop
-    else (no)
-      :makelibsrc_c_cpp.mk;
-      stop
-    endif
-  else (no)
-    if (パスに /src/ を含む?) then (yes)
-      :実行体;
-      if (.csproj が存在?) then (yes)
-        :makesrc_dotnet.mk;
-        stop
-      else (no)
-        :makesrc_c_cpp.mk;
-        stop
-      endif
-    else (no)
-      :エラー: /libsrc/ または /src/ が必要;
-      stop
-    endif
-  endif
-else (no)
-  :サブディレクトリ走査のみ;
-  stop
-endif
-@enduml
+    step3 --> step4["(3) makemain.mk を include"]
+    step4 --> step5["(4) サブディレクトリ検出"]
+    note_step5["注: GNUmakefile/makefile/Makefile を含むサブディレクトリを検出"]
+    step5 --- note_step5
+
+    step5 --> step6["(5) サブディレクトリの OS フィルタリング"]
+    note_step6["注: 最終ディレクトリ名 (大文字小文字無視) で判定:<br>linux → Linux のみ有効<br>windows → Windows のみ有効<br>shared / その他 → 両 OS で有効<br>詳細: os-subdirectory-filtering.md"]
+    step6 --- note_step6
+
+    step6 --> step7["(6) MAKEFW_BUILD フラグの確認"]
+
+    step7 --> cond1{"MAKEFW_BUILD = 1 ?"}
+    cond1 -- yes --> step8["(7) パス判定による分岐"]
+    cond1 -- no --> end_sub["サブディレクトリ走査のみ"] --> endNode((終了))
+
+    step8 --> cond2{"パスに /libsrc/ を含む?"}
+    cond2 -- yes --> lib_step["ライブラリ"]
+    lib_step --> cond3{".csproj が存在?"}
+    cond3 -- yes --> out_lib_cs["makelibsrc_dotnet.mk"] --> endNode
+    cond3 -- no --> out_lib_c["makelibsrc_c_cpp.mk"] --> endNode
+
+    cond2 -- no --> cond4{"パスに /src/ を含む?"}
+    cond4 -- yes --> bin_step["実行体"]
+    bin_step --> cond5{".csproj が存在?"}
+    cond5 -- yes --> out_bin_cs["makesrc_dotnet.mk"] --> endNode
+    cond5 -- no --> out_bin_c["makesrc_c_cpp.mk"] --> endNode
+
+    cond4 -- no --> err_step["エラー: /libsrc/ または /src/ が必要"] --> endNode
 ```
+
+CodeBlock: 処理フロー
 
 ## 各 app 直下テンプレート (__each_app_template.mk)
 
