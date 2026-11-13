@@ -81,6 +81,8 @@ _msvc_compile: _msvc_compile_c_normal _msvc_compile_c_test _msvc_compile_cpp_nor
 # 引数: compiler, flags, objdir, sources, extra_flags (optional)
 # 対象ソースが空のときはレシピを空に展開し、シェルを起動しない。
 # 1 つの末端で最大 4 つのサブターゲットが空になり、Windows では起動ごとに数十 [ms] かかるため。
+# PowerShell に渡す /FI・/external:I なども MSYS のパス変換から除外する。
+# see: https://www.msys2.org/docs/filesystem-paths/#automatic-unix-windows-path-conversion
 _run_msvc_compile = $(if $(strip $(4)),$(call _run_msvc_compile_body,$(1),$(2),$(3),$(4),$(5)))
 
 define _run_msvc_compile_body
@@ -93,7 +95,7 @@ define _run_msvc_compile_body
 		chunk=""; chunk_sources=0; \
 		flush_chunk() { \
 			if [ -n "$$chunk" ]; then \
-				$(MAKEFW_POWERSHELL_COMMAND) -File "$(MSVC_COMPILE_SCRIPT)" \
+				MSYS_NO_PATHCONV=1 $(MAKEFW_POWERSHELL_COMMAND) -File "$(MSVC_COMPILE_SCRIPT)" \
 					-Compiler "$(1)" -Flags "$(2)" -ObjDir "$(3)" \
 					-PchRoot "$(if $(MAKEFW_ARTIFACT_ROOT),$(MAKEFW_ARTIFACT_ROOT),$(CURDIR))" \
 					-Sources "$$chunk" -WorkspaceDir "$(WORKSPACE_DIR)" $(5) || return $$?; \
