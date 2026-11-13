@@ -70,7 +70,7 @@ flowchart TD
     cond4 -- no --> err_step["エラー: /libsrc/ または /src/ が必要"] --> endNode
 ```
 
-CodeBlock: 処理フロー
+Figure: 処理フロー
 
 ## 各 app 直下テンプレート (__each_app_template.mk)
 
