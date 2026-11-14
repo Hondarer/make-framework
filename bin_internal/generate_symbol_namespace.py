@@ -11,6 +11,7 @@ from pathlib import Path
 
 
 _IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
+_RETRY_ATTEMPTS = 5
 
 
 def _read_names(path: Path) -> list[str]:
@@ -191,14 +192,27 @@ def _render_header(mapping: dict[str, str], undef: bool = False,
 
 def _write_if_changed(path: Path, content: str) -> bool:
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists() and path.read_text(encoding="utf-8") == content:
-        return False
+    for attempt in range(_RETRY_ATTEMPTS):
+        try:
+            if path.read_text(encoding="utf-8") == content:
+                return False
+            break
+        except FileNotFoundError:
+            break
+        except OSError as error:
+            # While another writer is in os.replace, Windows fails the read with a
+            # PermissionError (errno 13) whose winerror is None, so winerror alone
+            # (5, 32) does not detect it. Treat any PermissionError as transient.
+            transient = isinstance(error, PermissionError) or getattr(error, "winerror", None) in (5, 32)
+            if not transient or attempt == _RETRY_ATTEMPTS - 1:
+                raise
+            time.sleep(0.01 * (2 ** attempt))
     descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
         os.chmod(temporary_name, 0o644)
         with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as output:
             output.write(content)
-        for attempt in range(5):
+        for attempt in range(_RETRY_ATTEMPTS):
             try:
                 os.replace(temporary_name, path)
                 break
@@ -210,7 +224,7 @@ def _write_if_changed(path: Path, content: str) -> bool:
                 if already_written:
                     os.unlink(temporary_name)
                     return False
-                if getattr(error, "winerror", None) not in (5, 32) or attempt == 4:
+                if getattr(error, "winerror", None) not in (5, 32) or attempt == _RETRY_ATTEMPTS - 1:
                     raise
                 time.sleep(0.01 * (2 ** attempt))
     except BaseException:

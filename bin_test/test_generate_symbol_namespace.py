@@ -4,6 +4,7 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bin_internal"))
@@ -126,6 +127,67 @@ int call(struct sqlite3_api_routines *api) { return api->open + demo_open(1); }
                 self.assertEqual(future.result()["demo_open"], "demo_app_demo_open")
         self.assertIn("#define demo_open demo_app_demo_open", self.namespace_header.read_text(encoding="utf-8"))
         self.assertIn("#undef demo_open", self.undef_header.read_text(encoding="utf-8"))
+
+    def test_read_retries_transient_windows_errors(self):
+        self.output.mkdir()
+        self.namespace_header.write_text("unchanged", encoding="utf-8")
+        for winerror in (5, 32):
+            with self.subTest(winerror=winerror):
+                error = PermissionError("temporarily unavailable")
+                error.winerror = winerror
+                with patch.object(Path, "read_text", side_effect=[error, "unchanged"]) as read, \
+                     patch.object(namespace.time, "sleep") as sleep, \
+                     patch.object(namespace.os, "replace") as replace:
+                    self.assertFalse(namespace._write_if_changed(self.namespace_header, "unchanged"))
+                self.assertEqual(read.call_count, 2)
+                sleep.assert_called_once_with(0.01)
+                replace.assert_not_called()
+
+    def test_read_retries_permission_error_without_winerror(self):
+        self.output.mkdir()
+        self.namespace_header.write_text("unchanged", encoding="utf-8")
+        error = PermissionError(13, "Permission denied")
+        self.assertIsNone(getattr(error, "winerror", None))
+        with patch.object(Path, "read_text", side_effect=[error, "unchanged"]) as read, \
+             patch.object(namespace.time, "sleep") as sleep, \
+             patch.object(namespace.os, "replace") as replace:
+            self.assertFalse(namespace._write_if_changed(self.namespace_header, "unchanged"))
+        self.assertEqual(read.call_count, 2)
+        sleep.assert_called_once_with(0.01)
+        replace.assert_not_called()
+
+    def test_read_retry_then_updates_changed_header(self):
+        self.output.mkdir()
+        self.namespace_header.write_text("old", encoding="utf-8")
+        error = PermissionError("temporarily unavailable")
+        error.winerror = 32
+        with patch.object(Path, "read_text", side_effect=[error, "old"]), \
+             patch.object(namespace.time, "sleep"):
+            self.assertTrue(namespace._write_if_changed(self.namespace_header, "new"))
+        self.assertEqual(self.namespace_header.read_text(encoding="utf-8"), "new")
+        self.assertEqual(list(self.output.iterdir()), [self.namespace_header])
+
+    def test_read_propagates_persistent_or_unrelated_errors(self):
+        cases = (
+            (PermissionError, 5, 5), (PermissionError, 32, 5), (PermissionError, None, 5),
+            (OSError, 3, 1), (OSError, None, 1),
+        )
+        for error_type, winerror, expected_reads in cases:
+            with self.subTest(error_type=error_type.__name__, winerror=winerror):
+                error = error_type("cannot read")
+                if winerror is not None:
+                    error.winerror = winerror
+                with patch.object(Path, "read_text", side_effect=error) as read, \
+                     patch.object(namespace.time, "sleep") as sleep:
+                    with self.assertRaises(error_type):
+                        namespace._write_if_changed(self.namespace_header, "content")
+                self.assertEqual(read.call_count, expected_reads)
+                self.assertEqual(sleep.call_count, expected_reads - 1)
+                self.assertEqual(list(self.output.iterdir()), [])
+
+    def test_missing_header_is_created(self):
+        self.assertTrue(namespace._write_if_changed(self.namespace_header, "content"))
+        self.assertEqual(self.namespace_header.read_text(encoding="utf-8"), "content")
 
 
 if __name__ == "__main__":
