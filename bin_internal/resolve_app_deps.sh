@@ -756,6 +756,8 @@ add_signature_file_direct() {
 #   - packages/ 配下のアーカイブ : 各 app の bin_internal/extract_package.py が
 #                             正規表現でファイル名を照合して選ぶ配布アーカイブ。
 #   - bin_internal/*.py, bin_internal/*.sh : 展開処理そのものを行うスクリプト。
+#   - prod/public_symbols.txt, prod/public_api_macros.txt : 展開後に公開 API の
+#                             名前空間ヘッダーを生成し、公開ヘッダーを書き換える入力。
 # いずれのディレクトリにも運用手順を記した README.md が置かれることがあるが
 # (例: app/cjson/packages/README.md, app/cjson/patches/README.md)、
 # extract_package.py・apply_patches.py のどちらも README.md を一切参照しない
@@ -784,6 +786,11 @@ collect_vendor_import_signature_files() {
             add_signature_file_direct "$f"
         done
     fi
+
+    # 公開 API 名前空間の入力 (generate_symbol_namespace.py が読む一覧)。
+    # 拡張子が .txt のため、prod/ のツリー走査では対象にならない。
+    add_signature_file_direct "$app_path/prod/public_symbols.txt"
+    add_signature_file_direct "$app_path/prod/public_api_macros.txt"
 }
 
 collect_tree_signature_files() {

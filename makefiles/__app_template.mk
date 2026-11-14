@@ -18,7 +18,7 @@ include $(call _makefw_escape_path,$(MAKEFW_HOME)/makefiles/_parallel.mk)
 
 APP_ORDER_RESOLVER = $(MAKEFW_HOME)/bin_internal/resolve_app_deps.sh
 SUBDIRS := $(shell bash "$(APP_ORDER_RESOLVER)" --app-order)
-_MAKEFW_APP_RUNNER_GOALS := default with-cov gen clean test doxy
+_MAKEFW_APP_RUNNER_GOALS := default with-cov gen clean test quicktest doxy
 
 # 並列実行 (-j) 時に複数 app の出力が交錯しないよう、通常はターゲット単位で出力同期する。
 # ただしランナー経由ターゲットは run_ordered_subdir_target.sh が出力順序と進捗表示を制御するため、親 make では出力同期を付与しない。
@@ -146,17 +146,18 @@ clean : submodule
 	rm -f c_cpp_properties.warn
 	rm -rf idir
 
-.PHONY: test
-test : submodule
+.PHONY: test quicktest
+test quicktest : submodule
     # 各 app の test を依存関係に従って並列ディスパッチしつつ、コンソール出力は
     # SUBDIRS の宣言順に揃える。leaf テスト実行は共有スロットで全体上限を守る。
 	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
+	if [ "$@" = "quicktest" ]; then export TESTFW_QUICKTEST=1; fi; \
 	app_test_jobs=$${MAKEFW_APP_TEST_JOBS:-$$jobs}; \
 	test_run_jobs=$${MAKEFW_TEST_RUN_JOBS:-$$jobs}; \
 	MAKEFW_SUBDIR_MAKE="$(MAKE)" MAKEFW_TEST_RUN_JOBS="$$test_run_jobs" "$(SHELL)" \
 		"$(MAKEFW_HOME)/bin_internal/run_ordered_subdir_target.sh" \
 		--app-deps --silent-missing --echo-command --progress \
-		"$$app_test_jobs" test $(SUBDIRS)
+		"$$app_test_jobs" $@ $(SUBDIRS)
     # このフォルダー配下の coverage.xml をマージする
 	-python "$(TESTFW_HOME)/bin_internal/cobertura_merge.py" . > /dev/null
 

@@ -183,12 +183,13 @@ endif
 #
 # test entry: traverse the subtree in two phases (build in parallel, then run -j1).
 # Any directory can be the entry point; the phase targets recurse single-phase.
-.PHONY: test _test_build _test_run
-test:
+.PHONY: test quicktest _test_build _test_run
+test quicktest:
 	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
 	echo "$(MAKE) $$parallel_make_args _test_build"; \
 	$(MAKE) $$parallel_make_args _test_build
 	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
+	if [ "$@" = "quicktest" ]; then export TESTFW_QUICKTEST=1; fi; \
 	test_run_jobs="$(MAKEFW_TEST_RUN_JOBS)"; \
 	if [ -z "$$test_run_jobs" ]; then test_run_jobs="$$jobs"; fi; \
 	test_run_args="MAKEFW_CPU_BUDGET=$$cpu MAKEFW_CL_MP_JOBS=$$cl_jobs MAKEFW_MSBUILD_JOBS=$$msbuild_jobs"; \

@@ -92,6 +92,17 @@ class BuildSignatureTest(unittest.TestCase):
         after, _ = self.signature("tested", "build")
         self.assertNotEqual(before, after)
 
+    def test_namespace_lists_change_signature(self):
+        for name in ("public_symbols.txt", "public_api_macros.txt"):
+            with self.subTest(name=name):
+                path = f"app/tested/prod/{name}"
+                self.write(path, "demo_open\n")
+                before, entries = self.signature("tested", "build")
+                self.assertIn(path, entries)
+                self.write(path, "demo_open\ndemo_close\n")
+                after, _ = self.signature("tested", "build")
+                self.assertNotEqual(before, after)
+
     def test_dependency_content_change_with_restored_timestamp(self):
         self.write("app/tested/appdeps.mk", "APP_DEPS := untested\n")
         dependency = self.root / "app/untested/prod/libsrc/untested.c"
@@ -181,6 +192,16 @@ class BuildSignatureTest(unittest.TestCase):
         _, entries = self.signature("tested", "test")
         self.assertIn("app/tested/prod/libsrc/tested.c", entries)
         self.assertFalse([entry for entry in entries if entry.startswith("framework/testfw/")])
+
+    def test_quicktest_shares_signature_with_test(self):
+        self.env.pop("TESTFW_QUICKTEST", None)
+        build_before, _ = self.signature("tested", "build")
+        test_before, _ = self.signature("tested", "test")
+        self.env["TESTFW_QUICKTEST"] = "1"
+        build_after, _ = self.signature("tested", "build")
+        test_after, _ = self.signature("tested", "test")
+        self.assertEqual(build_before, build_after)
+        self.assertEqual(test_before, test_after)
 
 
 if __name__ == "__main__":
