@@ -200,7 +200,11 @@ def _write_if_changed(path: Path, content: str) -> bool:
         except FileNotFoundError:
             break
         except OSError as error:
-            if getattr(error, "winerror", None) not in (5, 32) or attempt == _RETRY_ATTEMPTS - 1:
+            # While another writer is in os.replace, Windows fails the read with a
+            # PermissionError (errno 13) whose winerror is None, so winerror alone
+            # (5, 32) does not detect it. Treat any PermissionError as transient.
+            transient = isinstance(error, PermissionError) or getattr(error, "winerror", None) in (5, 32)
+            if not transient or attempt == _RETRY_ATTEMPTS - 1:
                 raise
             time.sleep(0.01 * (2 ** attempt))
     descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)

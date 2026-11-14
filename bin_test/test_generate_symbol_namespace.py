@@ -143,6 +143,19 @@ int call(struct sqlite3_api_routines *api) { return api->open + demo_open(1); }
                 sleep.assert_called_once_with(0.01)
                 replace.assert_not_called()
 
+    def test_read_retries_permission_error_without_winerror(self):
+        self.output.mkdir()
+        self.namespace_header.write_text("unchanged", encoding="utf-8")
+        error = PermissionError(13, "Permission denied")
+        self.assertIsNone(getattr(error, "winerror", None))
+        with patch.object(Path, "read_text", side_effect=[error, "unchanged"]) as read, \
+             patch.object(namespace.time, "sleep") as sleep, \
+             patch.object(namespace.os, "replace") as replace:
+            self.assertFalse(namespace._write_if_changed(self.namespace_header, "unchanged"))
+        self.assertEqual(read.call_count, 2)
+        sleep.assert_called_once_with(0.01)
+        replace.assert_not_called()
+
     def test_read_retry_then_updates_changed_header(self):
         self.output.mkdir()
         self.namespace_header.write_text("old", encoding="utf-8")
@@ -155,14 +168,18 @@ int call(struct sqlite3_api_routines *api) { return api->open + demo_open(1); }
         self.assertEqual(list(self.output.iterdir()), [self.namespace_header])
 
     def test_read_propagates_persistent_or_unrelated_errors(self):
-        for winerror, expected_reads in ((5, 5), (32, 5), (3, 1), (None, 1)):
-            with self.subTest(winerror=winerror):
-                error = PermissionError("cannot read")
+        cases = (
+            (PermissionError, 5, 5), (PermissionError, 32, 5), (PermissionError, None, 5),
+            (OSError, 3, 1), (OSError, None, 1),
+        )
+        for error_type, winerror, expected_reads in cases:
+            with self.subTest(error_type=error_type.__name__, winerror=winerror):
+                error = error_type("cannot read")
                 if winerror is not None:
                     error.winerror = winerror
                 with patch.object(Path, "read_text", side_effect=error) as read, \
                      patch.object(namespace.time, "sleep") as sleep:
-                    with self.assertRaises(PermissionError):
+                    with self.assertRaises(error_type):
                         namespace._write_if_changed(self.namespace_header, "content")
                 self.assertEqual(read.call_count, expected_reads)
                 self.assertEqual(sleep.call_count, expected_reads - 1)
