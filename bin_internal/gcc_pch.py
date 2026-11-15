@@ -19,6 +19,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -126,6 +127,10 @@ def _split_flags(tokens: list[str]) -> list[tuple[str, str | None]]:
     index = 0
     while index < len(tokens):
         token = tokens[index]
+        if token == "-I-":
+            parsed.append(("-I-", None))
+            index += 1
+            continue
         if token in _OPTIONS_WITH_ARGUMENT and index + 1 < len(tokens):
             parsed.append((token, tokens[index + 1]))
             index += 2
@@ -172,8 +177,19 @@ def _normalize_flags(tokens: list[str], base: Path) -> list[str]:
 
 
 def _flags_disable_pch(tokens: list[str]) -> bool:
-    """先頭 include を奪う -include / -imacros があるときに True。"""
-    return any(name in {"-include", "-imacros"} for name, _argument in _split_flags(tokens))
+    """先頭 include を奪う指定や、現在ディレクトリの引用符探索を抑止する指定があるときに True。"""
+    for name, argument in _split_flags(tokens):
+        if name in {"-include", "-imacros", "--include", "--imacros", "-I-", "--include-barrier"}:
+            return True
+        if name == "-I" and argument == "-":
+            return True
+        if name.startswith(("--include=", "--imacros=")):
+            return True
+        if name.startswith("-Wp,") and any(
+            part in {"-I-", "--include-barrier"} for part in name.split(",")[1:]
+        ):
+            return True
+    return False
 
 
 def _strip_gch_flags(tokens: list[str]) -> list[str]:
@@ -328,21 +344,47 @@ def _parse_include_trace(stderr: str) -> list[tuple[int, str]]:
     return rows
 
 
+def _probe_include_line(include: str, source_directory: Path) -> str:
+    """ソース側にある引用符 include だけを、symlink の親を変えない絶対パスで書く。"""
+    if _quoted(include) and include.endswith('"') and len(include) > 2:
+        # GCC の引用符 include は現在ファイルのディレクトリを最優先し、#line では変わらない。
+        # probe.c を objdir 配下の空ディレクトリへ移すため、ソース側に見つかる通常のファイルだけ
+        # symlink の実体へ resolve() せず絶対パス化して記述し、無ければ既存探索パスへ委ねる。
+        # see: https://gcc.gnu.org/onlinedocs/cpp/Search-Path.html
+        # see: https://gcc.gnu.org/onlinedocs/cpp/Line-Control.html
+        candidate = Path(os.path.abspath(source_directory)) / include[1:-1]
+        if candidate.is_file():
+            return f'#include "{candidate.as_posix()}"'
+    return f"#include {include}"
+
+
 def _resolve_includes(
     compiler: str,
     flags: list[str],
     language: str,
     includes: list[str],
     source_directory: Path,
+    objdir: Path,
 ) -> list[Path] | None:
-    """接頭辞の各 include が開くファイルを、GCC の探索順で返す。失敗時は None。"""
-    probe = source_directory / f".makefw-pch-resolve-{os.getpid()}.c"
-    probe.write_text("\n".join(f"#include {include}" for include in includes) + "\n", encoding="utf-8")
+    """接頭辞の各 include が開くファイルを、GCC の探索順で返す。失敗時は None。
+
+    objdir 配下の空の一時ディレクトリに probe.c を置くことで、objdir 直下の同名ヘッダーが
+    引用符 include の現在ファイル基準探索で誤って選択されることを防ぐ。
+    また、元の flags・環境変数・作業ディレクトリを維持し、追加の -iquote を付けないことで
+    読み込まれたヘッダー内部の入れ子 include の探索順を変えない。
+    see: https://gcc.gnu.org/onlinedocs/cpp/Search-Path.html
+    """
+    objdir.mkdir(parents=True, exist_ok=True)
     header_language = "c" if language == "c" else "c++"
-    command = [compiler, *flags, "-H", "-E", "-fsyntax-only", "-x", header_language, str(probe)]
+    probe_text = (
+        "\n".join(_probe_include_line(include, source_directory) for include in includes) + "\n"
+    )
     env = os.environ.copy()
     env["LC_ALL"] = "C.UTF-8"
-    try:
+    with tempfile.TemporaryDirectory(prefix=".makefw-pch-resolve-", dir=objdir) as probe_dir:
+        probe = Path(probe_dir) / "probe.c"
+        probe.write_text(probe_text, encoding="utf-8")
+        command = [compiler, *flags, "-H", "-E", "-fsyntax-only", "-x", header_language, str(probe)]
         result = subprocess.run(
             command,
             stdout=subprocess.DEVNULL,
@@ -352,8 +394,6 @@ def _resolve_includes(
             env=env,
             check=False,
         )
-    finally:
-        probe.unlink(missing_ok=True)
     if result.returncode != 0:
         _debug(f"include の解決に失敗したため通常コンパイルに戻します: {result.stderr.strip()}")
         return None
@@ -377,11 +417,12 @@ def _usable_prefix(
     language: str,
     prefix: list[str],
     source_directory: Path,
+    objdir: Path,
 ) -> tuple[list[str], list[Path]] | None:
     """ガードのないヘッダーを境界から外し、残った接頭辞と解決先を返す。"""
     if not prefix:
         return None
-    resolved = _resolve_includes(compiler, flags, language, prefix, source_directory)
+    resolved = _resolve_includes(compiler, flags, language, prefix, source_directory, objdir)
     if resolved is None:
         return None
     limit = len(prefix)
@@ -652,7 +693,7 @@ def prepare(arguments: argparse.Namespace) -> None:
     if flags[:1] == ["--"]:
         flags = flags[1:]
     if _flags_disable_pch(flags):
-        _debug("既存の -include または -imacros があるため自動 PCH を使いません")
+        _debug("既存の -include、-imacros、または -I- があるため自動 PCH を使いません")
         _write_outputs(Path(arguments.arg_file), Path(arguments.dep_list), None, [])
         return
     peers = _select_peers(arguments.peers, arguments.source, set(arguments.test_names), arguments.for_test)
@@ -691,7 +732,7 @@ def prepare(arguments: argparse.Namespace) -> None:
     try:
         decision = _load_decision(decision_path, prefix, language)
         if decision is None:
-            usable = _usable_prefix(compiler, flags, language, prefix, source_directory)
+            usable = _usable_prefix(compiler, flags, language, prefix, source_directory, objdir)
             if usable is None:
                 decision = {"includes": [], "headers": [], "final": "", "language": language}
             else:

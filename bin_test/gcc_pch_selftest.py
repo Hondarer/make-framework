@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
 import time
 from contextlib import redirect_stdout
 from io import StringIO
+from unittest import mock
 
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
@@ -88,15 +90,16 @@ class Tree:
         invoke(argv)
         return arg.read_text(encoding="utf-8").splitlines()
 
-    def compile(self, source: Path, flags: list[str], extra: list[str]) -> tuple[Path, Path, str]:
+    def compile(self, source: Path, flags: list[str], extra: list[str],
+                compiler: str = "gcc", cwd: Path | None = None) -> tuple[Path, Path, str]:
         out = self.obj / f"{source.stem}.o"
         dep = self.obj / f"{source.stem}.d"
         argv = [
-            "gcc", "-MT", str(out), "-MMD", "-MP", "-MF", str(dep),
+            compiler, "-MT", str(out), "-MMD", "-MP", "-MF", str(dep),
             *flags, *extra, "-H", "-c", "-o", str(out), str(source),
             "-fdiagnostics-color=always",
         ]
-        result = run(argv)
+        result = run(argv, cwd=cwd)
         return out, dep, result.stderr
 
 
@@ -547,6 +550,445 @@ def check_coverity(root: Path) -> None:
     print("PASS: with-cov は Windows と Linux の PCH を無効にする")
 
 
+def check_probe_location_and_cleanup(root: Path) -> None:
+    # 1. GCC 呼び出し中にプローブが objdir 配下の空一時ディレクトリへ置かれ、ソース側へ作られないこと。
+    tree = Tree(root / "normal")
+    common_headers(tree)
+    a_c = tree.write("a.c", '#include "common.h"\nint from_a(void) { return common_value(); }\n')
+    b_c = tree.write("b.c", '#include "common.h"\nint from_b(void) { return common_value(); }\n')
+    observed = root / "observed.txt"
+    wrapper = root / "probe-observer"
+    wrapper.write_text(
+        "#!/usr/bin/env python3\n"
+        "import os, sys\n"
+        "from pathlib import Path\n"
+        "args = sys.argv[1:]\n"
+        "if '-H' in args and '-E' in args and '-fsyntax-only' in args:\n"
+        "    probe = Path(args[-1])\n"
+        "    entries = sorted(p.name for p in probe.parent.iterdir())\n"
+        "    src_probes = sorted(p.name for p in Path(os.environ['OBS_SRC']).glob('.makefw-pch-resolve-*'))\n"
+        "    with open(os.environ['OBS_FILE'], 'a', encoding='utf-8') as f:\n"
+        "        f.write(f'{probe}\\t{entries}\\t{src_probes}\\n')\n"
+        "os.execvp('gcc', ['gcc', *args])\n",
+        encoding="utf-8",
+    )
+    wrapper.chmod(0o755)
+    os.environ["OBS_FILE"] = str(observed)
+    os.environ["OBS_SRC"] = str(tree.root)
+    try:
+        extra = tree.prepare(a_c, [a_c, b_c], FLAGS, compiler=str(wrapper))
+    finally:
+        os.environ.pop("OBS_FILE", None)
+        os.environ.pop("OBS_SRC", None)
+    if not extra or not observed.is_file():
+        raise AssertionError("プローブ観測ラッパー経由の prepare が失敗しました")
+    lines = observed.read_text(encoding="utf-8").splitlines()
+    if len(lines) != 1:
+        raise AssertionError(f"プローブ観測回数が不正です: {lines}")
+    probe_str, entries_str, src_probes_str = lines[0].split("\t")
+    probe_path = Path(probe_str)
+    if probe_path.parent.parent != tree.obj or not probe_path.parent.name.startswith(".makefw-pch-resolve-"):
+        raise AssertionError(f"プローブが objdir 配下の固有ディレクトリにありません: {probe_path}")
+    if probe_path.name != "probe.c" or entries_str != "['probe.c']":
+        raise AssertionError(f"プローブ名または一時ディレクトリ内容が不正です: {probe_path} {entries_str}")
+    if src_probes_str != "[]":
+        raise AssertionError(f"GCC 実行中にソース側へプローブが作られました: {src_probes_str}")
+    if list(tree.obj.glob(".makefw-pch-resolve-*")) or list(tree.root.glob(".makefw-pch-resolve-*")):
+        raise AssertionError("正常終了後にプローブ一時ディレクトリが残りました")
+
+    # 2. GCC 非ゼロ終了時に通常コンパイルへ戻り、一時ディレクトリが削除されること。
+    fail_tree = Tree(root / "gcc-fail")
+    fa = fail_tree.write("a.c", '#include "missing_header.h"\nint a(void) { return 0; }\n')
+    fb = fail_tree.write("b.c", '#include "missing_header.h"\nint b(void) { return 0; }\n')
+    fail_extra = fail_tree.prepare(fa, [fa, fb], FLAGS)
+    if fail_extra or fail_tree.gchs():
+        raise AssertionError("GCC 失敗時に通常コンパイルへ戻りませんでした")
+    if list(fail_tree.obj.glob(".makefw-pch-resolve-*")) or list(fail_tree.root.glob(".makefw-pch-resolve-*")):
+        raise AssertionError("GCC 非ゼロ終了後にプローブ一時ディレクトリが残りました")
+
+    # 3. プローブ書き込み例外時も一時ディレクトリが削除されること。
+    err_tree = Tree(root / "write-fail")
+    ea = err_tree.write("a.c", '#include "common.h"\nint a(void) { return 0; }\n')
+    eb = err_tree.write("b.c", '#include "common.h"\nint b(void) { return 0; }\n')
+    original_write_text = Path.write_text
+
+    def fail_probe_write(self: Path, data: str, *args, **kwargs) -> int:
+        if self.name == "probe.c" and self.parent.name.startswith(".makefw-pch-resolve-"):
+            raise OSError("simulated write failure")
+        return original_write_text(self, data, *args, **kwargs)
+
+    with mock.patch.object(Path, "write_text", fail_probe_write):
+        raised = False
+        try:
+            gcc_pch._resolve_includes("gcc", FLAGS, "c", ['"common.h"'], err_tree.root, err_tree.obj)
+        except OSError:
+            raised = True
+        if not raised:
+            raise AssertionError("プローブ書き込み例外が送出されませんでした")
+    if list(err_tree.obj.glob(".makefw-pch-resolve-*")) or list(err_tree.root.glob(".makefw-pch-resolve-*")):
+        raise AssertionError("書き込み例外後にプローブ一時ディレクトリが残りました")
+    with mock.patch.object(Path, "write_text", fail_probe_write):
+        code = gcc_pch.main([
+            "prepare", "--compiler", "gcc", "--objdir", str(err_tree.obj),
+            "--pch-root", str(err_tree.pch_root), "--source", str(ea),
+            "--arg-file", str(err_tree.obj / "a.pchargs"),
+            "--dep-list", str(err_tree.obj / "a.pchdeps"),
+            "--peer", str(ea), "--peer", str(eb), "--", *FLAGS,
+        ])
+    if code != 1:
+        raise AssertionError(f"書き込み例外時の終了コードが不正です: {code}")
+    if list(err_tree.obj.glob(".makefw-pch-resolve-*")) or list(err_tree.root.glob(".makefw-pch-resolve-*")):
+        raise AssertionError("main 経由の書き込み例外後に一時ディレクトリが残りました")
+    print("PASS: プローブの配置先と正常・失敗・例外時の後始末")
+
+
+def check_objdir_same_name_and_nesting(root: Path) -> None:
+    for lang, ext, compiler in (("c", ".c", "gcc"), ("cpp", ".cpp", "g++")):
+        # 1. objdir 側に同名ヘッダーがあってもソース側を優先すること。
+        tree = Tree(root / f"{lang}-same")
+        tree.write("local.h", "#pragma once\nstatic inline int local_val(void) { return 11; }\n")
+        (tree.obj / "local.h").write_text(
+            "#pragma once\nstatic inline int local_val(void) { return 99; }\n", encoding="utf-8"
+        )
+        a_src = tree.write(f"a{ext}", '#include "local.h"\nint from_a(void) { return local_val(); }\n')
+        b_src = tree.write(
+            f"b{ext}",
+            '#include "local.h"\n#include <stdio.h>\nint from_a(void);\n'
+            'int main(void) { printf("%d\\n", from_a() + local_val()); return 0; }\n',
+        )
+        extra_a = tree.prepare(a_src, [a_src, b_src], FLAGS, compiler=compiler)
+        extra_b = tree.prepare(b_src, [a_src, b_src], FLAGS, compiler=compiler)
+        gchs = tree.gchs()
+        if len(gchs) != 1:
+            raise AssertionError(f"{lang}: objdir 同名ヘッダー検証で PCH 数が不正です: {gchs}")
+        obj_a, _dep_a, stderr_a = tree.compile(a_src, FLAGS, extra_a, compiler=compiler)
+        obj_b, _dep_b, stderr_b = tree.compile(b_src, FLAGS, extra_b, compiler=compiler)
+        assert_used(stderr_a, gchs[0])
+        assert_used(stderr_b, gchs[0])
+        prog = tree.root / "prog"
+        run([compiler, "-o", str(prog), str(obj_a), str(obj_b)])
+        out = run([str(prog)]).stdout.strip()
+        if out != "22":
+            raise AssertionError(f"{lang}: objdir 側の同名ヘッダーが選択されました: {out}")
+
+        # 2. 入れ子の引用符 include でソース側が探索パスより優先されないこと。
+        nest = Tree(root / f"{lang}-nest")
+        inc_a = nest.root / "inc_a"
+        inc_b = nest.root / "inc_b"
+        inc_a.mkdir()
+        inc_b.mkdir()
+        (inc_a / "outer.h").write_text(
+            '#pragma once\n#include "nested.h"\nstatic inline int outer_val(void) { return nested_val(); }\n',
+            encoding="utf-8",
+        )
+        (inc_b / "nested.h").write_text(
+            "#pragma once\nstatic inline int nested_val(void) { return 42; }\n", encoding="utf-8"
+        )
+        # ソース側と objdir 側に囮の nested.h を置く。
+        nest.write("nested.h", "#pragma once\nstatic inline int nested_val(void) { return 999; }\n")
+        (nest.obj / "outer.h").write_text(
+            "#pragma once\nstatic inline int outer_val(void) { return 888; }\n", encoding="utf-8"
+        )
+        (nest.obj / "nested.h").write_text(
+            "#pragma once\nstatic inline int nested_val(void) { return 777; }\n", encoding="utf-8"
+        )
+        flags = ["-I", str(inc_a), "-I", str(inc_b), *FLAGS]
+        na = nest.write(f"a{ext}", '#include "outer.h"\nint from_a(void) { return outer_val(); }\n')
+        nb = nest.write(
+            f"b{ext}",
+            '#include "outer.h"\n#include <stdio.h>\nint from_a(void);\n'
+            'int main(void) { printf("%d\\n", from_a() == outer_val() ? outer_val() : -1); return 0; }\n',
+        )
+        extra_na = nest.prepare(na, [na, nb], flags, compiler=compiler)
+        extra_nb = nest.prepare(nb, [na, nb], flags, compiler=compiler)
+        nest_gchs = nest.gchs()
+        if len(nest_gchs) != 1:
+            raise AssertionError(f"{lang}: 入れ子 include 検証で PCH 数が不正です: {nest_gchs}")
+        nobj_a, _ndep_a, nerr_a = nest.compile(na, flags, extra_na, compiler=compiler)
+        nobj_b, _ndep_b, nerr_b = nest.compile(nb, flags, extra_nb, compiler=compiler)
+        assert_used(nerr_a, nest_gchs[0])
+        assert_used(nerr_b, nest_gchs[0])
+        nprog = nest.root / "prog"
+        run([compiler, "-o", str(nprog), str(nobj_a), str(nobj_b)])
+        nout = run([str(nprog)]).stdout.strip()
+        if nout != "42":
+            raise AssertionError(f"{lang}: 入れ子の引用符 include の優先順が変わりました: {nout}")
+    print("PASS: C/C++ で objdir 同名ヘッダーと入れ子引用符 include の解決を維持")
+
+
+def check_fallback_paths_and_cwd(root: Path) -> None:
+    src = root / "src"
+    obj = root / "obj"
+    runner = root / "runner"
+    qdir = runner / "qinc"
+    idir = runner / "iinc"
+    for directory in (src, obj, qdir, idir):
+        directory.mkdir(parents=True)
+
+    (src / "local.h").write_text("#pragma once\n#define V_LOCAL 1\n", encoding="utf-8")
+    (runner / "local.h").write_text("#pragma once\n#define V_LOCAL 100\n", encoding="utf-8")
+    (obj / "local.h").write_text("#pragma once\n#define V_LOCAL 200\n", encoding="utf-8")
+
+    (qdir / "from_quote.h").write_text("#pragma once\n#define V_QUOTE 2\n", encoding="utf-8")
+    (idir / "from_quote.h").write_text("#pragma once\n#define V_QUOTE 210\n", encoding="utf-8")
+    (obj / "from_quote.h").write_text("#pragma once\n#define V_QUOTE 220\n", encoding="utf-8")
+
+    (idir / "from_I.h").write_text("#pragma once\n#define V_I 3\n", encoding="utf-8")
+    (obj / "from_I.h").write_text("#pragma once\n#define V_I 310\n", encoding="utf-8")
+
+    (idir / "angle.h").write_text("#pragma once\n#define V_ANGLE 4\n", encoding="utf-8")
+    (src / "angle.h").write_text("#pragma once\n#define V_ANGLE 410\n", encoding="utf-8")
+    (obj / "angle.h").write_text("#pragma once\n#define V_ANGLE 420\n", encoding="utf-8")
+
+    a_c = src / "a.c"
+    b_c = src / "b.c"
+    body = (
+        '#include "local.h"\n'
+        '#include "from_quote.h"\n'
+        '#include "from_I.h"\n'
+        '#include <angle.h>\n'
+    )
+    a_c.write_text(body + "int sum_a(void) { return V_LOCAL + V_QUOTE + V_I + V_ANGLE; }\n", encoding="utf-8")
+    b_c.write_text(
+        body + '#include <stdio.h>\nint sum_a(void);\n'
+        'int main(void) { printf("%d\\n", sum_a()); return 0; }\n',
+        encoding="utf-8",
+    )
+
+    # 1. 相対探索パスと異なる cwd で _resolve_includes の解決先が通常コンパイルと一致すること。
+    rel_flags = ["-iquote", "qinc", "-I", "iinc", *FLAGS]
+    previous_cwd = Path.cwd()
+    os.chdir(runner)
+    try:
+        resolved = gcc_pch._resolve_includes(
+            "gcc", rel_flags, "c",
+            ['"local.h"', '"from_quote.h"', '"from_I.h"', "<angle.h>"],
+            src, obj,
+        )
+    finally:
+        os.chdir(previous_cwd)
+    if resolved is None:
+        raise AssertionError("異なる cwd での _resolve_includes が失敗しました")
+    direct_gcc = run(
+        ["gcc", *rel_flags, "-H", "-E", "-fsyntax-only", str(a_c)],
+        cwd=runner,
+    )
+
+    def resolve_from_runner(path_text: str) -> Path:
+        path = Path(path_text)
+        return (path if path.is_absolute() else runner / path).resolve()
+
+    resolved_paths = [resolve_from_runner(str(path)) for path in resolved]
+    expected = [
+        resolve_from_runner(path)
+        for depth, path in gcc_pch._parse_include_trace(direct_gcc.stderr)
+        if depth == 1 and not path.endswith("/stdc-predef.h")
+    ]
+    expected_concrete = [
+        (src / "local.h").resolve(),
+        (qdir / "from_quote.h").resolve(),
+        (idir / "from_I.h").resolve(),
+        (idir / "angle.h").resolve(),
+    ]
+    if resolved_paths != expected or resolved_paths != expected_concrete:
+        raise AssertionError(
+            "cwd 違いの探索結果が一致しません: "
+            f"{resolved_paths} vs gcc={expected} vs concrete={expected_concrete}"
+        )
+
+    # 2. 絶対パス探索フラグで異なる cwd から prepare / compile しても現行と同じ解決で動くこと。
+    abs_flags = ["-iquote", str(qdir), "-I", str(idir), *FLAGS]
+    os.chdir(runner)
+    try:
+        arg_a = obj / "a.pchargs"
+        dep_a = obj / "a.pchdeps"
+        arg_b = obj / "b.pchargs"
+        dep_b = obj / "b.pchdeps"
+        for src_file, arg_file, dep_file in ((a_c, arg_a, dep_a), (b_c, arg_b, dep_b)):
+            invoke([
+                "prepare", "--compiler", "gcc", "--objdir", str(obj),
+                "--pch-root", str(root), "--source", str(src_file),
+                "--arg-file", str(arg_file), "--dep-list", str(dep_file),
+                "--min-sources", "2", "--peer", str(a_c), "--peer", str(b_c),
+                "--", *abs_flags,
+            ])
+        extra_a = arg_a.read_text(encoding="utf-8").splitlines()
+        extra_b = arg_b.read_text(encoding="utf-8").splitlines()
+        gchs = list(obj.glob("auto_*.h.gch"))
+        if len(gchs) != 1:
+            raise AssertionError(f"cwd 違いで PCH が作られませんでした: {gchs}")
+        obj_a = obj / "a.o"
+        obj_b = obj / "b.o"
+        res_a = run(["gcc", *abs_flags, *extra_a, "-H", "-c", "-o", str(obj_a), str(a_c)], cwd=runner)
+        res_b = run(["gcc", *abs_flags, *extra_b, "-H", "-c", "-o", str(obj_b), str(b_c)], cwd=runner)
+        assert_used(res_a.stderr, gchs[0])
+        assert_used(res_b.stderr, gchs[0])
+        prog = root / "prog"
+        run(["gcc", "-o", str(prog), str(obj_a), str(obj_b)], cwd=runner)
+        out = run([str(prog)], cwd=runner).stdout.strip()
+        if out != "10":
+            raise AssertionError(f"フォールバック探索先の結果が不正です: {out}")
+    finally:
+        os.chdir(previous_cwd)
+    print("PASS: 既存 -iquote / -I、山括弧、および異なる cwd でのフォールバック探索")
+
+
+def check_symlink_parent(root: Path) -> None:
+    tree = Tree(root / "proj")
+    other = root / "other"
+    other.mkdir()
+    (other / "real.h").write_text(
+        '#pragma once\n#include "sibling.h"\nstatic inline int sym_value(void) { return sibling_value(); }\n',
+        encoding="utf-8",
+    )
+    (other / "sibling.h").write_text(
+        "#pragma once\nstatic inline int sibling_value(void) { return 999; }\n", encoding="utf-8"
+    )
+    tree.write("sibling.h", "#pragma once\nstatic inline int sibling_value(void) { return 77; }\n")
+    link = tree.root / "link.h"
+    link.symlink_to(other / "real.h")
+    a_c = tree.write("a.c", '#include "link.h"\nint from_a(void) { return sym_value(); }\n')
+    b_c = tree.write(
+        "b.c",
+        '#include "link.h"\n#include <stdio.h>\nint from_a(void);\n'
+        'int main(void) { printf("%d\\n", from_a() == sym_value() ? sym_value() : -1); return 0; }\n',
+    )
+    extra_a = tree.prepare(a_c, [a_c, b_c], FLAGS)
+    extra_b = tree.prepare(b_c, [a_c, b_c], FLAGS)
+    gchs = tree.gchs()
+    if len(gchs) != 1:
+        raise AssertionError(f"symlink 検証で PCH が作られませんでした: {gchs}")
+    synthetic_text = Path(extra_a[1]).read_text(encoding="utf-8")
+    if str(link) not in synthetic_text or str(other / "real.h") in synthetic_text:
+        raise AssertionError(f"symlink が実体側へ resolve されました:\n{synthetic_text}")
+    obj_a, _dep_a, err_a = tree.compile(a_c, FLAGS, extra_a)
+    obj_b, _dep_b, err_b = tree.compile(b_c, FLAGS, extra_b)
+    assert_used(err_a, gchs[0])
+    assert_used(err_b, gchs[0])
+    prog = root / "prog"
+    run(["gcc", "-o", str(prog), str(obj_a), str(obj_b)])
+    out = run([str(prog)]).stdout.strip()
+    if out != "77":
+        raise AssertionError(f"symlink の親ディレクトリが維持されませんでした: {out}")
+    print("PASS: symlink の親ディレクトリを維持して解決する")
+
+
+def check_incompatible_flags(root: Path) -> None:
+    if gcc_pch._normalize_flags(["-I-", "-O2"], root) != ["-I-", "-O2"]:
+        raise AssertionError("フラグ正規化が -I- を誤解釈しました")
+    flag_cases = (
+        ("i-dash", ["-I-"]),
+        ("i-space-dash", ["-I", "-"]),
+        ("include-barrier", ["--include-barrier"]),
+        ("wp-i-dash", ["-Wp,-I-"]),
+    )
+    for name, barrier in flag_cases:
+        tree = Tree(root / name)
+        qdir = tree.root / "qdir"
+        qdir.mkdir()
+        (qdir / "common.h").write_text(
+            "#pragma once\nstatic inline int barrier_val(void) { return 5; }\n", encoding="utf-8"
+        )
+        # -I- はソース側ディレクトリ探索を抑止し、直前の -I を引用符専用にする。
+        tree.write("common.h", "#pragma once\nstatic inline int barrier_val(void) { return 999; }\n")
+        a_c = tree.write("a.c", '#include "common.h"\nint from_a(void) { return barrier_val(); }\n')
+        b_c = tree.write(
+            "b.c",
+            '#include "common.h"\nint from_a(void);\n'
+            "int main(void) { return from_a() == 5 ? 0 : 1; }\n",
+        )
+        flags = ["-I", str(qdir), *barrier, *FLAGS]
+        extra = tree.prepare(a_c, [a_c, b_c], flags)
+        if extra or tree.gchs():
+            raise AssertionError(f"{name} で自動 PCH を無効化できませんでした: {extra}")
+        run(["gcc", *flags, "-c", "-o", str(tree.obj / "a.o"), str(a_c)])
+        run(["gcc", *flags, "-c", "-o", str(tree.obj / "b.o"), str(b_c)])
+        prog = tree.root / "prog"
+        run(["gcc", "-o", str(prog), str(tree.obj / "a.o"), str(tree.obj / "b.o")])
+        run([str(prog)])
+    print("PASS: -I- 等の探索前提が成立しない指定で通常コンパイルへ戻る")
+
+
+def check_probe_ignored_and_excluded(root: Path) -> None:
+    # 1. resolve_app_deps.sh の署名走査で obj/ 配下のプローブが除外されること。
+    ws = root / "ws"
+    for directory in ("makefiles", "bin_internal"):
+        shutil.copytree(MAKEFW / directory, ws / "framework/makefw" / directory)
+    (ws / ".workspaceRoot").write_text("", encoding="utf-8")
+    (ws / "app/sample/makefile").parent.mkdir(parents=True, exist_ok=True)
+    (ws / "app/sample/makefile").write_text("", encoding="utf-8")
+    src_dir = ws / "app/sample/prod/libsrc"
+    src_dir.mkdir(parents=True, exist_ok=True)
+    (src_dir / "sample.c").write_text("int sample_fn(void) { return 1; }\n", encoding="utf-8")
+
+    env = {
+        key: value for key, value in os.environ.items()
+        if not key.startswith("MAKEFW_")
+        and key not in ("WORKSPACE_DIR", "CONFIG", "CFLAGS", "CXXFLAGS", "LDFLAGS", "DEFINES", "LIBS")
+    }
+    env["MAKEFW_ASSURED_ACTIVE"] = "0"
+    resolver = ws / "framework/makefw/bin_internal/resolve_app_deps.sh"
+
+    def read_signature() -> tuple[str, list[str]]:
+        res = run(["bash", str(resolver), "--signature", (ws / "app/sample").as_posix(), "build"], env=env)
+        lines = res.stdout.splitlines()
+        sig = next(line for line in lines if line.startswith("BUILD_SIGNATURE="))
+        entries = [line.split("\t")[0] for line in lines if "\t" in line]
+        return sig, entries
+
+    base_sig, base_entries = read_signature()
+    for rel in (
+        "obj/.makefw-pch-resolve-test/probe.c",
+        "obj/debug/.makefw-pch-resolve-test/probe.c",
+    ):
+        probe_file = src_dir / rel
+        probe_file.parent.mkdir(parents=True, exist_ok=True)
+        probe_file.write_text('#include "common.h"\n', encoding="utf-8")
+    obj_sig, obj_entries = read_signature()
+    if obj_sig != base_sig or obj_entries != base_entries:
+        raise AssertionError(f"obj 配下のプローブがビルド署名へ混入しました: {obj_entries}")
+
+    # 比較のため、ソース直下に .c を置いた場合は署名対象に入ることを確認する。
+    (src_dir / ".makefw-pch-resolve-leak.c").write_text('#include "common.h"\n', encoding="utf-8")
+    leak_sig, leak_entries = read_signature()
+    if leak_sig == base_sig or not any(entry.endswith(".makefw-pch-resolve-leak.c") for entry in leak_entries):
+        raise AssertionError("ソース直下の .c が署名比較の対照として検出されませんでした")
+    print("PASS: 標準 obj/ 配下のプローブはビルド署名から除外される")
+
+    # 2. Git 書き込み操作を行わずに標準 obj/ 配下のプローブが .gitignore に一致することを確認する。
+    ws_root = MAKEFW.parents[1]
+    gitignore = ws_root / ".gitignore"
+    if not gitignore.is_file():
+        print(f"SKIP: 標準 obj/ 配下のプローブの Git 無視確認 (.gitignore がありません: {gitignore})")
+        return
+    if not shutil.which("git"):
+        print("SKIP: 標準 obj/ 配下のプローブの Git 無視確認 (git コマンドが見つかりません)")
+        return
+    for ignored_rel in (
+        "obj/.makefw-pch-resolve-test/probe.c",
+        "obj/debug/.makefw-pch-resolve-test/probe.c",
+    ):
+        chk = subprocess.run(
+            ["git", "-C", str(ws_root), "check-ignore", "-q", ignored_rel],
+            capture_output=True, text=True, encoding="utf-8", check=False,
+        )
+        if chk.returncode != 0:
+            raise AssertionError(
+                f"標準 obj/ のプローブが Git 無視規則に一致しません (rc={chk.returncode}): "
+                f"{ignored_rel} {chk.stderr.strip()}"
+            )
+    unignored = subprocess.run(
+        ["git", "-C", str(ws_root), "check-ignore", "-q", ".makefw-pch-resolve-test.c"],
+        capture_output=True, text=True, encoding="utf-8", check=False,
+    )
+    if unignored.returncode != 1:
+        raise AssertionError(
+            f"ソース直下のプローブが未無視 (exit=1) ではありません (rc={unignored.returncode}): "
+            f"{unignored.stderr.strip()}"
+        )
+    print("PASS: 標準 obj/ 配下のプローブは Git 無視規則に一致する")
+
+
 def main() -> None:
     os.environ.pop("MAKEFW_GCC_PCH", None)
     os.environ.pop("MAKEFW_GCC_PCH_DEBUG", None)
@@ -574,6 +1016,12 @@ def main() -> None:
         check_special_flags(root / "coverage", ["--coverage", "-O0", "-g"], ["--coverage"], "coverage")
         check_special_flags(root / "flto", ["-flto", "-O2", "-g"], ["-flto"], "flto")
         check_coverity(root / "coverity")
+        check_probe_location_and_cleanup(root / "probe-loc")
+        check_objdir_same_name_and_nesting(root / "same-and-nest")
+        check_fallback_paths_and_cwd(root / "fallback-cwd")
+        check_symlink_parent(root / "symlink-parent")
+        check_incompatible_flags(root / "incompatible-flags")
+        check_probe_ignored_and_excluded(root / "ignore-and-sig")
     print("GCC の自動 PCH 検証に成功しました。")
 
 
