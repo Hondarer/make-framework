@@ -49,7 +49,7 @@ class FlexBisonWarningsTest(unittest.TestCase):
                 with self.subTest(source=name):
                     result = subprocess.run(
                         ["make", f"obj/{name}.o"], cwd=root,
-                        capture_output=True, text=True,
+                        capture_output=True, text=True, encoding="utf-8",
                     )
                     output = result.stdout + result.stderr
                     if succeeds:
