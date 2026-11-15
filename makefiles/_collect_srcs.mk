@@ -45,11 +45,10 @@ CP_SRCS := $(foreach src,$(TEST_SRCS) $(ADD_SRCS), \
 _DIRECT_CANDIDATES := $(filter-out $(CP_SRCS),$(TEST_SRCS) $(ADD_SRCS))
 _DIRECT_EXISTS := $(foreach f,$(_DIRECT_CANDIDATES),$(if $(wildcard ./$(notdir $(f))),$(f)))
 # Step 2: シンボリック リンクの除外
-# $(foreach) と $(notdir) で Make 側でベース ネームを展開し、シェルには展開済みの値を渡す
-# これにより $(shell ...) 内でシェルの # を使用せずに済む (GNU Make 4.2 以前との互換性を確保)
+# 一覧をシェル コマンドへ展開せず、ディレクトリ内のリンク名を一度だけ収集する。
 ifneq ($(_DIRECT_EXISTS),)
-    _DIRECT_SYMLINKS := $(shell \
-        $(foreach f,$(_DIRECT_EXISTS),if [ -L "./$(notdir $(f))" ]; then echo "$(f)"; fi; ))
+    _DIRECT_SYMLINK_NAMES := $(call _makefw_source_link_names,$(_makefw_source_link_scan))
+    _DIRECT_SYMLINKS := $(foreach f,$(_DIRECT_EXISTS),$(if $(filter ./$(notdir $(f)),$(_DIRECT_SYMLINK_NAMES)),$(f)))
     DIRECT_SRCS := $(filter-out $(_DIRECT_SYMLINKS),$(_DIRECT_EXISTS))
 else
     DIRECT_SRCS :=
@@ -94,15 +93,10 @@ endif
 ifdef PLATFORM_WINDOWS
     CP_SRCS += $(LINK_SRCS)
     LINK_SRCS :=
-    # Windows ではコピーを行うことにより、inject ファイル および フィルター ファイルがないにもかかわらず実体が存在するため、DIRECT_SRCS と判定されることへの対策として、
-    # 外部ファイル (実パスがカレント ディレクトリと異なるファイル) を DIRECT_SRCS から CP_SRCS に移動する
-    # $(foreach) と $(notdir)/$(dir) で Make 側で展開し、シェルには展開済みの値を渡す
-    # DIRECT_SRCS が空のときはシェルを起動しない (Windows では起動ごとに数十 [ms] かかる)
-    EXTERNAL_SRCS := $(if $(strip $(DIRECT_SRCS)),$(shell \
-        cur=$$(pwd); \
-        $(foreach f,$(DIRECT_SRCS),\
-            real_f=$$(cd "$(dir $(f))." 2>/dev/null && pwd)/$(notdir $(f)); \
-            if [ "$$real_f" != "$$cur/$(notdir $(f))" ]; then echo "$(f)"; fi; )))
+    # コピー済みの実体を外部ソースの更新追跡から除外しない。
+    # 共通のディレクトリ判定で、別名やリンク経由の同一性も確認する。
+    _EXTERNAL_SOURCE_DIRS := $(call _makefw_source_dirs_of_kind,$(DIRECT_SRCS),external missing)
+    EXTERNAL_SRCS := $(call _makefw_sources_in_dirs,$(DIRECT_SRCS),$(_EXTERNAL_SOURCE_DIRS))
     CP_SRCS += $(EXTERNAL_SRCS)
     DIRECT_SRCS := $(filter-out $(EXTERNAL_SRCS),$(DIRECT_SRCS))
 endif

@@ -676,15 +676,7 @@ _relpath = $(call _makefw_decode_path,$(patsubst $(call _makefw_encode_path,$(CU
 # clean 時に .gitignore へ反映する対象:
 # TEST_SRCS/ADD_SRCS のうち、カレント ディレクトリ外のソース
 ifneq (,$(filter clean _clean_main rebuild,$(MAKECMDGOALS)))
-MAKEFW_CLEAN_GITIGNORE_SRCS := $(strip $(sort $(shell \
-	cur=$$(cd "$(CURDIR)" 2>/dev/null && pwd); \
-	for src in $(TEST_SRCS) $(ADD_SRCS); do \
-		src_dir=$$(dirname "$$src"); \
-		abs_dir=$$(cd "$$src_dir" 2>/dev/null && pwd); \
-		if [ -n "$$abs_dir" ] && [ "$$abs_dir" != "$$cur" ]; then \
-			basename "$$src"; \
-		fi; \
-	done)))
+MAKEFW_CLEAN_GITIGNORE_SRCS := $(call _makefw_clean_external_sources)
 else
 MAKEFW_CLEAN_GITIGNORE_SRCS :=
 endif
@@ -789,4 +781,5 @@ include $(call _makefw_escape_path,$(MAKEFW_HOME)/makefiles/_ident.mk)
 endif
 endif
 
+MAKEFW_LINK_KIND := shared
 include $(call _makefw_escape_path,$(MAKEFW_HOME)/makefiles/_link_objects.mk)

@@ -250,6 +250,79 @@ function Get-Utf8NoBomEncoding {
     return [System.Text.UTF8Encoding]::new($false)
 }
 
+function Get-MsvcComparablePath {
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return '' }
+    try {
+        return (Get-MsvcLongPath ([IO.Path]::GetFullPath($Path.Trim('"')))).Replace('\', '/').ToUpperInvariant()
+    }
+    catch { return '' }
+}
+
+function Get-MsvcDiagnosticFile {
+    param([string]$Line)
+
+    if ($Line -match '^(.+?)\(\d+(?:,\d+)?\)\s*:') {
+        return Get-MsvcComparablePath $Matches[1]
+    }
+    return ''
+}
+
+function Get-MsvcWarningMap {
+    param([string[]]$Sources, [hashtable]$Includes, [bool]$DependenciesComplete, [string[]]$Diagnostics)
+
+    $warnings = @{}
+    $sourcePaths = @{}
+    $includePaths = @{}
+    foreach ($src in $Sources) {
+        $sourcePaths[$src] = Get-MsvcComparablePath $src
+        $includePaths[$src] = @($Includes[$src] | ForEach-Object { Get-MsvcComparablePath $_ })
+        $warnings[$src] = [Collections.Generic.List[string]]::new()
+    }
+    foreach ($line in $Diagnostics) {
+        $path = Get-MsvcDiagnosticFile $line
+        $owners = @($Sources | Where-Object { $path -ne '' -and $sourcePaths[$_] -eq $path })
+        if (-not $owners.Count -and $DependenciesComplete -and $path -ne '') {
+            $owners = @($Sources | Where-Object { $includePaths[$_] -contains $path })
+        }
+        # 依存関係だけでは共有ヘッダーの診断元を一意に特定できない。
+        # 候補すべてへ保存し、照合不能・依存情報不完全時は今回の全翻訳単位へ保存する。
+        if (-not $owners.Count) { $owners = $Sources }
+        foreach ($src in $owners) { $warnings[$src].Add($line) }
+    }
+    return $warnings
+}
+
+function Update-MsvcWarningFiles {
+    param([string[]]$Sources, [hashtable]$Warnings)
+
+    $encoding = Get-Utf8NoBomEncoding
+    $paths = @($Sources | ForEach-Object { Get-MsvcComparablePath $_ })
+    $warnPaths = @($Sources | ForEach-Object { Get-MsvcComparablePath "$_.warn" })
+    $directories = @($Sources | ForEach-Object { [IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($_)) } | Sort-Object -Unique)
+    foreach ($directory in $directories) {
+        foreach ($file in [IO.Directory]::EnumerateFiles($directory, '*.warn')) {
+            if ($warnPaths -contains (Get-MsvcComparablePath $file)) { continue }
+            $lines = [IO.File]::ReadAllLines($file, $encoding)
+            # 今回のソース自身の診断だけを清掃する。共有ヘッダーや照合不能の行は保持する。
+            $kept = @($lines | Where-Object {
+                $path = Get-MsvcDiagnosticFile $_
+                $path -eq '' -or $paths -notcontains $path
+            })
+            if ($kept.Count -eq $lines.Count) { continue }
+            if ($kept.Count) { [IO.File]::WriteAllLines($file, [string[]]$kept, $encoding) }
+            else { Remove-Item -LiteralPath $file -Force }
+        }
+    }
+    foreach ($src in $Sources) {
+        if ($Warnings[$src].Count) {
+            [IO.File]::WriteAllLines("$src.warn", [string[]]$Warnings[$src], $encoding)
+        }
+        else { Remove-Item -LiteralPath "$src.warn" -Force -ErrorAction SilentlyContinue }
+    }
+}
+
 function Resolve-MsvcDiagnosticPath {
     param([string]$Line)
 
@@ -659,4 +732,32 @@ function Invoke-MsvcCompilerWithHeapRetry {
     }
 
     return $last
+}
+
+# 8.3 形式の短い名前 (RUNNER~1 など) を含むパスを、長い形式へ展開して返す。
+# /sourceDependencies の JSON は長い形式で出力されるため、比較の前に揃える。
+# see: https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#short-vs-long-names
+function Get-MsvcLongPath {
+    param([string]$Path)
+
+    if ($Path -notlike '*~*') {
+        return $Path
+    }
+    try {
+        $full = [System.IO.Path]::GetFullPath($Path)
+        $root = [System.IO.Path]::GetPathRoot($full)
+        $current = $root
+        foreach ($part in $full.Substring($root.Length).Split([char[]]@('\', '/'), [System.StringSplitOptions]::RemoveEmptyEntries)) {
+            $match = $null
+            if ($part -like '*~*') {
+                # 検索パターンは短い名前にも一致し、結果は長い形式で返る。
+                $match = [System.IO.Directory]::GetFileSystemEntries($current, $part) | Select-Object -First 1
+            }
+            $current = if ($match) { $match } else { Join-Path $current $part }
+        }
+        return $current
+    }
+    catch {
+        return $Path
+    }
 }

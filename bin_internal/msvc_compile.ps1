@@ -167,6 +167,11 @@ if ($DryRun) {
     exit 0
 }
 
+# 前回の JSON を今回の成功した依存情報と誤認しない。
+foreach ($src in $sourceList) {
+    Remove-Item -LiteralPath (Join-Path $ObjDir ([IO.Path]::GetFileName($src) + '.json')) -Force -ErrorAction SilentlyContinue
+}
+
 # コンパイル実行して出力をキャプチャ
 # fatal error C1060: のときは内部で待ち時間をずらして再試行する。
 # 最後の試行の出力だけを以降の診断処理へ渡す。
@@ -185,77 +190,54 @@ if ($PchCreation -and $compileExitCode -ne 0 -and $output -match '\berror C285[6
     exit 87
 }
 
-# ソースファイルごとに警告を収集
-# /sourceDependencies 使用時は "Note: including file:" 行が出ないため、
-# ソース名と警告/エラー行のみを抽出する
-$currentSource = $null
-$warnings = @{}  # source -> warning lines のハッシュテーブル
-
+# 診断の出力順と翻訳単位の対応は /MP では保証されない。
+# 依存情報は警告の候補判定と .d 生成で共有する。
+$dependencyIncludes = @{}
+$dependenciesComplete = $true
+foreach ($src in $sourceList) {
+    $jsonPath = Join-Path $ObjDir ([IO.Path]::GetFileName($src) + '.json')
+    $rawIncludes = @()
+    try {
+        $json = Get-Content -LiteralPath $jsonPath -Raw -Encoding UTF8 -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+        if ($null -eq $json.Data -or $null -eq $json.Data.PSObject.Properties['Includes']) {
+            throw "Missing Data.Includes"
+        }
+        $rawIncludes = @($json.Data.Includes)
+        if ($PchDependencyFile -ne '') {
+            $pchJson = Get-Content -LiteralPath $PchDependencyFile -Raw -Encoding UTF8 -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+            if ($null -eq $pchJson.Data -or $null -eq $pchJson.Data.PSObject.Properties['Includes']) {
+                throw "Missing PCH Data.Includes"
+            }
+            $rawIncludes += @($pchJson.Data.Includes)
+        }
+    }
+    catch {
+        $dependenciesComplete = $false
+        $outputRecords.Add((New-MsvcOutputRecord -Text "Warning: Failed to parse $jsonPath : $_" -Kind 'warning'))
+    }
+    if ("$Flags $ExtraFlags" -match '/Fp"([^"]+)"') { $rawIncludes += $Matches[1] }
+    $dependencyIncludes[$src] = @($rawIncludes | Where-Object { $_ } | Sort-Object -Unique)
+}
+$diagnostics = [System.Collections.Generic.List[string]]::new()
 foreach ($line in $output -split "`r?`n") {
     $trimmedLine = $line.Trim()
-
-    # ソースファイル名の行を検出 (拡張子のみの行)
+    if ($trimmedLine -eq '') { continue }
+    $isSourceName = $false
     foreach ($src in $sourceList) {
-        if ($trimmedLine -eq $src -or $trimmedLine -eq [System.IO.Path]::GetFileName($src)) {
-            $currentSource = $src
+        if ($trimmedLine -eq $src -or $trimmedLine -eq [IO.Path]::GetFileName($src)) {
+            $isSourceName = $true
             break
         }
     }
-
-    # 警告/エラー行を出力 (インクルード行は出ないため全行が診断対象)
-    # $currentSource が null の段階 (ソースファイル名行より前) のエラーも出力する
-    if ($trimmedLine -ne "") {
-        $isSourceName = $false
-        foreach ($src in $sourceList) {
-            if ($trimmedLine -eq $src -or $trimmedLine -eq [System.IO.Path]::GetFileName($src)) {
-                $isSourceName = $true
-                break
-            }
-        }
-        if (-not $isSourceName) {
-            # MSVC 診断メッセージのファイルパスをフルパスに変換 (VS Code でクリック可能にする)
-            $outputLine = Resolve-MsvcDiagnosticPath $trimmedLine
-
-            $record = ConvertTo-MsvcOutputRecord -Line $outputLine
-            $outputRecords.Add($record)
-            $kind = $record.Kind
-            if ($kind -eq 'warning' -and $null -ne $currentSource) {
-                if (-not $warnings.ContainsKey($currentSource)) {
-                    $warnings[$currentSource] = @()
-                }
-                $warnings[$currentSource] += $outputLine
-            }
-        }
-    }
+    if ($isSourceName) { continue }
+    $outputLine = Resolve-MsvcDiagnosticPath $trimmedLine
+    $record = ConvertTo-MsvcOutputRecord -Line $outputLine
+    $outputRecords.Add($record)
+    if ($record.Kind -eq 'warning') { $diagnostics.Add($outputLine) }
 }
-
-# 8.3 形式の短い名前 (RUNNER~1 など) を含むパスを、長い形式へ展開して返す。
-# /sourceDependencies の JSON は長い形式で出力されるため、比較の前に揃える。
-# see: https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#short-vs-long-names
-function Get-MsvcLongPath {
-    param([string]$Path)
-
-    if ($Path -notlike '*~*') {
-        return $Path
-    }
-    try {
-        $full = [System.IO.Path]::GetFullPath($Path)
-        $root = [System.IO.Path]::GetPathRoot($full)
-        $current = $root
-        foreach ($part in $full.Substring($root.Length).Split([char[]]@('\', '/'), [System.StringSplitOptions]::RemoveEmptyEntries)) {
-            $match = $null
-            if ($part -like '*~*') {
-                # 検索パターンは短い名前にも一致し、結果は長い形式で返る。
-                $match = [System.IO.Directory]::GetFileSystemEntries($current, $part) | Select-Object -First 1
-            }
-            $current = if ($match) { $match } else { Join-Path $current $part }
-        }
-        return $current
-    }
-    catch {
-        return $Path
-    }
-}
+$warnings = Get-MsvcWarningMap -Sources $sourceList -Includes $dependencyIncludes `
+    -DependenciesComplete $dependenciesComplete -Diagnostics $diagnostics.ToArray()
+Update-MsvcWarningFiles -Sources $sourceList -Warnings $warnings
 
 # ワークスペースの判定は長い形式で行い、.d には呼び出し元の表記で書き出す。
 $workspaceCaller = $WorkspaceDir.Replace('\', '/').TrimEnd('/')
@@ -268,44 +250,24 @@ if ($WorkspaceDir -ne "") {
 # /sourceDependencies <dir> の出力ファイル名: <ソースファイル名>.json
 # 例: foo.cc → <ObjDir>\foo.cc.json
 foreach ($src in $sourceList) {
-    $srcBaseName = [System.IO.Path]::GetFileName($src)
     $srcNameNoExt = [System.IO.Path]::GetFileNameWithoutExtension($src)
     $objPath = (Join-Path $ObjDir "$srcNameNoExt.obj").Replace('\', '/')
     $dPath = Join-Path $ObjDir "$srcNameNoExt.d"
-    $jsonPath = Join-Path $ObjDir "$srcBaseName.json"
 
     $includes = @()
 
-    if (Test-Path $jsonPath) {
-        try {
-            $json = Get-Content $jsonPath -Raw -Encoding UTF8 | ConvertFrom-Json
-            $rawIncludes = @($json.Data.Includes)
-            if ($PchDependencyFile -ne '') {
-                $pchJson = Get-Content -LiteralPath $PchDependencyFile -Raw -Encoding UTF8 | ConvertFrom-Json
-                $rawIncludes += @($pchJson.Data.Includes)
-                $rawIncludes = @($rawIncludes | Sort-Object -Unique)
-            }
-            if ("$Flags $ExtraFlags" -match '/Fp"([^"]+)"') {
-                $rawIncludes += $Matches[1]
-            }
-            foreach ($inc in $rawIncludes) {
-                # 配置先との比較は実パスで行い、その後で make 用に空白を保護する。
-                $normalized = $inc.Replace('\', '/')
-                # WorkspaceDir が指定されている場合、ワークスペース内のみ追加
-                if ($WorkspaceDir -eq "") {
-                    $includes += $normalized.Replace(' ', '\ ')
-                }
-                elseif ($normalized.StartsWith($workspaceLong + '/', [System.StringComparison]::OrdinalIgnoreCase)) {
-                    $callerPath = $workspaceCaller + $normalized.Substring($workspaceLong.Length)
-                    $includes += $callerPath.Replace(' ', '\ ')
-                }
-                elseif ($normalized.StartsWith($workspaceCaller + '/', [System.StringComparison]::OrdinalIgnoreCase)) {
-                    $includes += $normalized.Replace(' ', '\ ')
-                }
-            }
+    foreach ($inc in $dependencyIncludes[$src]) {
+        # 配置先との比較は実パスで行い、その後で make 用に空白を保護する。
+        $normalized = $inc.Replace('\', '/')
+        if ($WorkspaceDir -eq '') {
+            $includes += $normalized.Replace(' ', '\ ')
         }
-        catch {
-            $outputRecords.Add((New-MsvcOutputRecord -Text "Warning: Failed to parse $jsonPath : $_" -Kind 'warning'))
+        elseif ($normalized.StartsWith($workspaceLong + '/', [StringComparison]::OrdinalIgnoreCase)) {
+            $callerPath = $workspaceCaller + $normalized.Substring($workspaceLong.Length)
+            $includes += $callerPath.Replace(' ', '\ ')
+        }
+        elseif ($normalized.StartsWith($workspaceCaller + '/', [StringComparison]::OrdinalIgnoreCase)) {
+            $includes += $normalized.Replace(' ', '\ ')
         }
     }
 
@@ -330,14 +292,6 @@ foreach ($src in $sourceList) {
     if (Test-Path $objPath) {
         $objTime = (Get-Item $objPath).LastWriteTime
         (Get-Item $dPath).LastWriteTime = $objTime
-    }
-
-    # .warn ファイルを生成 (警告がなければ削除)
-    $warnPath = "$src.warn"
-    if ($warnings.ContainsKey($src) -and $warnings[$src].Count -gt 0) {
-        [System.IO.File]::WriteAllLines($warnPath, $warnings[$src], $utf8NoBom)
-    } else {
-        Remove-Item -Path $warnPath -Force -ErrorAction SilentlyContinue
     }
 }
 

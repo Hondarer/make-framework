@@ -12,6 +12,22 @@ _makefw_path_notdir = $(call _makefw_decode_path,$(notdir $(call _makefw_encode_
 _makefw_path_abspath = $(call _makefw_decode_path,$(abspath $(call _makefw_encode_path,$(subst \,/,$(1)))))
 _makefw_path_exists = $(wildcard $(call _makefw_escape_path,$(1)))
 
+# 一覧を単一のコマンドへ展開せず、実体確認が必要なパスだけを個別に照合する。
+# abspath だけでは、リンクや Windows の短い名前経由の同一ディレクトリを判定できない。
+# see: https://www.gnu.org/software/bash/manual/html_node/Bash-Conditional-Expressions.html
+_makefw_shell_quote = '$(subst ','"'"',$(1))'
+_makefw_source_lexical_local = $(if $(findstring ../,$(1)),,$(findstring |$(call _makefw_path_abspath,$(CURDIR))|,|$(call _makefw_path_abspath,$(call _makefw_path_dir,$(1)))|))
+_makefw_source_directory_probe = $(shell if ! cd -- $(call _makefw_shell_quote,$(call _makefw_path_dir,$(1))) 2>/dev/null; then printf missing; elif [ . -ef $(call _makefw_shell_quote,$(CURDIR)) ]; then printf local; else printf external; fi)
+_makefw_source_directory_checked = $(if $(filter local external missing,$(1)),$(1),$(error Failed to classify source directory: $(2)))
+_makefw_source_directory_kind = $(if $(call _makefw_source_lexical_local,$(1)),local,$(call _makefw_source_directory_checked,$(call _makefw_source_directory_probe,$(1)),$(1)))
+# シェル内の glob で走査するため、ソース一覧をプロセスの引数へ展開しない。
+_makefw_source_link_scan = $(shell for makefw_src in ./* ./.[!.]* ./..?*; do if [ -L "$$makefw_src" ]; then printf '%s\n' "$$makefw_src"; fi; done; printf '__MAKEFW_LINK_SCAN_OK__')
+_makefw_source_link_names = $(if $(filter __MAKEFW_LINK_SCAN_OK__,$(1)),$(filter-out __MAKEFW_LINK_SCAN_OK__,$(1)),$(error Failed to inspect source links))
+# 同じ参照先ディレクトリの実体確認を、ソースの数だけ繰り返さない。
+_makefw_source_dirs_of_kind = $(foreach dir,$(sort $(dir $(1))),$(if $(filter $(2),$(call _makefw_source_directory_kind,$(dir).makefw_probe)),$(dir)))
+_makefw_sources_in_dirs = $(foreach src,$(1),$(if $(filter $(dir $(src)),$(2)),$(src)))
+_makefw_clean_external_sources = $(sort $(notdir $(call _makefw_sources_in_dirs,$(TEST_SRCS) $(ADD_SRCS),$(call _makefw_source_dirs_of_kind,$(TEST_SRCS) $(ADD_SRCS),external))))
+
 # 設定ファイルで \ により保護した空白を、パス リストの分割前に符号化する。
 # 保護のない空白は make が読み込んだ時点で区切りと区別できないため、検出できない。
 _makefw_encode_escaped_spaces = $(subst \$(_makefw_space),__MAKEFW_SPACE__,$(1))
