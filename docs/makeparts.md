@@ -424,7 +424,7 @@ OUTPUT_DIR := $(WORKSPACE_DIR)/bin/myapp
 NO_LINK = 1
 ```
 
-`NO_LINK = 1` を `makechild.mk` に設定することで、カレント ディレクトリ (`libsubfolder-sample/`) は全サブフォルダーのオブジェクトを収集してリンクし、子ディレクトリ (`audio/` 等) はコンパイルのみとなります。  
+`NO_LINK = 1` を `makechild.mk` に設定することで、カレント ディレクトリ (`libexample/`) は全サブフォルダーのオブジェクトを収集してリンクし、子ディレクトリ (`audio/` 等) はコンパイルのみとなります。  
 詳細は [サブフォルダー コンパイル](subfolder-compilation.md) を参照してください。
 
 ## makelocal.mk

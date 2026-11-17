@@ -1,8 +1,8 @@
 <!--
 生成元: agree-before-implement スキル
 文書種別: 検討用 Markdown (discussion)
-最終更新日時: 2026-11-16 18:34:51 JST
-最終更新エージェント: claude code / セッション ID: session_01KJc53T14fddkwQBRc7ZPQt
+最終更新日時: 2026-11-18 03:06:04 JST
+最終更新エージェント: claude code (Opus 5.5) / セッション ID: session_01KJc53TxVv1vjB6xMfjiUgc (版 10 までは session_01KJc53T14fddkwQBRc7ZPQt)
 稼働 OS: Windows
 上流文書: `../../../../../app/porter/docs/prompts/current/261115-porter-multicast-src-contract-backlog.md` (対策元の残課題一覧。BL-002 が対象)
 下流文書: `261116-makefw-subdir-rebuild-race-design.md` (最終仕様)、`261116-makefw-subdir-rebuild-race-backlog.md` (残課題一覧)。未作成の場合や、削除されている場合があります。
@@ -17,9 +17,9 @@
 
 検討 ID: 261116-makefw-subdir-rebuild-race
 
-版: 10
+版: 13
 
-状態: 検討中 (最終仕様の提示後に、範囲の追加の依頼を受けて再検討中)
+状態: 合意済み (版 13)。最終仕様の版 3 は 2026-11-18 に承認済み。実装と局所検証は完了し、CI の確認と成果物の承認を待っている
 
 ## 作業 WBS と進捗管理
 
@@ -29,7 +29,7 @@
 
 凡例: ⏸️ 未着手、🔄 実施中、🚫 ブロック中、⚠️ 要注意、✅ 完了。現在取り組んでいる項目の末尾に `← **CURRENT**` を付けます。
 
-- 🚫 1. 検討用 Markdown のための情報収集と質問の実施
+- ✅ 1. 検討用 Markdown のための情報収集と質問の実施
     - ✅ 1.1. 前提条件と要求事項の調査 (CI ログの取得と読解、makefw の該当箇所の読解、対策元 backlog の BL-002 を「検討中」へ更新)
     - ✅ 1.2. 課題・論点の抽出と明確化のための確認項目 ([Q-001](#q-001-この案件に修正を含めるか)、[Q-002](#q-002-原因を裏付ける実行確認の担当と方法)、[Q-003](#q-003-調査で確定させる範囲)) の作成
     - ✅ 1.3. [Q-001](#q-001-この案件に修正を含めるか)、[Q-002](#q-002-原因を裏付ける実行確認の担当と方法)、[Q-003](#q-003-調査で確定させる範囲) の回答の受付と記録
@@ -50,27 +50,37 @@
     - ✅ 1.14. testfw の修正の試作 (WSL の一時複製での事前検証) と、Windows の経路および影響範囲の読解
     - ✅ 1.15. [Q-015](#q-015-testfw-の修正の-windows-での確認方法)、[Q-016](#q-016-testfw-の修正に対する回帰テスト) の回答の受付
     - ✅ 1.16. Windows 側の一時複製での現状の確認と、testfw の修正の試作 (事前検証。リポジトリの作業ツリーは変更しない)
-    - 🚫 1.17. [Q-017](#q-017-windows-の-make-test-がサブディレクトリをコンパイルしない点の扱い) の回答の受付 (停止理由: ユーザーの回答待ち) ← **CURRENT**
-- 🔄 2. 前提合意と残懸念の解消 (第 1 ゲート: 最終仕様作成への着手)
+    - ✅ 1.17. [Q-017](#q-017-windows-の-make-test-がサブディレクトリをコンパイルしない点の扱い) の回答の受付 (検討用 Markdown に記入済みの A を、2026-11-18 に確認)
+    - ✅ 1.18. 範囲の追加 (残課題一覧の BL-003 をこの案件で対応する。2026-11-18 の対話でユーザーが選択) の調査と、修正案の試作 (WSL と Windows の一時複製での事前検証。リポジトリの作業ツリーは変更しない)
+    - ✅ 1.19. [Q-018](#q-018-bl-003-の修正の方法)、[Q-019](#q-019-bl-003-の修正を-windows-にも適用するか)、[Q-020](#q-020-bl-003-の回帰テスト) の回答の受付 (版 13)
+- ✅ 2. 前提合意と残懸念の解消 (第 1 ゲート: 最終仕様作成への着手)
     - ✅ 2.1. 全論点に対する未解決事項および質問の解消確認 (版 5 の時点)
     - ✅ 2.2. 方針・前提条件の合意確定 (版 5 の時点。懸念がないことをもってフェーズ 2 へ着手)
-    - ⏸️ 2.3. 範囲の追加についての未解決事項の解消確認と、合意版の確定のやり直し
-- 🔄 3. 最終決定事項 (最終仕様) の作成と承認の受付
+    - ✅ 2.3. 範囲の追加についての未解決事項の解消確認と、合意版の確定のやり直し (版 11)
+    - ✅ 2.4. BL-003 の追加についての未解決事項の解消確認と、合意版の確定のやり直し (版 13)
+- ✅ 3. 最終決定事項 (最終仕様) の作成と承認の受付
     - ✅ 3.1. `261116-makefw-subdir-rebuild-race-design.md` の作成 (調査の手順、確認する事実、記録先を定める。対策元 backlog の BL-002 へパスと方針を反映)
     - ✅ 3.2. 最終仕様における受入条件と整合性の確認
-    - ⏸️ 3.3. 範囲の追加を反映した `261116-makefw-subdir-rebuild-race-design.md` の改訂
-    - ⏸️ 3.4. 対話セッションにおける最終仕様 (design.md) の承認の受付 (第 2 ゲート: 作業着手の合意。版 5 に基づく最終仕様は、承認の前に範囲の追加の依頼を受けたため未承認)
-- ⏸️ 4. 承認された最終仕様に従った作業の実施
-    - ⏸️ 4.1. `framework/makefw/bin_internal/gcc_pch.py` の `record()` の修正
-    - ⏸️ 4.2. `framework/makefw/makefiles/_flags.mk`、`makelibsrc_c_cpp.mk`、`makesrc_c_cpp.mk` の修正 (順序だけの前提の追加、サブディレクトリを 1 回だけたどる変更)
-    - ⏸️ 4.3. `framework/makefw/bin_test/gcc_pch_selftest.py` への確認の追加と、`framework/makefw/bin_test/subdir_build_selftest.py` の新規作成
-    - ⏸️ 4.4. `framework/makefw/docs/subfolder-compilation.md` と `framework/makefw/docs/build-configurations.md` への知見の反映
-    - ⏸️ 4.4a. `framework/makefw/docs/subfolder-compilation.md` の見直し (BL-001。架空の名前を維持して実在の名前をそろえる、相違の 1 番から 5 番を直す、テスト レポートの出力例を実際の出力と照合して直す、引用は数行の抜粋に絞る。docs/makeparts.md の 1 か所を含む。実際の出力は WSL の一時複製での `make test` の出力を使う。全体のカバレッジは testfw の修正後の動作に合わせる)
-    - ⏸️ 4.4b. `framework/testfw/bin_internal/exec_test_c_cpp.sh` の修正 (起点に `TEST_SRCS` がある場合もサブディレクトリの `TEST_SRCS` を集める。[Q-014](#q-014-全体のカバレッジにサブディレクトリのソースが含まれない点の扱い) の B。Windows の経路を含む。[Q-015](#q-015-testfw-の修正の-windows-での確認方法) の A により、Linux は WSL、Windows は Windows 側の一時複製で確認する)
-    - ⏸️ 4.4c. `framework/testfw/bin_test/` への回帰テストの追加 ([Q-016](#q-016-testfw-の修正に対する回帰テスト) の A。追加による CI の所要時間の増加を計測して、ユーザーへ報告する)
-    - ⏸️ 4.5. WSL の一時複製での局所検証と、変更した Markdown の機械的検証 (対策元 backlog の BL-002 を更新)
-    - ⏸️ 4.6. 受入条件への適合確認 (全完確認)
-    - ⏸️ 4.7. 残課題一覧 (`261116-makefw-subdir-rebuild-race-backlog.md`) の再構築と整理 (対策元 backlog の最終状態の確定)
+    - ✅ 3.3. 範囲の追加を反映した `261116-makefw-subdir-rebuild-race-design.md` の改訂 (最終仕様の版 2)
+    - ✅ 3.4. 対話セッションにおける最終仕様 (design.md) の承認の受付 (第 2 ゲート: 作業着手の合意)。2026-11-18、チャットでユーザーが版 2 を承認 (「makefw の対策を承認します。対処を進めましょう」)
+    - ✅ 3.5. BL-003 を反映した `261116-makefw-subdir-rebuild-race-design.md` の改訂 (最終仕様の版 3)
+    - ✅ 3.6. 対話セッションにおける最終仕様の版 3 の承認の受付 (第 2 ゲート)。2026-11-18、チャットでユーザーが承認 (「承認。対策に成功したら、コミット プッシュして CI を回してください。」)
+- 🔄 4. 承認された最終仕様に従った作業の実施
+    - ✅ 4.1. `framework/makefw/bin_internal/gcc_pch.py` の `record()` の修正
+    - ✅ 4.2. `framework/makefw/makefiles/_flags.mk`、`makelibsrc_c_cpp.mk`、`makesrc_c_cpp.mk` の修正 (順序だけの前提の追加、サブディレクトリを 1 回だけたどる変更)
+    - ✅ 4.2a. `framework/makefw/makefiles/makelibsrc_c_cpp.mk` と `makesrc_c_cpp.mk` の、リンクしないディレクトリの `_test_build` の前提の修正 ([Q-017](#q-017-windows-の-make-test-がサブディレクトリをコンパイルしない点の扱い) の A)
+    - ✅ 4.2b. `framework/makefw/makefiles/makelibsrc_c_cpp.mk` と `makesrc_c_cpp.mk` の、親の成果物の更新 (`_makefw_parent_artifact`) をコンパイルの完了後にする修正 (BL-003)
+    - ✅ 4.3. `framework/makefw/bin_test/gcc_pch_selftest.py` への確認の追加と、`framework/makefw/bin_test/subdir_build_selftest.py` の新規作成
+    - ✅ 4.3a. `framework/makefw/bin_test/subdir_build_selftest.py` の更新 (BL-003 の回帰テスト。[Q-020](#q-020-bl-003-の回帰テスト))
+    - ✅ 4.4. `framework/makefw/docs/subfolder-compilation.md` と `framework/makefw/docs/build-configurations.md` への知見の反映
+    - ✅ 4.4a. `framework/makefw/docs/subfolder-compilation.md` の見直し (BL-001。`docs/makeparts.md` の 1 か所を含む)
+    - ✅ 4.4b. `framework/testfw/bin_internal/exec_test_c_cpp.sh` の修正 ([Q-014](#q-014-全体のカバレッジにサブディレクトリのソースが含まれない点の扱い) の B。Windows の経路を含む)
+    - ✅ 4.4c. `framework/testfw/bin_test/test_path_spaces.py` への回帰テストの追加 ([Q-016](#q-016-testfw-の修正に対する回帰テスト) の A。所要時間は「反映と検証の記録」に記載)
+    - ✅ 4.5. WSL の一時複製と Windows 側の一時複製での局所検証 (同時には実行しない) と、変更した Markdown の機械的検証 (対策元 backlog の BL-002 を更新)
+    - ✅ 4.5a. BL-003 の修正後の局所検証のやり直し (WSL と Windows の一時複製。同時には実行しない)
+    - ⚠️ 4.6. 受入条件への適合確認 (全完確認)。受入条件 1 から 12 は局所検証で確認済み。未確認の事項は CI の結果で、ユーザーの指示どおりコミットとプッシュの後にプル リクエストで確認する ← **CURRENT**
+    - ✅ 4.7. 残課題一覧 (`261116-makefw-subdir-rebuild-race-backlog.md`) の再構築と整理 (対策元 backlog の BL-002 は、CI の確認の後に最終状態を確定する)
+    - ✅ 4.7a. BL-003 の対応後の残課題一覧の再整理 (残課題なし)
 - ⏸️ 5. 成果物の承認の受付 (第 3 ゲート)
     - ⏸️ 5.1. 成果物・検証結果・残課題の提示
     - ⏸️ 5.2. 対話セッションにおける成果物の承認の受付 (「承認」または「完了」の受領によるスキル完了)
@@ -314,6 +324,44 @@ Linux では、何もない状態からの `make test` でもサブディレク�
 4 行目は、3 行目の状態 (サブディレクトリがコンパイルされていない状態での 1 件だけの成功) を起点に起きます。  
 Linux では、サブディレクトリのテスト コードを変更した後の `make test` が省略されず、再実行されることを確認しました。
 
+## 範囲の追加に伴う調査の結果 (BL-003)
+
+成果物の提示 (2026-11-18) の後、ユーザーから「BL-003 に対処できますか」との質問を受けました。  
+進め方を 3 案で示したところ、「この案件に加える」(案 1) が選ばれました。  
+BL-003 は、この案件の回帰テストの作成中に見つけた既存の問題で、残課題一覧に記録したものです。
+
+### 原因
+
+`NO_LINK` のディレクトリの `_build_main` は、オブジェクトのコンパイルと、親の成果物を更新する make の起動 (`_makefw_parent_artifact`) を、順序なしで同じ規則の前提に並べています。
+
+```makefile
+# makelibsrc_c_cpp.mk (makesrc_c_cpp.mk は $(LIBSFILES) が加わる)
+_build_main: $(if $(PLATFORM_WINDOWS),_msvc_compile,$(OBJS)) $(if $(MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT),_makefw_parent_artifact)
+```
+
+サブディレクトリの中で `make -j4` を実行すると、親の make がコンパイルの完了を待たずに始まり、更新前のオブジェクトを見てリンクを省略します。  
+`_makefw_parent_artifact` は、利用者がサブディレクトリの中で `make` したとき (`MAKEFW_REQUEST_ROOT` が自ディレクトリのとき) だけ前提に加わります。親のディレクトリからの `make` では使われません。
+
+### 修正案の試作結果
+
+一時複製の makefw に、次の 1 行を 2 つのテンプレートへ加えて確認しました。
+
+```makefile
+_makefw_parent_artifact: | $(if $(PLATFORM_WINDOWS),_msvc_compile,$(OBJS))
+```
+
+| 確認した内容 | 修正案なし | 修正案あり |
+| --- | --- | --- |
+| Linux (WSL): サブディレクトリのソースを更新し、その中で `make -j4` | 4 回中 4 回、再リンクされない | 6 回中 6 回、再リンクされる |
+| Windows: `app/subfolder-sample` のライブラリのサブディレクトリで、ソースを更新して `make -j4` | 4 回中 4 回、再リンクされる (競合は再現せず) | 3 回中 3 回、再リンクされる |
+| Windows: サブディレクトリの中での並列指定なしの `make`、テストの `make test` | - | 成功 (テスト 3 件成功) |
+
+Table: BL-003 の修正案の試作結果
+
+Windows で再現しなかった理由は確かめていません。  
+Windows では親の make の起動 (makefile の読み込み) に時間がかかり、その間にコンパイルが終わるためと推測しています。  
+ソースの読解では、Windows も `_msvc_compile` と `_makefw_parent_artifact` の間に順序がなく、同じ競合が起きうる構造です。
+
 ## 現行の合意内容
 
 - この案件の目的は、BL-002 の CI 失敗の原因の調査です (ユーザーの依頼文による)。
@@ -326,18 +374,19 @@ Linux では、サブディレクトリのテスト コードを変更した後�
 - 同じサブディレクトリを 2 回たどる構造を、この案件で解消します ([Q-006](#q-006-同じサブディレクトリを-2-回たどる構造の扱い) の B)。1 巡目を残し、`build` のレシピが起動し直す make ではサブディレクトリをたどらない方法で解消します ([Q-009](#q-009-2-回たどる構造を解消する方法) の A)。
 - 回帰テストは、`gcc_pch_selftest.py` への確認の追加と、実際に `make` を実行するテストの追加の両方を行います ([Q-007](#q-007-回帰テストの追加の範囲) の A)。
 - 修正後の局所検証はエージェントが WSL の一時複製で実行し、全体の確認はユーザーの `make` と CI で行います ([Q-008](#q-008-修正後の検証の担当) の A)。
-- この案件の残課題一覧の BL-001 (`subfolder-compilation.md` の見直し) を、この案件で対応します (2026-11-16 の対話でのユーザーの依頼)。例は架空の名前 `app/hierarchy-example` を維持し、混ざっている実在の名前を架空の名前にそろえます ([Q-010](#q-010-文書の例に使う-app-の名前) の A)。相違の表の 1 番から 5 番をすべて直し、テスト レポートの出力例も実際の出力と照合して直します ([Q-011](#q-011-subfolder-compilationmd-を見直す範囲) の C)。実装の引用は数行の抜粋に絞り、残りは文章で説明します ([Q-012](#q-012-実装の引用の書き方) の A)。照合に使う実際の出力は、エージェントが WSL の一時複製で `make test` を実行して得ます ([Q-013](#q-013-テスト-レポートの出力例と照合する実際の出力の入手方法) の A)。全体のカバレッジにサブディレクトリのソースが含まれない動作は不具合と判断し、この案件で testfw を修正します。文書は修正後の動作に合わせます ([Q-014](#q-014-全体のカバレッジにサブディレクトリのソースが含まれない点の扱い) の B)。この修正の Windows の経路は、エージェントが Windows 側の一時ディレクトリの複製で `make test` を実行して確認します ([Q-015](#q-015-testfw-の修正の-windows-での確認方法) の A)。testfw の `bin_test/` に、`exec_test_c_cpp.sh` を実際に実行する回帰テストを追加し、CI の所要時間の増加をユーザーへ報告します ([Q-016](#q-016-testfw-の修正に対する回帰テスト) の A と補足)。Windows の確認で見つかった、何もない状態からの `make test` がサブディレクトリをコンパイルしない点の扱いは未確定です ([Q-017](#q-017-windows-の-make-test-がサブディレクトリをコンパイルしない点の扱い))。
+- この案件の残課題一覧の BL-001 (`subfolder-compilation.md` の見直し) を、この案件で対応します (2026-11-16 の対話でのユーザーの依頼)。例は架空の名前 `app/hierarchy-example` を維持し、混ざっている実在の名前を架空の名前にそろえます ([Q-010](#q-010-文書の例に使う-app-の名前) の A)。相違の表の 1 番から 5 番をすべて直し、テスト レポートの出力例も実際の出力と照合して直します ([Q-011](#q-011-subfolder-compilationmd-を見直す範囲) の C)。実装の引用は数行の抜粋に絞り、残りは文章で説明します ([Q-012](#q-012-実装の引用の書き方) の A)。照合に使う実際の出力は、エージェントが WSL の一時複製で `make test` を実行して得ます ([Q-013](#q-013-テスト-レポートの出力例と照合する実際の出力の入手方法) の A)。全体のカバレッジにサブディレクトリのソースが含まれない動作は不具合と判断し、この案件で testfw を修正します。文書は修正後の動作に合わせます ([Q-014](#q-014-全体のカバレッジにサブディレクトリのソースが含まれない点の扱い) の B)。この修正の Windows の経路は、エージェントが Windows 側の一時ディレクトリの複製で `make test` を実行して確認します ([Q-015](#q-015-testfw-の修正の-windows-での確認方法) の A)。testfw の `bin_test/` に、`exec_test_c_cpp.sh` を実際に実行する回帰テストを追加し、CI の所要時間の増加をユーザーへ報告します ([Q-016](#q-016-testfw-の修正に対する回帰テスト) の A と補足)。Windows の確認で見つかった、何もない状態からの `make test` がサブディレクトリをコンパイルしない点も、この案件で直します。2 つのテンプレートの、リンクしないディレクトリの `_test_build` の前提を、`build` の経路と同じ切り替えにします ([Q-017](#q-017-windows-の-make-test-がサブディレクトリをコンパイルしない点の扱い) の A)。
+- 残課題一覧の BL-003 (サブディレクトリの中での並列 make で親の成果物が再リンクされない) を、この案件で対応します (2026-11-18 の対話でのユーザーの選択)。`_makefw_parent_artifact` にコンパイルを順序だけの前提として加える方法で直し ([Q-018](#q-018-bl-003-の修正の方法) の A)、Linux と Windows の両方に適用します ([Q-019](#q-019-bl-003-の修正を-windows-にも適用するか) の A)。`subdir_build_selftest.py` のサブディレクトリの中での `make` を `-j4` で実行するように変更します ([Q-020](#q-020-bl-003-の回帰テスト) の A)。
 
 ## 観点別の確認
 
 | 観点 | 状態 | 根拠・関連 Q |
 | --- | --- | --- |
 | 目的・利用者 | 確認済み | ユーザーの依頼文、対策元 backlog の BL-002。CI の不定期な失敗をなくすための原因の特定。 |
-| 範囲・境界 | 未解決 | [Q-001](#q-001-この案件に修正を含めるか) の B、[Q-003](#q-003-調査で確定させる範囲) の A、[Q-006](#q-006-同じサブディレクトリを-2-回たどる構造の扱い) の B。BL-001 の見直しの範囲は [Q-011](#q-011-subfolder-compilationmd-を見直す範囲) の C。照合に使う実際の出力は [Q-013](#q-013-テスト-レポートの出力例と照合する実際の出力の入手方法) の A。全体のカバレッジの相違は、testfw をこの案件で修正する ([Q-014](#q-014-全体のカバレッジにサブディレクトリのソースが含まれない点の扱い) の B)。対象が `framework/testfw` に広がる。Windows の `make test` がサブディレクトリをコンパイルしない点の扱いは [Q-017](#q-017-windows-の-make-test-がサブディレクトリをコンパイルしない点の扱い) で確認中。 |
+| 範囲・境界 | 確認済み | [Q-001](#q-001-この案件に修正を含めるか) の B、[Q-003](#q-003-調査で確定させる範囲) の A、[Q-006](#q-006-同じサブディレクトリを-2-回たどる構造の扱い) の B。BL-001 の見直しの範囲は [Q-011](#q-011-subfolder-compilationmd-を見直す範囲) の C。照合に使う実際の出力は [Q-013](#q-013-テスト-レポートの出力例と照合する実際の出力の入手方法) の A。全体のカバレッジの相違は、testfw をこの案件で修正する ([Q-014](#q-014-全体のカバレッジにサブディレクトリのソースが含まれない点の扱い) の B)。対象が `framework/testfw` に広がる。Windows の `make test` がサブディレクトリをコンパイルしない点は、この案件で直す ([Q-017](#q-017-windows-の-make-test-がサブディレクトリをコンパイルしない点の扱い) の A)。BL-003 は [Q-018](#q-018-bl-003-の修正の方法)、[Q-019](#q-019-bl-003-の修正を-windows-にも適用するか) の A で、両方の OS に同じ方法で適用する。 |
 | 入力・根拠 | 確認済み | 「対象と参照資料」の CI ログと makefw `7087ed7`。BL-001 は [範囲の追加に伴う調査の結果](#範囲の追加に伴う調査の結果-bl-001)。 |
 | 整合性・依存関係 | 確認済み | [Q-004](#q-004-要因-1-の修正の方法)、[Q-005](#q-005-要因-2-の修正の方法)、[Q-008](#q-008-修正後の検証の担当)、[Q-009](#q-009-2-回たどる構造を解消する方法) の A。BL-001 は、規範 (架空名を使う) に合わせる ([Q-010](#q-010-文書の例に使う-app-の名前) の A)。引用の書き方は [Q-012](#q-012-実装の引用の書き方) の A。 |
 | 実現性・例外 | 確認済み | [Q-002](#q-002-原因を裏付ける実行確認の担当と方法) の A。WSL の一時複製で原因を再現し、修正の候補の試作で効果を確認した ([修正の候補の試作結果](#修正の候補の試作結果))。 |
-| 受入条件・検証 | 確認済み | [Q-007](#q-007-回帰テストの追加の範囲) の A、[Q-008](#q-008-修正後の検証の担当) の A。testfw の修正の Windows での確認は [Q-015](#q-015-testfw-の修正の-windows-での確認方法) の A、回帰テストは [Q-016](#q-016-testfw-の修正に対する回帰テスト) の A。 |
+| 受入条件・検証 | 確認済み | [Q-007](#q-007-回帰テストの追加の範囲) の A、[Q-008](#q-008-修正後の検証の担当) の A。testfw の修正の Windows での確認は [Q-015](#q-015-testfw-の修正の-windows-での確認方法) の A、回帰テストは [Q-016](#q-016-testfw-の修正に対する回帰テスト) の A。BL-003 の回帰テストは [Q-020](#q-020-bl-003-の回帰テスト) の A。 |
 
 ## 質問一覧
 
@@ -359,7 +408,10 @@ Linux では、サブディレクトリのテスト コードを変更した後�
 | [Q-014](#q-014-全体のカバレッジにサブディレクトリのソースが含まれない点の扱い) | 全体のカバレッジにサブディレクトリのソースが含まれない点の扱い | 解決済み (B) | [Q-011](#q-011-subfolder-compilationmd-を見直す範囲)、[Q-013](#q-013-テスト-レポートの出力例と照合する実際の出力の入手方法)、[Q-015](#q-015-testfw-の修正の-windows-での確認方法)、[Q-016](#q-016-testfw-の修正に対する回帰テスト) |
 | [Q-015](#q-015-testfw-の修正の-windows-での確認方法) | testfw の修正の Windows での確認方法 | 解決済み (A) | [Q-008](#q-008-修正後の検証の担当)、[Q-014](#q-014-全体のカバレッジにサブディレクトリのソースが含まれない点の扱い)、[Q-017](#q-017-windows-の-make-test-がサブディレクトリをコンパイルしない点の扱い) |
 | [Q-016](#q-016-testfw-の修正に対する回帰テスト) | testfw の修正に対する回帰テスト | 解決済み (A) | [Q-007](#q-007-回帰テストの追加の範囲)、[Q-014](#q-014-全体のカバレッジにサブディレクトリのソースが含まれない点の扱い) |
-| [Q-017](#q-017-windows-の-make-test-がサブディレクトリをコンパイルしない点の扱い) | Windows の make test がサブディレクトリをコンパイルしない点の扱い | 未回答 | [Q-015](#q-015-testfw-の修正の-windows-での確認方法) |
+| [Q-017](#q-017-windows-の-make-test-がサブディレクトリをコンパイルしない点の扱い) | Windows の make test がサブディレクトリをコンパイルしない点の扱い | 解決済み (A) | [Q-015](#q-015-testfw-の修正の-windows-での確認方法) |
+| [Q-018](#q-018-bl-003-の修正の方法) | BL-003 の修正の方法 | 解決済み (A) | [Q-019](#q-019-bl-003-の修正を-windows-にも適用するか)、[Q-020](#q-020-bl-003-の回帰テスト) |
+| [Q-019](#q-019-bl-003-の修正を-windows-にも適用するか) | BL-003 の修正を Windows にも適用するか | 解決済み (A) | [Q-018](#q-018-bl-003-の修正の方法) |
+| [Q-020](#q-020-bl-003-の回帰テスト) | BL-003 の回帰テスト | 解決済み (A) | [Q-018](#q-018-bl-003-の修正の方法)、[Q-007](#q-007-回帰テストの追加の範囲) |
 
 ## 明確化のための確認項目
 
@@ -1228,7 +1280,7 @@ testfw には、一時ディレクトリに小さなテストを作って `exec_
 
 **Status**
 
-未回答
+解決済み
 
 **Question**
 
@@ -1265,6 +1317,13 @@ _test_build: $(if $(PLATFORM_WINDOWS),_msvc_compile,$(OBJS))
 
 その他の回答 / 補足:
 
+回答者: Tetsuo Honda  
+回答日時: 2026-11-17 04:48:56 JST 以前 (検討用 Markdown への記入。makefw のコミット `cdda5af` に記入済みの状態で含まれていることを、2026-11-18 に確認。対話での連絡は受けていない)
+
+**Assessment**
+
+選択肢 A で確定しました。2 つのテンプレートの、リンクしないディレクトリの `_test_build` の前提を、`build` の経路と同じ切り替えにします。これで未解決の質問はなくなりました。この回答は、版 10 を作成したセッションが受け付ける前に記入されていたもので、案件を引き継いだセッションが 2026-11-18 に文書から読み取りました。記入の意図と異なる場合は、最終仕様の承認の確認 (第 2 ゲート) のときに訂正を受け付けます。
+
 **Recommendation**
 
 推奨: A  
@@ -1274,18 +1333,239 @@ _test_build: $(if $(PLATFORM_WINDOWS),_msvc_compile,$(OBJS))
 **Related**
 
 [Q-015](#q-015-testfw-の修正の-windows-での確認方法)
+
+### Q-018 BL-003 の修正の方法
+
+**Status**
+
+解決済み
+
+**Question**
+
+サブディレクトリの中での並列 `make` で、親の成果物の更新がコンパイルの完了を待たない問題 (BL-003) を、どの方法で直しますか。
+
+**Context**
+
+原因と試作の結果は [範囲の追加に伴う調査の結果 (BL-003)](#範囲の追加に伴う調査の結果-bl-003) にあります。  
+どの案も、`_makefw_parent_artifact` が親で行う処理 (`MAKEFW_ARTIFACT_ONLY=1` でのリンクの要否の判定) は変えません。
+
+- 案 A: `_makefw_parent_artifact` に、コンパイルを順序だけの前提として加えます。2 つのテンプレートに 1 行ずつ追加します。この案件で `SUBDIR_OBJS` に加えた順序だけの前提と同じ考え方です。試作で効果を確認済みです。
+
+```makefile
+_makefw_parent_artifact: | $(if $(PLATFORM_WINDOWS),_msvc_compile,$(OBJS))
+```
+
+- 案 B: `_build_main` の前提から `_makefw_parent_artifact` を外し、`_build_main` のレシピの最後で親の make を起動します。順序はレシピの中で決まりますが、`_build_main` に新しくレシピを持たせることになり、テンプレートの構造の変更が大きくなります。
+
+```makefile
+_build_main: $(if $(PLATFORM_WINDOWS),_msvc_compile,$(OBJS))
+	$(if $(MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT),$(MAKE) -C "$(MAKEFW_ARTIFACT_ROOT)" MAKEFW_ARTIFACT_ONLY=1 _build_main)
+```
+
+**Answer**
+
+選択方式: 単一選択
+
+- [x] A: (推奨) `_makefw_parent_artifact` に、コンパイルを順序だけの前提として加える。
+- [ ] B: `_build_main` のレシピの最後で親の make を起動する。
+- [ ] C: その他
+- [ ] X: 意図不明 (詳細な質問内容に再生成すること)
+
+その他の回答 / 補足:
+
+回答者: Tetsuo Honda  
+回答日時: 2026-11-18 02:46:32 JST (検討用 Markdown への記入。対話での「かきました」の連絡で確認)
+
+**Assessment**
+
+選択肢 A で確定しました。2 つのテンプレートの `_makefw_parent_artifact` に、`$(if $(PLATFORM_WINDOWS),_msvc_compile,$(OBJS))` を順序だけの前提として加えます。
+
+**Recommendation**
+
+推奨: A  
+理由: 変更が 2 つのテンプレートの各 1 行で済み、既存の規則の構造を変えません。この案件の要因 2 の修正と同じ書き方なので、読み手が理解しやすいです。Linux と Windows の一時複製で試作を確認済みです。  
+制約: 実行体のテンプレート (`makesrc_c_cpp.mk`) の `_build_main` には `$(LIBSFILES)` も並んでいますが、親のリンクは親の make が自分で依存を判定するため、順序の対象には含めません。
+
+**Related**
+
+[Q-019](#q-019-bl-003-の修正を-windows-にも適用するか)、[Q-020](#q-020-bl-003-の回帰テスト)、[Q-005](#q-005-要因-2-の修正の方法)
+
+### Q-019 BL-003 の修正を Windows にも適用するか
+
+**Status**
+
+解決済み
+
+**Question**
+
+BL-003 の修正を、Windows の経路 (`_msvc_compile` の完了を待つ) にも適用しますか。
+
+**Context**
+
+Windows では、修正前でも 4 回中 4 回とも再リンクされ、競合は再現しませんでした ([修正案の試作結果](#修正案の試作結果))。  
+一方、ソースの読解では、Windows も `_msvc_compile` と `_makefw_parent_artifact` の間に順序がなく、同じ競合が起きうる構造です。  
+再現しなかった理由は確かめておらず、親の make の起動が遅いためという推測にとどまります。  
+修正案を Windows に適用した試作では、再リンク、並列指定なしの `make`、テストの `make test` のいずれも成功しました。
+
+- 案 A: Linux と Windows の両方に適用します。[Q-018](#q-018-bl-003-の修正の方法) の A の 1 行は、`$(if $(PLATFORM_WINDOWS),_msvc_compile,$(OBJS))` で両方を扱います。
+- 案 B: Linux だけに適用します。Windows は現在の動作のままとし、構造上の競合の可能性を残課題一覧に記録します。
+
+**Answer**
+
+選択方式: 単一選択
+
+- [x] A: (推奨) Linux と Windows の両方に適用する。
+- [ ] B: Linux だけに適用し、Windows は残課題一覧に記録する。
+- [ ] C: その他
+- [ ] X: 意図不明 (詳細な質問内容に再生成すること)
+
+その他の回答 / 補足:
+
+回答者: Tetsuo Honda  
+回答日時: 2026-11-18 02:46:32 JST (検討用 Markdown への記入。対話での「かきました」の連絡で確認)
+
+**Assessment**
+
+選択肢 A で確定しました。修正は Linux と Windows の両方に適用します。Windows では競合を再現できないため、Windows で確認するのは、修正後も再リンク、並列指定なしの `make`、`make test` の動作が変わらないことです。
+
+**Recommendation**
+
+推奨: A  
+理由: 起きうる構造は両方の OS で同じで、Windows で再現しないのは時間の関係による可能性が高いためです。Windows の試作で悪影響は見つかっていません。  
+制約: Windows で競合が直ったことは、再現できないため確認できません。確認できるのは、修正後も動作が変わらないことだけです。
+
+**Related**
+
+[Q-018](#q-018-bl-003-の修正の方法)
+
+### Q-020 BL-003 の回帰テスト
+
+**Status**
+
+解決済み
+
+**Question**
+
+BL-003 の修正に合わせて、`subdir_build_selftest.py` を更新しますか。
+
+**Context**
+
+`subdir_build_selftest.py` (この案件で新規に作成) は、サブディレクトリの中での `make` を、BL-003 を避けるために並列指定なしで実行しています。  
+修正後は、この手順を `-j4` で実行すれば、BL-003 の再発を検出できます。修正前の makefw では 4 回中 4 回失敗するため、検出できることを確認済みです。  
+テストは Linux だけで実行します。所要時間はほぼ変わりません。
+
+- 案 A: サブディレクトリの中での `make` を `-j4` で実行するように変更し、BL-003 を避けるための注記を削除します。
+- 案 B: テストは変更しません。BL-003 の再発は、テストでは検出できません。
+
+**Answer**
+
+選択方式: 単一選択
+
+- [x] A: (推奨) サブディレクトリの中での `make` を `-j4` で実行するように変更する。
+- [ ] B: テストは変更しない。
+- [ ] C: その他
+- [ ] X: 意図不明 (詳細な質問内容に再生成すること)
+
+その他の回答 / 補足:
+
+回答者: Tetsuo Honda  
+回答日時: 2026-11-18 02:46:32 JST (検討用 Markdown への記入。対話での「かきました」の連絡で確認)
+
+**Assessment**
+
+選択肢 A で確定しました。`subdir_build_selftest.py` のサブディレクトリの中での `make` を `-j4` で実行するように変更し、BL-003 を避けるための注記を削除します。これで未解決の質問はなくなりました。
+
+**Recommendation**
+
+推奨: A  
+理由: 変更は 1 行で、修正前の makefw で確実に失敗することを確認済みです。エラーにならず気付きにくい問題なので、テストで検出できるようにしておく価値があります。
+
+**Related**
+
+[Q-018](#q-018-bl-003-の修正の方法)、[Q-007](#q-007-回帰テストの追加の範囲)
+
 ## 対象成果物と合意版
 
 最終決定事項 (最終仕様) の設計書: `261116-makefw-subdir-rebuild-race-design.md`
 
-検討用 Markdown の合意版 (第 1 ゲート): 版 5 (2026-11-16。未解決の質問がないことを確認)。版 6 で範囲の追加を受けて再検討中のため、合意版は確定し直します。
+検討用 Markdown の合意版 (第 1 ゲート): 版 11 (2026-11-18。範囲の追加を含めて、未解決の質問がないことを確認)。版 12 で BL-003 の追加を受けて再検討し、版 13 (2026-11-18) で合意版を確定し直しました。版 5 (2026-11-16) の合意版を、範囲の追加を受けて確定し直しました。
 
-最終仕様 (design.md) の合意版 (第 2 ゲート): 未承認 (版 5 に基づく最終仕様は、範囲の追加を反映して改訂します)
+最終仕様 (design.md) の合意版 (第 2 ゲート): 版 3 (2026-11-18、チャットでユーザーが承認。版 2 も同日承認)
 
-更新予定の成果物: `framework/makefw/bin_internal/gcc_pch.py`、`framework/makefw/makefiles/_flags.mk`、`framework/makefw/makefiles/makelibsrc_c_cpp.mk`、`framework/makefw/makefiles/makesrc_c_cpp.mk`、`framework/makefw/bin_test/gcc_pch_selftest.py`、`framework/makefw/bin_test/subdir_build_selftest.py` (新規)、`framework/makefw/docs/subfolder-compilation.md`、`framework/makefw/docs/build-configurations.md`
+更新予定の成果物: `framework/makefw/bin_internal/gcc_pch.py`、`framework/makefw/makefiles/_flags.mk`、`framework/makefw/makefiles/makelibsrc_c_cpp.mk`、`framework/makefw/makefiles/makesrc_c_cpp.mk`、`framework/makefw/bin_test/gcc_pch_selftest.py`、`framework/makefw/bin_test/subdir_build_selftest.py` (新規)、`framework/makefw/docs/subfolder-compilation.md`、`framework/makefw/docs/build-configurations.md`、`framework/makefw/docs/makeparts.md`、`framework/testfw/bin_internal/exec_test_c_cpp.sh`、`framework/testfw/bin_test/test_path_spaces.py`
 
-受入条件: 最終仕様の「受入条件」に記載 (変更なしの再実行で再コンパイルしないこと、各サブディレクトリをたどる回数が 1 回であること、オブジェクトが存在しない時間を広げた状態で失敗しないこと、など 7 項目)
+受入条件: 最終仕様の「受入条件」に記載 (変更なしの再実行で再コンパイルしないこと、各サブディレクトリをたどる回数が 1 回であること、オブジェクトが存在しない時間を広げた状態で失敗しないこと、Windows で何もない状態からの `make test` がすべてのテストを実行すること、全体のカバレッジに起点とサブディレクトリの両方のソースが入ること、など 11 項目)
 
 ## 反映と検証の記録
 
-未着手。作業後の対応箇所、検証結果、未完了項目を記録する。
+### 変更したファイル
+
+| リポジトリ | ファイル | 内容 |
+| --- | --- | --- |
+| makefw | `bin_internal/gcc_pch.py` | `record()` が `.d` へ追記した後、`.d` の更新日時をオブジェクトに合わせる |
+| makefw | `makefiles/_flags.mk` | `_MAKEFW_LEAF_PARALLEL_RECIPE` が起動し直す make へ `MAKEFW_SUBDIRS_DONE_DIR` を渡す。`_MAKEFW_SUBDIRS_DONE` の判定と、サブディレクトリのオブジェクトへ順序だけの前提を付ける `_makefw_order_subdir_objs` を追加 |
+| makefw | `makefiles/makelibsrc_c_cpp.mk`、`makefiles/makesrc_c_cpp.mk` | サブディレクトリを処理済みの make では `MAKEFW_ARTIFACT_DEPS` を `_makefw_artifact_recheck` にする。順序だけの前提を付ける。`NO_LINK` の `_test_build` の前提を OS で切り替える |
+| makefw | `bin_test/gcc_pch_selftest.py` | `record` の後で `.d` がオブジェクトより新しくないことの確認を追加 |
+| makefw | `bin_test/subdir_build_selftest.py` | 新規。Linux だけで実行 |
+| makefw | `docs/subfolder-compilation.md` | 見直し (相違の 1 番から 10 番、修正に伴う追記) |
+| makefw | `docs/build-configurations.md` | `.d` の更新日時をオブジェクトに合わせる理由を追記 |
+| makefw | `docs/makeparts.md` | 例 3 の説明文の名前を `libexample/` にそろえた |
+| testfw | `bin_internal/exec_test_c_cpp.sh` | 起点の `TEST_SRCS` の有無に関係なくサブディレクトリの `TEST_SRCS` を集める。Windows の `--sources` を取り込み先のディレクトリで組み立てる |
+| makefw | `makefiles/makelibsrc_c_cpp.mk`、`makefiles/makesrc_c_cpp.mk` (BL-003) | `_makefw_parent_artifact` に、コンパイル (Linux はオブジェクト、Windows は `_msvc_compile`) を順序だけの前提として加えた |
+| makefw | `bin_test/subdir_build_selftest.py` (BL-003) | サブディレクトリの中での `make` を `-j4` で実行するように変更 |
+| testfw | `bin_test/test_path_spaces.py` | `SubdirectorySourcesTest` を追加 (起点とサブディレクトリの両方、サブディレクトリだけ)。既存の `test_sources_collected_from_child` は、Windows でソースを実際の取り込み先でコンパイルする構成が必要になったため、この新しいクラスの `test_child_sources_only` へ移した |
+
+Table: 変更したファイル
+
+### 局所検証の結果
+
+WSL (Oracle Linux 8、GCC 8.5.0、GNU Make 4.2.1、bash 4.4) と Windows (MSVC 14.50、OpenCppCoverage) の一時複製で実行しました。  
+リポジトリの作業ツリーではビルドしていません。WSL と Windows の検証は、同時には実行していません。
+
+| 確認 | 変更前 (HEAD) | 変更後 |
+| --- | --- | --- |
+| `subdir_build_selftest.py` (Linux) | 初回の `make` で PCH を使うソースを 2 回ずつコンパイルして失敗。競合の確認は 3 回中 3 回、CI と同じ `No rule to make target 'sub_a/obj/gen_a_01.o'` で失敗 | 5 回中 5 回成功 |
+| `gcc_pch_selftest.py` (Linux) | 「追記した .d がオブジェクトより新しくなりました」で失敗 | 成功 |
+| makefw の `link_objects_selftest.py`、`test_path_spaces.py`、`test_gen_goal.py`、`test_nested_parallel.py` (Linux) | - | 成功 |
+| testfw の `test_path_spaces.py` (Linux) | 新しいテスト 1 件が失敗 (`['sample.c'] != ['sample.c', 'other.c']`) | 18 件成功 (1 件は Windows 専用で省略) |
+| testfw の `test_path_spaces.py` (Windows) | 新しいテスト 2 件が失敗 (サブディレクトリだけの構成では全体のカバレッジが空) | 18 件成功 (1 件は省略) |
+| Windows で `app/subfolder-sample` のテストの何もない状態からの `make test` | (版 10 の確認: 起点の 1 件だけを実行) | サブディレクトリをコンパイルし、3 件を実行。MD5 とカバレッジの表に 3 ファイル (各 100%) |
+| Windows で `app/subfolder-sample` のライブラリの `make` | - | 各サブディレクトリの make の起動は 1 回。再実行も成功 |
+| Linux で `app/subfolder-sample` のテストの `make test` | - | 3 件成功。MD5、カバレッジの表、`all_tests/` の `*.gcov.md` に 3 ファイル。この出力で `subfolder-compilation.md` の出力例を直した |
+| 変更した Markdown の `text_style_jp.py --dry-run` | - | 指摘なし |
+| 変更した Python の構文、`check-python-import-path.py`、`exec_test_c_cpp.sh` の `bash -n` | - | 成功 |
+
+Table: 局所検証の結果
+
+BL-003 の修正の後、検証をやり直しました。
+
+| 確認 | 変更前 (HEAD) | 変更後 |
+| --- | --- | --- |
+| `subdir_build_selftest.py` のサブディレクトリの中での `make -j4` (Linux) | 「親の成果物を再リンクしません」で失敗 | 成功。テスト全体も 3 回中 3 回成功 (約 25 秒) |
+| makefw の関係するテスト 5 件 (Linux) | - | 成功 |
+| testfw の `test_path_spaces.py` (Linux、Windows) | - | どちらも 18 件成功 (1 件は省略) |
+| Windows でサブディレクトリの中での `make -j4`、並列指定なしの `make` | (変更前も再リンクされる) | 再リンクされる (3 回中 3 回、並列指定なしも成功) |
+| Windows でライブラリの `make`、テストの何もない状態からの `make test` | - | 各サブディレクトリを 1 回だけたどる。テスト 3 件成功、カバレッジに 3 ファイル |
+
+Table: BL-003 の修正後の局所検証の結果
+
+### 追加したテストの所要時間
+
+| テスト | Linux | Windows |
+| --- | --- | --- |
+| makefw の `subdir_build_selftest.py` | 約 25 秒 | 実行しない (`BIN_TEST_PLATFORM = "linux"`) |
+| testfw の `SubdirectorySourcesTest` (2 件) | 約 10.5 秒 | 約 27 秒 |
+
+Table: 追加したテストの所要時間 (WSL と、この端末の Windows での計測)
+
+CI の所要時間は、Linux の各ジョブ (ol8、ol9、ol10) で約 36 秒、Windows のジョブで約 27 秒増える見込みです (単体の計測値からの推定。CI では未計測)。  
+`subdir_build_selftest.py` のうち約 15 秒は、競合を確実に再現するための待ち時間です。
+
+### 検証中に分かったこと
+
+- 競合の確認は、サブディレクトリの make がジョブの枠を取り合うと、親が枠を得る時刻が定まらず、再現しませんでした。CI の失敗は、親が `root.o` などのコンパイルのためにジョブの枠を待ち、枠を得た直後にサブディレクトリのオブジェクトを確認する経路です。テストでは、サブディレクトリを直列にして (`.NOTPARALLEL`) この経路を確実に作りました。
+- サブディレクトリの中で `make -j4` を実行すると、親の成果物の更新 (`_makefw_parent_artifact`) がサブディレクトリのコンパイルを待たずに始まり、再リンクされないことがあります。変更前 (HEAD) でも 4 回中 4 回起きる、既存の問題です。残課題一覧の BL-003 に記録した後、ユーザーの選択でこの案件で対応しました ([Q-018](#q-018-bl-003-の修正の方法) から [Q-020](#q-020-bl-003-の回帰テスト))。
+
+### 未完了の項目
+
+- CI の確認は未実施です。ユーザーの指示 (2026-11-18) に従い、コミットとプッシュの後にプル リクエストで確認します。

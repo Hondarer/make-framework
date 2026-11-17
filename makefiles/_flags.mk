@@ -24,13 +24,37 @@ _MAKEFW_GCC_PCH_JOBS := $(if $(filter-out 0,$(MAKEFW_CL_MP_JOBS)),$(MAKEFW_CL_MP
 MAKEFW_GCC_PCH_MIN_SOURCES ?= $(shell expr 2 \* $(_MAKEFW_GCC_PCH_JOBS) 2>/dev/null || echo 2)
 MAKEFW_CL_MPFLAG := /MP$(MAKEFW_CL_MP_JOBS)
 
+# サブディレクトリを持つディレクトリの build は、前提 (makemain.mk の build: $(SUBDIRS)) で
+# サブディレクトリを処理し終えてから、このレシピで同じディレクトリの make を起動し直す。
+# 起動し直す make へ MAKEFW_SUBDIRS_DONE_DIR で自ディレクトリを渡し、その make では
+# サブディレクトリを再びたどらない (_MAKEFW_SUBDIRS_DONE)。値をパスにするのは、
+# コマンド ラインの変数が下位の make へ引き継がれても、パスが一致する make だけが該当するためである。
 define _MAKEFW_LEAF_PARALLEL_RECIPE
 	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
 	if [ -z "$(MAKEFW_PARALLEL_BOOTSTRAP)" ] && [ -z "$$has_parallel" ] && [ -n "$$jobs" ] && [ -n "$$allow_job_fallback" ]; then \
-		$(MAKE) -j$$jobs MAKEFW_PARALLEL_BOOTSTRAP=1 JOBS_EFFECTIVE=$$jobs MAKEFW_CPU_BUDGET=$$cpu MAKEFW_CL_MP_JOBS=$$cl_jobs MAKEFW_MSBUILD_JOBS=$$msbuild_jobs $(2) && exit 0 || exit $$?; \
+		$(MAKE) -j$$jobs MAKEFW_PARALLEL_BOOTSTRAP=1 "MAKEFW_SUBDIRS_DONE_DIR=$(CURDIR)" JOBS_EFFECTIVE=$$jobs MAKEFW_CPU_BUDGET=$$cpu MAKEFW_CL_MP_JOBS=$$cl_jobs MAKEFW_MSBUILD_JOBS=$$msbuild_jobs $(2) && exit 0 || exit $$?; \
 	fi; \
-	$(MAKE) MAKEFW_PARALLEL_BOOTSTRAP=1 JOBS_EFFECTIVE=$$jobs MAKEFW_CPU_BUDGET=$$cpu MAKEFW_CL_MP_JOBS=$$cl_jobs MAKEFW_MSBUILD_JOBS=$$msbuild_jobs $(2)
+	$(MAKE) MAKEFW_PARALLEL_BOOTSTRAP=1 "MAKEFW_SUBDIRS_DONE_DIR=$(CURDIR)" JOBS_EFFECTIVE=$$jobs MAKEFW_CPU_BUDGET=$$cpu MAKEFW_CL_MP_JOBS=$$cl_jobs MAKEFW_MSBUILD_JOBS=$$msbuild_jobs $(2)
 endef
+
+_MAKEFW_SUBDIRS_DONE :=
+ifneq ($(MAKEFW_SUBDIRS_DONE_DIR),)
+ifeq ($(MAKEFW_SUBDIRS_DONE_DIR),$(CURDIR))
+    _MAKEFW_SUBDIRS_DONE := 1
+endif
+endif
+
+# サブディレクトリのオブジェクトを、属するサブディレクトリの再帰 make の完了後に確認させる。
+# リンクの規則はサブディレクトリの再帰 make ($(SUBDIRS)) とそのオブジェクトを同じ規則の前提に
+# 並べるため、順序がないと並列ビルドで親が完了を待たずにオブジェクトの有無を確認する。
+# GCC (as) は既存のオブジェクトを削除してから作り直すので、その瞬間に確認が当たると
+# 親には作る規則がなく「make するルールがありません」で止まる。順序だけの前提で待たせる。
+# $(1): サブディレクトリのオブジェクトの一覧 (./<subdir>/.../obj/*.o)
+# see: https://www.gnu.org/software/make/manual/html_node/Prerequisite-Types.html
+_makefw_subdir_objs_of = $(filter ./$(patsubst %/,%,$(1))/% $(patsubst %/,%,$(1))/%,$(2))
+_makefw_order_subdir_objs = $(foreach _makefw_d,$(SUBDIRS),\
+	$(if $(call _makefw_subdir_objs_of,$(_makefw_d),$(1)),\
+		$(eval $(call _makefw_subdir_objs_of,$(_makefw_d),$(1)): | $(_makefw_d))))
 
 # 標準フラグ生成 (C)
 ifeq ($(C_EXTENSIONS),ON)

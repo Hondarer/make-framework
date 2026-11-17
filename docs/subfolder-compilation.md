@@ -11,6 +11,8 @@
 2. **コマンド (実行ファイル)**: サブディレクトリに配置したソース ファイルを単一の実行ファイルにリンク
 3. **テスト**: サブディレクトリごとのテスト コードとテスト対象ソースの管理
 
+この文書の例は、架空の app `app/hierarchy-example` を使います。
+
 ## サブディレクトリ対応の仕様
 
 ### NO_LINK 変数
@@ -43,18 +45,15 @@ NO_LINK = 1
 
 親ディレクトリ (リンクを行うディレクトリ) では、サブディレクトリのオブジェクト ファイルが自動的に収集されます。
 
-**makelibsrc_c_cpp.mk / makesrc_c_cpp.mk より:**
-
 ```makefile
-# サブディレクトリの obj ディレクトリを再帰的に検索して、対応するソースがある
-# オブジェクト ファイルだけを収集する。
-ifdef PLATFORM_LINUX
-    SUBDIR_OBJS := $(shell bash "$(MAKEFW_HOME)/bin_internal/filter_existing_source_objs.sh" linux subdirs)
-endif
+# makelibsrc_c_cpp.mk / makesrc_c_cpp.mk (抜粋)
+SUBDIR_OBJS := $(shell bash "$(MAKEFW_HOME)/bin_internal/filter_existing_source_objs.sh" linux subdirs)
 OBJS += $(SUBDIR_OBJS)
 ```
 
-これにより、親ディレクトリでリンクを実行すると、サブディレクトリのオブジェクト ファイルも含めてリンクされます。
+これにより、親ディレクトリでリンクを実行すると、サブディレクトリのオブジェクト ファイルも含めてリンクされます。  
+Linux では、makefile の読み込み時に存在するオブジェクトを列挙して、リンクの前提に加えます。  
+Windows では、リンクのレシピの中でオブジェクトを列挙します。
 
 収集の対象は `bin_internal/filter_existing_source_objs.sh` が判定します。  
 削除済みのソースに対応する古いオブジェクトを混入させないため、生成元のソースが存在するものだけを収集対象とします。  
@@ -69,29 +68,27 @@ OBJS += $(SUBDIR_OBJS)
 リンクを行うディレクトリ自身の `gen/` 由来オブジェクトは、このスクリプトではなく `_flex_bison_compile.mk` が `MAKEFW_EXTRA_OBJS` 経由でリンク入力へ加えます。  
 両方で収集すると、同一のオブジェクトを二重にリンクしてしまいます。
 
+収集したオブジェクトは、属するサブディレクトリの再帰 make が終わってから、親が存在を確認します。  
+リンクの規則は、サブディレクトリの再帰 make とそのオブジェクトを同じ規則の前提に並べるため、順序を指定しないと、並列ビルドで親が再帰 make の完了を待たずにオブジェクトを確認します。  
+GCC は既存のオブジェクトを上書きするとき、出力先を削除してから作り直します。  
+その瞬間に親の確認が当たると、親にはそのオブジェクトを作る規則がないため、make は「make するルールがありません」で止まります。  
+そのため、各オブジェクトに、属するサブディレクトリの再帰 make を順序だけの前提 (order-only prerequisite) として加えています。
+
 ### 再帰的 make 処理
 
-`makemain.mk` は、makefile を含むサブディレクトリを自動検出し、再帰的に make を実行します。
+`makemain.mk` は、makefile を含むサブディレクトリを自動で検出し、主要なターゲットの前提にします。
 
 ```makefile
-# サブディレクトリの検出 (GNUmakefile/makefile/Makefile を含むディレクトリのみ)
-# makelocal.mk で SUBDIRS を上書きした場合はその設定を尊重する
-SUBDIRS ?= $(sort $(dir $(wildcard */GNUmakefile */makefile */Makefile)))
-
-# サブディレクトリの再帰的 make 処理
-ifneq ($(SUBDIRS),)
-    .PHONY: $(SUBDIRS)
-    $(SUBDIRS):
-	@if [ -n "$(MAKECMDGOALS)" ]; then \
-		$(MAKE) -C $@ $(MAKECMDGOALS); \
-	else \
-		$(MAKE) -C $@; \
-	fi
-
-    # 主要なターゲットにサブディレクトリ依存を追加 (サブディレクトリを先に処理)
-    default build clean test run restore rebuild: $(SUBDIRS)
-endif
+# makemain.mk (抜粋)
+default build clean run restore rebuild _gen _test_build: $(SUBDIRS)
 ```
+
+- `SUBDIRS` を指定しない場合は、`GNUmakefile`、`makefile`、`Makefile` のいずれかを含むサブディレクトリを検出し、並列に処理します。
+- `makelocal.mk` または `makepart.mk` で `SUBDIRS` を指定した場合は、指定した順に 1 つずつ処理します。
+- 特定の OS だけで使うサブディレクトリは、OS に応じて対象から外れます。
+- `make test` は、テストのビルド (`_test_build`) とテストの実行 (`_test_run`) の 2 段階で処理します。`_test_build` は上記の前提でサブディレクトリへ伝わり、`_test_run` は直下のテストを先に実行してからサブディレクトリを処理します。
+
+正確な内容は `makefiles/makemain.mk` を参照してください。
 
 ## ライブラリのサブディレクトリ対応
 
@@ -128,10 +125,10 @@ app/hierarchy-example/prod/
 **libhierarchy-example/makepart.mk (起点ディレクトリ):**
 
 ```makefile
-ifeq ($(OS),Windows_NT)
-    # Windows
-    CFLAGS   += /DSUBFOLDER_SAMPLE_EXPORTS
-    CXXFLAGS += /DSUBFOLDER_SAMPLE_EXPORTS
+ifdef PLATFORM_WINDOWS
+    # DLL エクスポート定義
+    CFLAGS   += /DHIERARCHY_EXAMPLE_EXPORTS
+    CXXFLAGS += /DHIERARCHY_EXAMPLE_EXPORTS
 endif
 
 # 動的ライブラリとして生成
@@ -155,6 +152,11 @@ NO_LINK = 1
 4. サブディレクトリでは `NO_LINK = 1` によりコンパイルのみ実行
 5. 親ディレクトリで全オブジェクト ファイルを収集してライブラリを生成
 
+`make` は、1 回の実行で各サブディレクトリを 1 回だけたどります。  
+サブディレクトリを持つディレクトリの `build` は、前提としてサブディレクトリを処理した後、並列度を決めて同じディレクトリの make を起動し直し、直下のソースのコンパイルとリンクを行います。  
+起動し直した make は、サブディレクトリを処理済みとして扱い、再びたどりません。  
+サブディレクトリの `pre-build` と `post-build` のフックも、1 回の `make` で 1 回だけ実行されます。
+
 **生成されるライブラリ:**
 
 ```text
@@ -169,28 +171,31 @@ app/hierarchy-example/prod/lib/liblibhierarchy-example.so
 
 ```text
 app/hierarchy-example/prod/
-+-- bin/                                    # ビルド済み実行ファイル出力先
++-- cbin/                                   # ビルド済み実行ファイル出力先
 |   +-- sample-app
 +-- src/
     +-- makefile                            # 再帰ビルド用
     +-- makepart.mk
-    +-- sample-app/
-        +-- makefile                        # 実行ファイル本体 (リンク実行)
-        +-- makechild.mk                    # NO_LINK = 1 (サブフォルダはコンパイルのみ)
-        +-- sample-app.h                    # ヘッダーファイル
-        +-- main.c                          # メインソースファイル
-        +-- obj/
-        |   +-- main.o
-        +-- subfolder_a/
-        |   +-- makefile                    # サブディレクトリ (makechild.mk により NO_LINK 適用)
-        |   +-- helper_a.c
-        |   +-- obj/
-        |       +-- helper_a.o
-        +-- subfolder_b/
-            +-- makefile                    # サブディレクトリ (makechild.mk により NO_LINK 適用)
-            +-- helper_b.c
+    +-- cmd/
+        +-- makefile                        # 再帰ビルド用
+        +-- makepart.mk                     # OUTPUT_DIR 設定 (prod/cbin)
+        +-- sample-app/
+            +-- makefile                    # 実行ファイル本体 (リンク実行)
+            +-- makechild.mk                # NO_LINK = 1 (サブフォルダはコンパイルのみ)
+            +-- sample-app.h                # ヘッダーファイル
+            +-- main.c                      # メインソースファイル
             +-- obj/
-                +-- helper_b.o
+            |   +-- main.o
+            +-- subfolder_a/
+            |   +-- makefile                # サブディレクトリ (makechild.mk により NO_LINK 適用)
+            |   +-- helper_a.c
+            |   +-- obj/
+            |       +-- helper_a.o
+            +-- subfolder_b/
+                +-- makefile                # サブディレクトリ (makechild.mk により NO_LINK 適用)
+                +-- helper_b.c
+                +-- obj/
+                    +-- helper_b.o
 ```
 
 ### ソース コードの例
@@ -228,6 +233,13 @@ int helper_a(int value)
 
 ### 設定ファイルの内容
 
+**cmd/makepart.mk:**
+
+```makefile
+# 出力ディレクトリ
+OUTPUT_DIR := $(MYAPP_DIR)/prod/cbin
+```
+
 **sample-app/makechild.mk (起点ディレクトリ):**
 
 ```makefile
@@ -256,41 +268,26 @@ app/hierarchy-example/test/src/
 +-- makefile                                # 再帰ビルド用
 +-- hierarchy-exampleTest/
     +-- makefile                            # テスト本体 (リンク・テスト実行)
-    +-- makepart.mk                         # TEST_SRCS 設定 (ルートのテスト対象)
+    +-- makelocal.mk                        # TEST_SRCS 設定 (ルートのテスト対象)
     +-- makechild.mk                        # NO_LINK = 1 (サブフォルダはコンパイルのみ)
-    +-- hierarchy-exampleTest.cc             # ルートのテストコード
+    +-- hierarchy-exampleTest.cc            # ルートのテストコード
     +-- bin/
-    |   +-- hierarchy-exampleTest            # テスト実行ファイル
+    |   +-- hierarchy-exampleTest           # テスト実行ファイル
     +-- obj/
     |   +-- func.o                          # テスト対象ソースのオブジェクト
-    |   +-- hierarchy-exampleTest.o          # テストコードのオブジェクト
-    +-- results/                            # テスト結果出力先
-    |   +-- all_tests/                      # 全体テスト結果
-    |   |   +-- summary.md
-    |   |   +-- coverage.xml
-    |   |   +-- func.c.gcov.md
-    |   |   +-- func_a.c.gcov.md
-    |   |   +-- func_b.c.gcov.md
-    |   +-- subfolder_sampleTest.test_func/
-    |   |   +-- results.md
-    |   |   +-- func.c.gcov.md
-    |   +-- subfolder_sampleTest_a.test_func_a/
-    |   |   +-- results.md
-    |   |   +-- func_a.c.gcov.md
-    |   +-- subfolder_sampleTest_b.test_func_b/
-    |       +-- results.md
-    |       +-- func_b.c.gcov.md
+    |   +-- hierarchy-exampleTest.o         # テストコードのオブジェクト
+    +-- results/                            # テスト結果出力先 (「テスト レポートの構造」を参照)
     +-- subfolder_a/
     |   +-- makefile                        # サブディレクトリ (makechild.mk により NO_LINK 適用)
     |   +-- makelocal.mk                    # TEST_SRCS 設定 (サブディレクトリのテスト対象)
-    |   +-- hierarchy-exampleTest_a.cc       # サブディレクトリのテストコード
+    |   +-- hierarchy-exampleTest_a.cc      # サブディレクトリのテストコード
     |   +-- obj/
     |       +-- func_a.o
     |       +-- hierarchy-exampleTest_a.o
     +-- subfolder_b/
         +-- makefile                        # サブディレクトリ (makechild.mk により NO_LINK 適用)
         +-- makelocal.mk                    # TEST_SRCS 設定 (サブディレクトリのテスト対象)
-        +-- hierarchy-exampleTest_b.cc       # サブディレクトリのテストコード
+        +-- hierarchy-exampleTest_b.cc      # サブディレクトリのテストコード
         +-- obj/
             +-- func_b.o
             +-- hierarchy-exampleTest_b.o
@@ -298,7 +295,7 @@ app/hierarchy-example/test/src/
 
 ### 設定ファイルの内容
 
-**hierarchy-exampleTest/makepart.mk (起点ディレクトリ):**
+**hierarchy-exampleTest/makelocal.mk (起点ディレクトリ):**
 
 ```makefile
 # テスト対象のソース ファイル
@@ -322,8 +319,9 @@ TEST_SRCS := \
 	$(MYAPP_DIR)/prod/libsrc/libhierarchy-example/subfolder_a/func_a.c
 ```
 
-テストでは、`NO_LINK = 1` は起点ディレクトリの `makechild.mk` に、`TEST_SRCS` は各サブディレクトリの `makelocal.mk` にそれぞれ分離して定義します。  
-`TEST_SRCS` を `makelocal.mk` に配置することで、各テスト対象の指定が自ディレクトリに限定され、親階層に継承されません。
+テストでは、`NO_LINK = 1` は起点ディレクトリの `makechild.mk` に、`TEST_SRCS` は起点と各サブディレクトリの `makelocal.mk` にそれぞれ分離して定義します。  
+`TEST_SRCS` を `makelocal.mk` に配置することで、各テスト対象の指定が自ディレクトリに限定され、子階層に継承されません。  
+テスト対象のソースは、`TEST_SRCS` を指定したディレクトリへ取り込まれてコンパイルされます。
 
 ### テスト コードの例
 
@@ -333,17 +331,22 @@ TEST_SRCS := \
 #include <testfw.h>
 #include <hierarchy-example.h>
 
-class subfolder_sampleTest : public Test
+class hierarchy_exampleTest : public Test
 {
 };
 
-TEST_F(subfolder_sampleTest, test_func)
+// func() が 0 を返すことの確認
+TEST_F(hierarchy_exampleTest, test_func)
 {
+    // Arrange
+
+    // Pre-Assert
+
     // Act
     int actual_ret = func(); // [手順] - func() を呼び出す。
 
     // Assert
-    EXPECT_EQ(0, actual_ret); // [確認] - func() から 0 が返されること。
+    EXPECT_EQ(0, actual_ret); // [確認_正常系] - func() の戻り値が 0 であること。
 }
 ```
 
@@ -353,88 +356,96 @@ TEST_F(subfolder_sampleTest, test_func)
 #include <testfw.h>
 #include <hierarchy-example.h>
 
-class subfolder_sampleTest_a : public Test
+class hierarchy_exampleTest_a : public Test
 {
 };
 
-TEST_F(subfolder_sampleTest_a, test_func_a)
+// func_a() が 1 を返すことの確認
+TEST_F(hierarchy_exampleTest_a, test_func_a)
 {
+    // Arrange
+
+    // Pre-Assert
+
     // Act
     int actual_ret = func_a(); // [手順] - func_a() を呼び出す。
 
     // Assert
-    EXPECT_EQ(1, actual_ret); // [確認] - func_a() から 1 が返されること。
+    EXPECT_EQ(1, actual_ret); // [確認_正常系] - func_a() の戻り値が 1 であること。
 }
 ```
 
 ### TEST_SRCS の自動収集
 
-テスト実行スクリプト (`exec_test_c_cpp.sh`) は、サブディレクトリの `makepart.mk` から `TEST_SRCS` を自動的に収集します。
+テスト実行スクリプト (`framework/testfw/bin_internal/exec_test_c_cpp.sh`) は、起点の `TEST_SRCS` に、サブディレクトリの `TEST_SRCS` を合わせて、全体のカバレッジの対象にします。  
+サブディレクトリの `TEST_SRCS` は、makefile を持つサブディレクトリごとに make を起動して問い合わせます (`query_test_sources.mk`)。  
+`makelocal.mk` や `makepart.mk` を文字列として読むのではなく、makefw が解釈した値を使います。
 
-```bash
-# TEST_SRCS が空の場合、サブフォルダーの makepart.mk から TEST_SRCS を収集
-if [ -z "$TEST_SRCS" ]; then
-    for makepart in $(find . -mindepth 2 -name "makepart.mk" 2>/dev/null); do
-        subdir_test_srcs=$(grep -A10 "^TEST_SRCS" "$makepart" 2>/dev/null | \
-            grep -v "^TEST_SRCS" | grep -v "^#" | grep -v "^--$" | \
-            sed "s|\\\$(WORKSPACE_DIR)|$WORKSPACE_DIR|g" | \
-            xargs 2>/dev/null)
-        TEST_SRCS="$TEST_SRCS $subdir_test_srcs"
-    done
-fi
-```
+- 対象のソースは、起点の `TEST_SRCS` を指定した順に並べ、サブディレクトリの分をパスの昇順で続けます。
+- 同じソースが複数のディレクトリで指定されている場合は、1 回だけ対象にします。
+- Windows のカバレッジの計測対象 (OpenCppCoverage の `--sources`) は、ソースごとに、`TEST_SRCS` を指定したディレクトリで指定します。
 
-これにより、各サブディレクトリで個別にテスト対象を指定しつつ、全体のカバレッジ レポートを生成できます。
+これにより、各サブディレクトリで個別にテスト対象を指定しつつ、全体のカバレッジ レポートを生成できます。  
+テストを省略するかどうか (前回から変更がないか) の判定にも、合わせた後のソースを使います。
 
 ## テスト レポートの構造
 
-`make test` を実行すると、`results/` ディレクトリにテスト レポートが生成されます。
+`make test` を実行すると、`results/` ディレクトリにテスト レポートが生成されます。  
+以下の例は、Linux での出力です。
 
 ### results/ ディレクトリ構造
 
 ```text
 results/
 +-- all_tests/                              # 全体テスト結果
-|   +-- summary.md                         # テストサマリー
-|   +-- coverage.xml                        # 全体カバレッジ (Cobertura形式)
-|   +-- func.c.gcov.md                     # func.c のカバレッジ詳細
-|   +-- func_a.c.gcov.md                   # func_a.c のカバレッジ詳細
-|   +-- func_b.c.gcov.md                   # func_b.c のカバレッジ詳細
-|   +-- lcov/                               # HTML カバレッジレポート (Linux)
+|   +-- summary.md                          # テストサマリー
+|   +-- coverage.xml                        # 全体カバレッジ (Cobertura 形式)
+|   +-- coverage.json                       # 全体カバレッジ (gcovr の JSON 形式、Linux)
+|   +-- func.c.gcov.md                      # func.c のカバレッジ詳細
+|   +-- func_a.c.gcov.md                    # func_a.c のカバレッジ詳細
+|   +-- func_b.c.gcov.md                    # func_b.c のカバレッジ詳細
+|   +-- lcov/                               # HTML カバレッジレポート (Linux、genhtml がある場合)
 +-- <テストクラス>.<テスト名>/              # 個別テスト結果
-    +-- results.md                         # テスト実行ログ
-    +-- <ソースファイル>.gcov.md           # 個別テストのカバレッジ
+    +-- results.md                          # テスト実行ログ
+    +-- <ソースファイル>.gcov.md            # 個別テストのカバレッジ
 ```
+
+`all_tests/` の `*.gcov.md` は、全体のカバレッジの対象 (起点とサブディレクトリの `TEST_SRCS`) のソースごとに出力されます。  
+個別テストの `*.gcov.md` は、そのテストで実行されたソースだけです。
 
 ### summary.md の内容例
 
 ````markdown
 # hierarchy-exampleTest のテスト結果サマリー
 
-- 実施日時: 2026-01-24 07:55:31 JST
+- 実施日時: 2026-11-18 02:20:21 JST
 
 ## テスト対象ソースの MD5
 
 | MD5 | ファイル |
 | --- | --- |
-| 8c18e38566df7a9630b40ca18881a5d4 | app/hierarchy-example/prod/libsrc/libhierarchy-example/func.c |
+| 8701cc7afd102f0c49274762aec99b1a | app/hierarchy-example/prod/libsrc/libhierarchy-example/func.c |
+| c48d4b18f94bc14f48caaaa830509757 | app/hierarchy-example/prod/libsrc/libhierarchy-example/subfolder_a/func_a.c |
+| ad49655e644dfac6440ee8b8cb84488a | app/hierarchy-example/prod/libsrc/libhierarchy-example/subfolder_b/func_b.c |
 
 Table: テスト対象ソースのファイル別の MD5 チェックサム
 
 ## テスト結果
 
-| テスト ID | 結果 | 備考 |
+| テスト ID | 結果 | パラメーター |
 | --- | --- | --- |
-| [subfolder_sampleTest.test_func](../subfolder_sampleTest.test_func/results.md) | PASSED | |
+| [hierarchy_exampleTest.test_func](../hierarchy_exampleTest.test_func/results.md) | PASSED |  |
+| [hierarchy_exampleTest_a.test_func_a](../hierarchy_exampleTest_a.test_func_a/results.md) | PASSED |  |
+| [hierarchy_exampleTest_b.test_func_b](../hierarchy_exampleTest_b.test_func_b/results.md) | PASSED |  |
 
-Table: テスト ID 別の判定と備考
+Table: テスト ID 別の判定とパラメーター
 
 ## 集計
 
 | 項目 | 件数 |
 | --- | --- |
-| Total tests | 1 |
-| Passed | 1 |
+| Total tests | 3 |
+| Passed | 3 |
 | Warning(s) | 0 |
 | Failed | 0 |
 
@@ -444,8 +455,10 @@ Table: 判定別のテスト件数
 
 | テスト定義 | 正常系 | 異常系 | 計 |
 | --- | ---: | ---: | ---: |
-| [subfolder_sampleTest.test_func](../subfolder_sampleTest.test_func/results.md) | 1 | 0 | 1 |
-| 合計 | 1 | 0 | 1 |
+| [hierarchy_exampleTest.test_func](../hierarchy_exampleTest.test_func/results.md) | 1 | 0 | 1 |
+| [hierarchy_exampleTest_a.test_func_a](../hierarchy_exampleTest_a.test_func_a/results.md) | 1 | 0 | 1 |
+| [hierarchy_exampleTest_b.test_func_b](../hierarchy_exampleTest_b.test_func_b/results.md) | 1 | 0 | 1 |
+| 合計 | 3 | 0 | 3 |
 
 Table: テスト定義別の正常系と異常系の確認件数
 
@@ -453,8 +466,10 @@ Table: テスト定義別の正常系と異常系の確認件数
 
 | File | Lines | Exec | Cover | Branch | BrCov | Missing |
 | --- | --- | --- | --- | --- | --- | --- |
-| func.c | 2 | 2 | 100% | - | - | |
-| TOTAL | 2 | 2 | 100% | - | - | |
+| func.c | 2 | 2 | 100% | - | - |  |
+| func_a.c | 2 | 2 | 100% | - | - |  |
+| func_b.c | 2 | 2 | 100% | - | - |  |
+| TOTAL | 6 | 6 | 100% | - | - |  |
 
 Table: ソース ファイル別の行とブランチのカバレッジ
 ````
@@ -462,16 +477,18 @@ Table: ソース ファイル別の行とブランチのカバレッジ
 ### 個別テスト結果 (results.md) の内容例
 
 ````markdown
-# subfolder_sampleTest.test_func
+# hierarchy_exampleTest.test_func
 
 - 判定: PASSED
-- 実施日時: 2026-01-24 07:55:31 JST
+- 実施日時: 2026-11-18 02:20:21 JST
 
 ## テスト項目の詳細
 
+func() が 0 を返すことの確認
+
 ### 状態
 
-なし
+特記すべき状態なし
 
 ### 手順
 
@@ -479,16 +496,21 @@ Table: ソース ファイル別の行とブランチのカバレッジ
 
 ### 確認 (正常系:1)
 
-- 【正常系】func() から 0 が返されること。
+- 【正常系】func() の戻り値が 0 であること。
 
 ## テスト コード
 
 ```cpp
-TEST_F(subfolder_sampleTest, test_func)
+// func() が 0 を返すことの確認
+TEST_F(hierarchy_exampleTest, test_func)
 {
     // Arrange
+
+    // Pre-Assert
+
     // Act
     int actual_ret = func(); // [手順] - func() を呼び出す。
+
     // Assert
     EXPECT_EQ(0, actual_ret); // [確認_正常系] - func() の戻り値が 0 であること。
 }
@@ -497,18 +519,32 @@ TEST_F(subfolder_sampleTest, test_func)
 ## 実行結果
 
 ```text
-./bin/hierarchy-exampleTest --gtest_filter=subfolder_sampleTest.test_func
-[ RUN      ] subfolder_sampleTest.test_func
-[       OK ] subfolder_sampleTest.test_func (0 ms)
+./bin/hierarchy-exampleTest --gtest_filter=hierarchy_exampleTest.test_func
+Running main() from testfw_gtest_main.cc
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from hierarchy_exampleTest
+[ RUN      ] hierarchy_exampleTest.test_func
+[       OK ] hierarchy_exampleTest.test_func (0 ms)
+[----------] 1 test from hierarchy_exampleTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
 ```
 ````
 
+テスト コードの直前のコメント (`// func() が 0 を返すことの確認`) が、「テスト項目の詳細」の題名になります。
+
 ### カバレッジ ファイル (*.gcov.md) の内容例
+
+個別テストの `*.gcov.md` は、gcov の出力をそのまま載せます。  
+「ソース」はワークスペースからの相対パスです。
 
 ````markdown
 # func.c のカバレッジ
 
-- ソース: func.c
+- ソース: app/hierarchy-example/prod/libsrc/libhierarchy-example/func.c
 
 ```text
         -:    0:Source:func.c
@@ -518,12 +554,21 @@ TEST_F(subfolder_sampleTest, test_func)
         -:    0:Programs:1
         -:    1:#include <hierarchy-example.h>
         -:    2:
-        1:    3:SUBFOLDER_SAMPLE_API int WINAPI func(void)
+        1:    3:int func(void)
         -:    4:{
         1:    5:    return 0;
         -:    6:}
 ```
 ````
+
+`all_tests/` の `*.gcov.md` は、全体のカバレッジ (`coverage.xml`) から変換して作ります。  
+そのため、先頭の行は次のとおり個別テストと異なります。
+
+```text
+        -:    0:Source:<ソースの絶対パス>
+        -:    0:Graph:generated by cobertura2gcov
+        -:    0:Data:cobertura.xml
+```
 
 各行の先頭の数字は実行回数を示します:
 
@@ -534,31 +579,9 @@ TEST_F(subfolder_sampleTest, test_func)
 
 ### makefile の配置
 
-各サブディレクトリに makefile を配置します。内容は標準テンプレートをそのまま使用します。
-
-```makefile
-# makefile テンプレート
-# すべての最終階層 makefile で使用する標準テンプレート
-# 本ファイルの編集は禁止する。makepart.mk を作成して拡張・カスタマイズすること。
-
-find-up = \
-    $(if $(wildcard $(1)/$(2)),$(1),\
-        $(if $(filter $(1),$(patsubst %/,%,$(dir $(1)))),,\
-            $(call find-up,$(patsubst %/,%,$(dir $(1))),$(2))\
-        )\
-    )
-
-ifeq ($(origin MAKEFW_WORKSPACE_DIR), undefined)
-    MAKEFW_WORKSPACE_DIR := $(strip $(call find-up,$(CURDIR),.workspaceRoot))
-endif
-export MAKEFW_WORKSPACE_DIR
-
-WORKSPACE_DIR := $(MAKEFW_WORKSPACE_DIR)
-
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/prepare.mk
-
-include $(WORKSPACE_DIR)/framework/makefw/makefiles/makemain.mk
-```
+各サブディレクトリに makefile を配置します。  
+内容は標準テンプレート `framework/makefw/makefiles/__template.mk` をそのまま複写し、編集しません。  
+拡張やカスタマイズは、`makepart.mk`、`makechild.mk`、`makelocal.mk` で行います。
 
 ### makechild.mk での NO_LINK 設定
 
@@ -571,7 +594,7 @@ include $(WORKSPACE_DIR)/framework/makefw/makefiles/makemain.mk
 NO_LINK = 1
 ```
 
-テストの場合は、各サブディレクトリの `makelocal.mk` で `TEST_SRCS` を設定します。
+テストの場合は、起点と各サブディレクトリの `makelocal.mk` で `TEST_SRCS` を設定します。
 
 ```makefile
 # サブディレクトリの makelocal.mk
@@ -595,7 +618,7 @@ TEST_SRCS := \
 または、`makepart.mk` で `INCDIR` を設定します。
 
 ```makefile
-INCDIR += $(MYAPP_DIR)/prod/src/sample-app
+INCDIR += $(MYAPP_DIR)/prod/src/cmd/sample-app
 ```
 
 ## まとめ
@@ -605,7 +628,7 @@ INCDIR += $(MYAPP_DIR)/prod/src/sample-app
 | ライブラリ | 起点の `makechild.mk` | `NO_LINK = 1` | サブディレクトリではコンパイルのみ、起点でリンク |
 | コマンド | 起点の `makechild.mk` | `NO_LINK = 1` | サブディレクトリではコンパイルのみ、起点でリンク |
 | テスト | 起点の `makechild.mk` | `NO_LINK = 1` | サブディレクトリではコンパイルのみ、起点でリンク |
-| テスト | 各サブの `makelocal.mk` | `TEST_SRCS` | サブディレクトリごとにテスト対象を指定 |
+| テスト | 起点と各サブの `makelocal.mk` | `TEST_SRCS` | ディレクトリごとにテスト対象を指定し、全体のカバレッジでは合わせて扱う |
 | テスト レポート | - | `results/` | 個別テスト結果と全体カバレッジを出力 |
 
 Table: サブフォルダー コンパイルの設定要件一覧

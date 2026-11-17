@@ -197,6 +197,9 @@ def check_basic(root: Path) -> None:
     recorded = dep_a.read_text(encoding="utf-8")
     if gch[0].as_posix() not in recorded or "detail.h" not in recorded:
         raise AssertionError(f"依存へ PCH を追記できていません:\n{recorded}")
+    # .d はオブジェクトの前提なので、追記で新しくなると make のたびに再コンパイルされる。
+    if dep_a.stat().st_mtime_ns > (tree.obj / "a.o").stat().st_mtime_ns:
+        raise AssertionError("追記した .d がオブジェクトより新しくなりました")
     program = root / "prog"
     run(["gcc", "-o", str(program), str(tree.obj / "a.o"), str(obj_b)])
     printed = run([str(program)]).stdout

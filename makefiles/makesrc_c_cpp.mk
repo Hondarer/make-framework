@@ -272,8 +272,14 @@ MAKEFW_ARTIFACT_ROOT := $(shell \
 	done; \
 	printf '%s\n' "$(CURDIR)" | sed 's@^\(.*\/src\/[^/]*\).*@\1@' \
 )
-MAKEFW_ARTIFACT_DEPS := $(if $(MAKEFW_ARTIFACT_ONLY),_makefw_artifact_recheck,$(SUBDIRS))
+# build のレシピが起動し直した make (_MAKEFW_SUBDIRS_DONE) は、サブディレクトリを処理済みなので
+# 再びたどらず、リンクの要否はレシピ内の日時の比較に任せる (_flags.mk の _MAKEFW_LEAF_PARALLEL_RECIPE)。
+MAKEFW_ARTIFACT_DEPS := $(if $(MAKEFW_ARTIFACT_ONLY)$(_MAKEFW_SUBDIRS_DONE),_makefw_artifact_recheck,$(SUBDIRS))
 MAKEFW_ARTIFACT_OBJS := $(if $(MAKEFW_ARTIFACT_ONLY),,$(OBJS))
+# サブディレクトリをたどる make だけ、そのオブジェクトを再帰 make の完了後に確認させる。
+ifeq ($(MAKEFW_ARTIFACT_ONLY)$(_MAKEFW_SUBDIRS_DONE),)
+    $(call _makefw_order_subdir_objs,$(SUBDIR_OBJS))
+endif
 MAKEFW_ARTIFACT_MSVC_COMPILE := $(if $(MAKEFW_ARTIFACT_ONLY),,_msvc_compile)
 MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT :=
 ifeq ($(CURDIR),$(MAKEFW_REQUEST_ROOT))
@@ -289,6 +295,9 @@ _makefw_artifact_recheck: ;
 
 _makefw_parent_artifact:
 	$(MAKE) -C "$(MAKEFW_ARTIFACT_ROOT)" MAKEFW_ARTIFACT_ONLY=1 _build_main
+# 親の成果物の更新は、このディレクトリのコンパイルの完了後に行う。_build_main は両者を順序なしで
+# 前提に並べるため、並列 make では親が更新前のオブジェクトを見てリンクを省略してしまう。
+_makefw_parent_artifact: | $(if $(PLATFORM_WINDOWS),_msvc_compile,$(OBJS))
 
 # ディレクトリ名を実行体名にする (Make 関数の notdir でプロセス生成を削減)
 # Use directory name as executable name if TARGET is not specified (use Make's notdir to avoid process)
@@ -621,9 +630,10 @@ else
     ifndef NO_LINK
 _test_build: $(OUTPUT_DIR)/$(TARGET)
     else
-        # コンパイルのみ
-        # Compile only
-_test_build: $(OBJS)
+        # コンパイルのみ。Windows のコンパイルは _msvc_compile がまとめて行い、
+        # $(OBJS) の個別の規則を持たないため、build の経路と同じく OS で切り替える。
+        # Compile only (Windows compiles via _msvc_compile, as in the build path)
+_test_build: $(if $(PLATFORM_WINDOWS),_msvc_compile,$(OBJS))
     endif
 endif
 

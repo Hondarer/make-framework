@@ -814,6 +814,16 @@ def record(arguments: argparse.Namespace) -> None:
         text += "\n"
     depfile.parent.mkdir(parents=True, exist_ok=True)
     depfile.write_text(text + addition, encoding="utf-8")
+    # .d はオブジェクトの前提なので、追記で .d がオブジェクトより新しくなると、
+    # make は次の評価でオブジェクトを古いと判定し、毎回再コンパイルする。
+    # 更新日時をオブジェクトに合わせ、追記が再コンパイルの理由にならないようにする。
+    # see: https://www.gnu.org/software/make/manual/html_node/Rule-Syntax.html
+    if arguments.target:
+        try:
+            target_stat = Path(arguments.target).stat()
+        except FileNotFoundError:
+            return
+        os.utime(depfile, ns=(target_stat.st_atime_ns, target_stat.st_mtime_ns))
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:

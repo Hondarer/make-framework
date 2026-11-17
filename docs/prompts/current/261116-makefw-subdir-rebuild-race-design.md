@@ -1,8 +1,8 @@
 <!--
 生成元: agree-before-implement スキル
 文書種別: 最終仕様 (design)
-最終更新日時: 2026-11-16 08:10:00 JST
-最終更新エージェント: claude code / セッション ID: session_01KJc53T14fddkwQBRc7ZPQt
+最終更新日時: 2026-11-18 02:47:29 JST
+最終更新エージェント: claude code (Opus 5.5) / セッション ID: session_01KJc53TxVv1vjB6xMfjiUgc
 稼働 OS: Windows
 上流文書: `261116-makefw-subdir-rebuild-race-discussion.md` (検討用 Markdown)。削除されている場合があります。
 再開手順: このファイルを開いたエージェントは、作業の前に agree-before-implement スキルを読み込んでください。上流文書が存在する場合は、上流文書の再開手順に従って進行位置を確認し、判断の経緯を上流文書の Q&A で確認します。存在しない場合は、この文書を単体の最終仕様として扱います。最終更新エージェントのセッション情報や稼働 OS・最終更新日時が参照可能であれば再開時のコンテキストや環境差分の把握に利用し、別エージェントや別環境・別 OS からの引き継ぎ、担当変更によりセッションが見つからない場合も異常とせず、文書の記載から継続してください。
@@ -12,30 +12,39 @@
 
 ファイル名: `261116-makefw-subdir-rebuild-race-design.md`
 
+版: 3
+
 ## 目的と範囲
 
 Linux の CI で、サブディレクトリを持つライブラリのビルドが次のメッセージで不定期に失敗しました。  
-この文書は、その原因と、makefw に加える修正を定めます。
+この文書は、その原因と、原因の調査で見つかった関連する問題に対する修正を定めます。
 
 ```text
 make[6]: *** '../../lib/libmock_cplat.a' に必要なターゲット 'crt/obj/mock_cplat_ftell.o' を make するルールがありません.  中止.
 ```
 
-対象は `framework/makefw` です。  
+対象は `framework/makefw` と `framework/testfw` です。  
 `app/` 配下の makefile、ソース、テストは変更しません。
 
-修正は次の 3 点です。
+修正は次の 7 点です。  
+1 番から 3 番が CI の失敗に対する修正で、4 番から 7 番は調査と検証で見つかった問題に対する修正です。
 
 1. 自動 PCH を使うオブジェクトが、`make` のたびに再コンパイルされる問題を直します。
 2. 親の make が、サブディレクトリの再帰 make の完了を待たずにオブジェクトを確認する問題を直します。
 3. 1 回の `make` で同じサブディレクトリを 2 回たどる構造を、1 回にします。
+4. Windows で、何もない状態からの `make test` が、リンクしないサブディレクトリをコンパイルしない問題を直します。
+5. テストの起点とサブディレクトリの両方にテスト対象のソースがある構成で、全体のカバレッジにサブディレクトリのソースが入らない問題を直します。
+6. `framework/makefw/docs/subfolder-compilation.md` を、現在の実装と実際の出力に合わせて見直します。
+7. サブディレクトリの中で並列 `make` を実行したとき、親の成果物の更新がコンパイルの完了を待たない問題を直します。
 
 ## 原因
+
+### CI の失敗の原因
 
 失敗は、makefw にある 2 つの問題が重なって起きます。  
 どちらも Linux/GCC だけの問題です。
 
-### 自動 PCH を使うオブジェクトが毎回再コンパイルされる
+#### 自動 PCH を使うオブジェクトが毎回再コンパイルされる
 
 コンパイルの規則は、依存ファイル (`.d`) をオブジェクトの前提にしています。
 
@@ -48,7 +57,7 @@ $(OBJDIR)/%.o: %.c $(OBJDIR)/%.d ...
 その結果、自動 PCH を使うオブジェクトは `make` のたびに再コンパイルされ、成果物も再リンクされます。  
 サブディレクトリを持たないディレクトリでも同じです。
 
-### 親の make がサブディレクトリの make の完了を待たない
+#### 親の make がサブディレクトリの make の完了を待たない
 
 サブディレクトリを持つライブラリと実行体のリンクの規則は、サブディレクトリの再帰 make と、サブディレクトリのオブジェクトを、同じ規則の前提に並べています。
 
@@ -69,7 +78,7 @@ GCC が既存のオブジェクトを上書きするとき、アセンブラー�
 > `make test` では、サブディレクトリの再帰 make とリンクの規則が同じ make の中で並列に処理されます。  
 > サブディレクトリのソースを更新してから `make test` を実行すると、再コンパイル中のオブジェクトに親の確認が当たる可能性があります。
 
-### 同じサブディレクトリを 2 回たどる構造
+#### 同じサブディレクトリを 2 回たどる構造
 
 サブディレクトリを持つライブラリと実行体では、1 回の `make` で各サブディレクトリを 2 回たどります。
 
@@ -78,6 +87,46 @@ GCC が既存のオブジェクトを上書きするとき、アセンブラー�
 
 2 回目は本来は何もしませんが、自動 PCH を使うオブジェクトの再コンパイルがここで起き、親の確認との競合につながりました。  
 2 回目は、サブディレクトリごとの make の起動と makefile の読み込みの分だけ、ビルド時間も増やします。
+
+### Windows の make test がサブディレクトリをコンパイルしない原因
+
+リンクしないディレクトリ (`NO_LINK` を指定したサブディレクトリ) の `_test_build` は、2 つのテンプレートで次のように定義されています。
+
+```makefile
+_test_build: $(OBJS)
+```
+
+Windows のコンパイルは `_msvc_compile` ターゲットがまとめて行い、`$(OBJS)` の個別の規則を使いません。  
+このため、Windows で `make` を先に実行せずに `make test` を実行すると、サブディレクトリは何もコンパイルされません。  
+サブディレクトリのテストは実行されず、起点のテストだけが成功として報告されます。  
+その後に `make` を実行しても、`make test` は「変更なし」と判定してテストを省略するため、不足した結果が残ります。
+
+`build` の経路は `$(if $(PLATFORM_WINDOWS),_msvc_compile,$(OBJS))` で切り替えており、`_test_build` だけ切り替えがありません。  
+`make` の後に `make test` を実行する手順と CI では起きません。Linux でも起きません。
+
+### 全体のカバレッジにサブディレクトリのソースが入らない原因
+
+`framework/testfw/bin_internal/exec_test_c_cpp.sh` は、起点の `TEST_SRCS` が空の場合にだけ、サブディレクトリの `TEST_SRCS` を集めます。  
+起点とサブディレクトリの両方が `TEST_SRCS` を指定する構成では、全体のカバレッジ (`results/all_tests/`) と `summary.md` の MD5 の表が、起点の `TEST_SRCS` だけを対象にします。  
+サブディレクトリのソースのカバレッジは、個別のテストの結果にだけ出力されます。
+
+この動作は Linux と Windows で共通です。  
+リポジトリの中で該当する構成は、`app/subfolder-sample` のテストだけです。
+
+### サブディレクトリの中での並列 make で親の成果物が再リンクされない原因
+
+リンクしないディレクトリの `_build_main` は、オブジェクトのコンパイルと、親の成果物を更新する make の起動 (`_makefw_parent_artifact`) を、順序なしで同じ規則の前提に並べています。
+
+```makefile
+_build_main: $(if $(PLATFORM_WINDOWS),_msvc_compile,$(OBJS)) $(if $(MAKEFW_SHOULD_BUILD_PARENT_ARTIFACT),_makefw_parent_artifact)
+```
+
+`_makefw_parent_artifact` は、利用者がサブディレクトリの中で `make` を実行したときだけ前提に加わります。  
+並列指定付きで実行すると、親の make がコンパイルの完了を待たずに始まり、更新前のオブジェクトを見てリンクを省略します。  
+エラーにはならないため、親の成果物が古いまま残ったことに気付きにくいです。
+
+Linux (Oracle Linux 8) では、ソースを更新したサブディレクトリで `make -j4` を実行すると、4 回中 4 回、再リンクされませんでした。  
+Windows では再現しませんでしたが、`_msvc_compile` と `_makefw_parent_artifact` の間に順序がない構造は同じです。
 
 ## 変更内容
 
@@ -142,9 +191,71 @@ make は、前提がターゲットより新しい場合にだけターゲット
 この変更は Windows にも適用されます。  
 Windows のリンクの規則も `MAKEFW_ARTIFACT_DEPS` を前提にしているためです。
 
+### リンクしないディレクトリの _test_build
+
+対象: `framework/makefw/makefiles/makelibsrc_c_cpp.mk`、`framework/makefw/makefiles/makesrc_c_cpp.mk`
+
+`NO_LINK` が指定されたディレクトリの `_test_build` の前提を、`build` の経路と同じ切り替えにします。
+
+```makefile
+# 変更前
+_test_build: $(OBJS)
+# 変更後
+_test_build: $(if $(PLATFORM_WINDOWS),_msvc_compile,$(OBJS))
+```
+
+- Windows では、`make test` が `_msvc_compile` を起動し、サブディレクトリのソースをコンパイルします。
+- Linux の前提は `$(OBJS)` のままで、動作は変わりません。
+- `SKIP_BUILD` が指定された場合の分岐と、リンクするディレクトリの `_test_build` は変更しません。
+
+### 全体のカバレッジの対象の収集
+
+対象: `framework/testfw/bin_internal/exec_test_c_cpp.sh`
+
+起点の `TEST_SRCS` の有無に関係なく、サブディレクトリの `TEST_SRCS` を集めます。
+
+- サブディレクトリの makefile ごとに `TEST_SRCS` を問い合わせる処理 (`query_test_sources.mk`) は、そのまま使います。変更するのは、この処理を実行する条件です。
+- 対象のソースの並びは、起点の `TEST_SRCS` を指定された順のまま先に置き、サブディレクトリから集めたソースをパスの昇順で続けます。すでに含まれているソースは追加しません。
+- 起点に `TEST_SRCS` があり、サブディレクトリに `TEST_SRCS` がないテストでは、対象のソースと並びは変更前と同じです。
+- 起点の `TEST_SRCS` が空のテストでは、対象のソースと並びは変更前と同じです。
+
+Windows では、カバレッジの計測対象の指定 (OpenCppCoverage の `--sources`) も変更します。
+
+- 変更前は、すべてのソースを「起点のディレクトリ + ファイル名」で指定しています。
+- 変更後は、ソースごとに、そのソースを `TEST_SRCS` に指定した makefile のディレクトリを記録し、「そのディレクトリ + ファイル名」で指定します。テスト対象のソースは、指定した makefile のディレクトリへ取り込まれてコンパイルされるためです。
+- 起点の `TEST_SRCS` のソースは、変更前と同じ指定になります。
+
+> [!NOTE]
+> サブディレクトリの問い合わせは、サブディレクトリの makefile ごとに make を 1 回起動します。  
+> この変更により、起点に `TEST_SRCS` があり、かつ makefile を持つサブディレクトリがあるテストでは、テストの実行のたびにこの起動が加わります。  
+> サブディレクトリを持たないテストでは、起動は増えません。
+
+テストの省略の判定 (変更がなければテストを実行しない動作) は、集めた後のソースの一覧で行います。  
+サブディレクトリのテスト対象のソースを更新した後の `make test` は、テストを再実行します。
+
+### 親の成果物の更新の順序
+
+対象: `framework/makefw/makefiles/makelibsrc_c_cpp.mk`、`framework/makefw/makefiles/makesrc_c_cpp.mk`
+
+`_makefw_parent_artifact` に、コンパイルを順序だけの前提として加えます。
+
+```makefile
+_makefw_parent_artifact: | $(if $(PLATFORM_WINDOWS),_msvc_compile,$(OBJS))
+```
+
+- Linux と Windows の両方に適用します。
+- `_makefw_parent_artifact` が親で行う処理 (`MAKEFW_ARTIFACT_ONLY=1` でのリンクの要否の判定) は変更しません。
+- 実行体のテンプレートの `_build_main` に並ぶ `$(LIBSFILES)` は、順序の対象に含めません。親のリンクの依存は、親の make が判定するためです。
+
+コードには、順序が必要な理由をコメントで残します。
+
 ### テスト
 
-対象: `framework/makefw/bin_test/gcc_pch_selftest.py` (変更)、`framework/makefw/bin_test/subdir_build_selftest.py` (新規)
+対象:
+
+- `framework/makefw/bin_test/gcc_pch_selftest.py` (変更)
+- `framework/makefw/bin_test/subdir_build_selftest.py` (新規)
+- `framework/testfw/bin_test/test_path_spaces.py` (変更)
 
 `gcc_pch_selftest.py` には、`record` の後で `.d` の更新日時がオブジェクトより新しくないことの確認を追加します。
 
@@ -158,16 +269,59 @@ Windows のリンクの規則も `MAKEFW_ARTIFACT_DEPS` を前提にしている
 | 必要な再コンパイルは行う | 共通ヘッダーの更新後は PCH を使うソースを再コンパイルし、`.d` を 1 個削除した後はそのソースだけを再コンパイルする。 |
 | サブディレクトリを 1 回だけたどる | 1 回の `make` で、各サブディレクトリの make の起動が 1 回である。 |
 | 競合しない | オブジェクトが存在しない時間を広げた状態 (コンパイルの前にオブジェクトを消して待つスクリプトを `CC` に指定) で、サブディレクトリのソースを更新した後の `make test` が成功する。 |
-| 成果物が正しい | サブディレクトリのソースの更新、削除、復元の後に、成果物が再リンクされる。 |
+| 成果物が正しい | サブディレクトリのソースの更新、削除、復元の後に、成果物が再リンクされる。サブディレクトリの中で `make -j4` を実行したときも、親の成果物が再リンクされる。 |
 
 Table: subdir_build_selftest.py の確認内容
 
+`test_path_spaces.py` には、起点とサブディレクトリの両方に `TEST_SRCS` がある構成のテストを追加します。  
+既存の `test_sources_collected_from_child` (起点の `TEST_SRCS` が空の構成) と同じ方式で、一時ディレクトリの構成に対して `exec_test_c_cpp.sh` を実際に実行します。  
+Linux と Windows の両方で実行します。確認する内容は次のとおりです。
+
+| 確認 | 内容 |
+| --- | --- |
+| MD5 の表 | `summary.md` の MD5 の表に、起点のソースとサブディレクトリのソースの両方が入る。 |
+| 全体のカバレッジ | `summary.md` のカバレッジの表と `results/all_tests/` の `*.gcov.md` に、両方のソースが入る。 |
+| 並び | 起点のソースが先で、サブディレクトリのソースが後に並ぶ。 |
+
+Table: test_path_spaces.py に追加する確認内容
+
+Windows の `--sources` の変更により、既存の `test_sources_collected_from_child` の前提 (サブディレクトリが指定したソースを、起点のディレクトリでコンパイルしている) が成り立たなくなる場合は、ソースを実際の取り込み先でコンパイルする構成へ直します。
+
+追加するテストの単体の実行時間 (Linux と Windows) を計測し、CI の所要時間の増加として、成果物の提示のときに報告します。  
+対象は、`subdir_build_selftest.py` と、`test_path_spaces.py` に追加するテストです。
+
+> [!NOTE]
+> リンクしないディレクトリの `_test_build` の修正には、専用のテストを追加しません。  
+> 確認は、Windows 側の一時複製で、何もない状態からの `make test` を実行して行います。
+
 ### 文書
 
-対象: `framework/makefw/docs/subfolder-compilation.md`、`framework/makefw/docs/build-configurations.md`
+対象: `framework/makefw/docs/subfolder-compilation.md`、`framework/makefw/docs/build-configurations.md`、`framework/makefw/docs/makeparts.md`
+
+#### 修正に伴う追記
 
 - `subfolder-compilation.md` の「オブジェクト ファイルの自動収集」に、サブディレクトリのオブジェクトは、属するサブディレクトリの再帰 make の完了後に確認することを追記します。「ライブラリのサブディレクトリ対応」の「ビルドの流れ」に、`make` はサブディレクトリを 1 回だけたどり、その後に親がリンクすることを追記します。
 - `build-configurations.md` の「GCC は共通の include 接頭辞を .gch として再利用する」に、`.d` へ PCH の依存を追記した後、`.d` の更新日時をオブジェクトに合わせることと、その理由を追記します。
+
+#### subfolder-compilation.md の見直し
+
+例は、架空の名前 `app/hierarchy-example` を維持します。  
+framework の文書は架空の名前を使い、実在する app のパスを正本にしない規範に従うためです。
+
+| 番号 | 対象の箇所 | 直す内容 |
+| --- | --- | --- |
+| 1 | 「再帰的 make 処理」の `makemain.mk` の引用 | 現在の実装に合わせます。`SUBDIRS` を明示した場合の直列の処理、OS による除外、`test` の 2 フェーズ (`_test_build`、`_test_run`)、`_gen` を説明します。 |
+| 2 | 「TEST_SRCS の自動収集」 | サブディレクトリの makefile ごとに make を起動して `TEST_SRCS` を問い合わせる現在の方式に合わせます。全体のカバレッジの説明は、この文書の「全体のカバレッジの対象の収集」の変更後の動作に合わせます。 |
+| 3 | 「makefile の配置」のテンプレートの引用 | 引用をやめ、`makefiles/__template.mk` を複写するよう案内します。 |
+| 4 | 架空の例に混ざった実在の名前 | マクロ (`SUBFOLDER_SAMPLE_EXPORTS`、`SUBFOLDER_SAMPLE_API`)、テスト クラス (`subfolder_sampleTest`) などを、架空の名前にそろえます。`docs/makeparts.md` の「例 3」の説明文の `libsubfolder-sample/` も、同じ例のコード ブロックの名前にそろえます。 |
+| 5 | 例の中の不整合 | コマンドの出力先を、実際の出力先にそろえます。テストの起点の `TEST_SRCS` の置き場所を、`makelocal.mk` にそろえます。 |
+| 6 | 「テスト レポートの構造」の出力例 | `results/` のディレクトリ構造、`summary.md`、`results.md`、`*.gcov.md` の例を、実際の出力と照合して直します。 |
+
+Table: subfolder-compilation.md の見直しの内容
+
+- 実装の引用は、動作の説明に必要な数行の抜粋に絞ります。残りは文章で説明し、正確な内容は実装のファイルを見るよう案内します。
+- 6 番の照合に使う実際の出力は、修正後の makefw と testfw を WSL の一時複製に置き、サブディレクトリを持つテストの `make test` を実行して得ます。出力例の名前は、架空の名前に置き換えます。
+- HTML のカバレッジ レポート (`all_tests/lcov/`) は、WSL の環境に `genhtml` がないため実際の出力と照合できません。この部分は、実行スクリプトの読解に基づいて記載します。
 
 ## 受入条件
 
@@ -178,8 +332,13 @@ Table: subdir_build_selftest.py の確認内容
     - 変更なしの `make` の再実行 (自動 PCH あり)
     - サブディレクトリのソースを更新した後の `make test` (自動 PCH なし)
 5. サブディレクトリの中での `make`、`make test`、`make clean` が、変更前と同じ結果になる。
-6. makefw の `bin_test/` のうち、変更に関係するテストが成功する。
-7. 変更した Markdown が、`text_style_jp.py --dry-run` で指摘なしになる。
+6. Windows で、何もない状態からの `make test` が、サブディレクトリのテストを含むすべてのテストを実行する。
+7. 起点とサブディレクトリの両方に `TEST_SRCS` がある構成で、`summary.md` の MD5 の表、カバレッジの表、`results/all_tests/` の `*.gcov.md` に、両方のソースが入る。Linux と Windows の両方で成り立つ。
+8. 起点だけ、またはサブディレクトリだけに `TEST_SRCS` がある構成で、全体のカバレッジの対象が変更前と同じである。
+9. makefw と testfw の `bin_test/` のうち、変更に関係するテストが成功する。
+10. `subfolder-compilation.md` の例に実在する app の名前が残っておらず、「見直しの内容」の 1 番から 6 番が直っている。
+11. 変更した Markdown が、`text_style_jp.py --dry-run` で指摘なしになる。
+12. サブディレクトリのソースを更新し、そのサブディレクトリで `make -j4` を実行すると、親の成果物が再リンクされる (Linux)。Windows では、同じ操作と、並列指定なしの `make`、`make test` の結果が変更前と変わらない。
 
 ## 検証
 
@@ -187,24 +346,34 @@ Table: subdir_build_selftest.py の確認内容
 
 ### 局所検証
 
-エージェントが、修正した makefw を WSL 側の一時ディレクトリへ複製して実行します。  
+エージェントが、修正した makefw と testfw を一時ディレクトリへ複製して実行します。  
 リポジトリの作業ツリーではビルドしません。
 
+Linux の確認は、WSL 側の一時ディレクトリで行います。
+
 - 受入条件 1 から 5 を、サブディレクトリを持つ小さなライブラリで確認します。
+- 受入条件 7 と 8 を、サブディレクトリを持つテストで確認します。
 - 次のテストを実行します。
-    - `bin_test/gcc_pch_selftest.py`
-    - `bin_test/subdir_build_selftest.py`
-    - `bin_test/link_objects_selftest.py`
-    - `bin_test/test_path_spaces.py`
-    - `bin_test/test_gen_goal.py`
+    - makefw: `bin_test/gcc_pch_selftest.py`、`bin_test/subdir_build_selftest.py`、`bin_test/link_objects_selftest.py`、`bin_test/test_path_spaces.py`、`bin_test/test_gen_goal.py`
+    - testfw: `bin_test/test_path_spaces.py`
+
+Windows の確認は、Windows 側の一時ディレクトリ (リポジトリの外) で行います。
+
+- 受入条件 6 と 7 を、サブディレクトリを持つテストで確認します。
+- 受入条件 3 を、サブディレクトリを持つライブラリの `make` で確認します。
+- 受入条件 12 を、サブディレクトリを持つライブラリのサブディレクトリの中での `make -j4` で確認します。
+    - Windows では競合を再現できないため、修正の効果ではなく、動作が変わらないことを確認します。
+- testfw の `bin_test/test_path_spaces.py` を実行します。
+
+> [!NOTE]
+> Windows の一時複製は、複製先のパスが長いと、相対パスの解決で 260 文字を超えて失敗します。  
+> `subst` で短いドライブ名を割り当てて実行します。
+
+Linux と Windows の確認は、同時には実行しません。
 
 ### 全体の確認
 
 リポジトリ全体の `make`、`make test`、`make bin-test` と CI は、ユーザーが実行して確認します。
-
-> [!IMPORTANT]
-> 「サブディレクトリを 1 回だけたどる」変更は Windows にも適用されますが、局所検証と追加するテストは Linux だけで実行します。  
-> Windows での動作は、全体の確認 (ユーザーの `make` と CI の Windows ジョブ) で確認します。
 
 ## 知見の反映計画
 
@@ -213,10 +382,13 @@ Table: subdir_build_selftest.py の確認内容
 | 自動 PCH の依存の追記で `.d` をオブジェクトより新しくしてはならない理由 | `gcc_pch.py` の `record()` のコメント、`build-configurations.md` |
 | サブディレクトリのオブジェクトは、再帰 make の完了後に確認する必要がある理由 (上書き中はオブジェクトが一時的に存在しない) | 2 つのテンプレートのコメント、`subfolder-compilation.md` |
 | `build` の経路ではサブディレクトリを 1 回だけたどり、起動し直した make ではたどらないこと | `_flags.mk` と 2 つのテンプレートのコメント、`subfolder-compilation.md` |
+| Windows のコンパイルは `_msvc_compile` が行うため、オブジェクトを前提にする箇所は OS で切り替える必要があること | 2 つのテンプレートの `_test_build` のコメント |
+| サブディレクトリの中での `make` では、親の成果物の更新をコンパイルの完了後に行う必要があること | 2 つのテンプレートの `_makefw_parent_artifact` のコメント |
+| 全体のカバレッジの対象は、起点とサブディレクトリの `TEST_SRCS` を合わせたものであること。Windows の計測対象は、ソースが取り込まれたディレクトリで指定すること | `exec_test_c_cpp.sh` のコメント、`subfolder-compilation.md` |
 
 Table: 知見と反映先
 
 ## 作業上の条件
 
-- `framework/makefw` はサブモジュールです。ステージングとコミットは、ユーザーから個別に指示された場合にだけ行います。
+- `framework/makefw` と `framework/testfw` はサブモジュールです。ステージングとコミットは、ユーザーから個別に指示された場合にだけ行います。
 - 対策元の残課題一覧 (`app/porter/docs/prompts/current/261115-porter-multicast-src-contract-backlog.md`) の BL-002 は、実装と局所検証の完了時、および全体の確認の完了時に更新します。
