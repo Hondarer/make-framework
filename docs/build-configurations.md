@@ -370,6 +370,16 @@ make -j4
 GNU Make の `-j` をジョブ数なしで指定した場合、make の並列度に上限がないため、MSVC と MSBuild の並列度は 1 とします。  
 `MAKEFW_CL_MP_JOBS` または `MAKEFW_MSBUILD_JOBS` を明示した場合は、その値を優先します。
 
+app 直下の makefile (`app/makefile`) のビルドは、依存する app のビルドが終わった app を、make の並列度と同じ数まで同時にビルドします。  
+各 app の make も同じ並列度で動くため、同時に動くコンパイルとリンクは、最大で make の並列度の 2 乗になります。  
+メモリが足りずにビルドが止まる環境では、`MAKEFW_APP_BUILD_JOBS` に正の整数を指定して、同時にビルドする app の数だけを減らしてください。  
+各 app の make の並列度は変わりません。未指定の場合は make の並列度を使います。
+
+```bash
+# app を 1 つずつビルドする。各 app の make は自動設定の並列度で動く
+make MAKEFW_APP_BUILD_JOBS=1
+```
+
 Windows の MSVC コンパイルは、1 回の `cl.exe` に渡すソース本数を既定で 32 本に制限します。  
 `MAKEFW_MSVC_SOURCES_PER_BATCH` で本数を変更でき、`MAKEFW_MSVC_BATCH_MAX_CHARS` で既存のコマンド文字数上限 (既定 8000) も変更できます。  
 ソース本数を分割しても各ソースの `.obj` は同じ場所へ生成されるため、リンク入力と依存関係の扱いは変わりません。

@@ -83,8 +83,11 @@ submodule :
 
 .PHONY: default
 default : submodule
+    # 同時にビルドする app の数は make の並列度と同じにする。各 app の make も同じ並列度で動くため、
+    # 同時に動くコンパイルとリンクは最大で並列度の 2 乗になる。メモリが足りない環境では
+    # MAKEFW_APP_BUILD_JOBS で app の数だけを減らせる。
 	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
-	app_build_jobs="$$jobs"; \
+	app_build_jobs=$${MAKEFW_APP_BUILD_JOBS:-$$jobs}; \
 	if [ -z "$$app_build_jobs" ]; then app_build_jobs=1; fi; \
 	MAKEFW_SUBDIR_MAKE="$(MAKEFW_SUBDIR_MAKE_CMD)" "$(SHELL)" \
 		"$(MAKEFW_HOME)/bin_internal/run_ordered_subdir_target.sh" \
