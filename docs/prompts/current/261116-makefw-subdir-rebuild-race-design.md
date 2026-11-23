@@ -391,4 +391,4 @@ Table: 知見と反映先
 ## 作業上の条件
 
 - `framework/makefw` と `framework/testfw` はサブモジュールです。ステージングとコミットは、ユーザーから個別に指示された場合にだけ行います。
-- 対策元の残課題一覧 (`app/porter/docs/prompts/current/261115-porter-multicast-src-contract-backlog.md`) の BL-002 は、実装と局所検証の完了時、および全体の確認の完了時に更新します。
+- 対策元の残課題一覧 (`app/porter/docs/prompts/past/261115-porter-multicast-src-contract-backlog.md`) の BL-002 は、実装と局所検証の完了時、および全体の確認の完了時に更新します。

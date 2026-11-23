@@ -4,7 +4,7 @@
 最終更新日時: 2026-11-18 05:54:12 JST
 最終更新エージェント: claude code (Opus 5.5) / セッション ID: session_01KJc53TxVv1vjB6xMfjiUgc (版 10 までは session_01KJc53T14fddkwQBRc7ZPQt)
 稼働 OS: Windows
-上流文書: `../../../../../app/porter/docs/prompts/current/261115-porter-multicast-src-contract-backlog.md` (対策元の残課題一覧。BL-002 が対象)
+上流文書: `../../../../../app/porter/docs/prompts/past/261115-porter-multicast-src-contract-backlog.md` (対策元の残課題一覧。BL-002 が対象)
 下流文書: `261116-makefw-subdir-rebuild-race-design.md` (最終仕様)、`261116-makefw-subdir-rebuild-race-backlog.md` (残課題一覧)。未作成の場合や、削除されている場合があります。
 再開手順: このファイルを開いたエージェントは、作業の前に agree-before-implement スキルを読み込んでください。ユーザーが編集した最新版を読み直し、作業 WBS の `← **CURRENT**` の項目から再開します。最終更新エージェントのセッション情報や稼働 OS・最終更新日時が参照可能であれば再開時のコンテキストや環境差分の把握に利用し、別エージェントや別環境・別 OS からの引き継ぎ、担当変更によりセッションが見つからない場合も異常とせず、文書の記載から継続してください。`← **CURRENT**` の項目は処理が中止された項目である場合があり、どこまで進んでいたかは文書だけでは分かりません。対象成果物の内容を確認して実施済みの範囲を特定してから、作業を再開してください。`← **CURRENT**` がなく、作業 WBS がすべて完了 (✅) であれば、この案件の合意フローは完了しています。
 -->
@@ -24,7 +24,7 @@
 ## 作業 WBS と進捗管理
 
 この検討用 Markdown が管理する作業 WBS です。  
-対策元の残課題一覧 (`app/porter/docs/prompts/current/261115-porter-multicast-src-contract-backlog.md`) の BL-002 を対象とし、進行の各段階で対策元の状態と経緯も更新します。  
+対策元の残課題一覧 (`app/porter/docs/prompts/past/261115-porter-multicast-src-contract-backlog.md`) の BL-002 を対象とし、進行の各段階で対策元の状態と経緯も更新します。  
 項目 4 の内容は、[Q-001](#q-001-この案件に修正を含めるか)、[Q-002](#q-002-原因を裏付ける実行確認の担当と方法)、[Q-003](#q-003-調査で確定させる範囲) の回答で見直します。
 
 凡例: ⏸️ 未着手、🔄 実施中、🚫 ブロック中、⚠️ 要注意、✅ 完了。現在取り組んでいる項目の末尾に `← **CURRENT**` を付けます。
@@ -95,7 +95,7 @@
 
 参照資料と版:
 
-- 対策元の残課題一覧: `app/porter/docs/prompts/current/261115-porter-multicast-src-contract-backlog.md` の BL-002
+- 対策元の残課題一覧: `app/porter/docs/prompts/past/261115-porter-multicast-src-contract-backlog.md` の BL-002
 - CI ログ: run 43727490184 attempt 2 の ol9 ジョブ (job 132907280843、対象コミット `2e893792`)。以下の「ログの行番号」は、このジョブのログの行番号です。
 - makefw: `7087ed7` (失敗した CI と、現在の作業ツリーで同じコミット)
     - `framework/makefw/makefiles/makemain.mk` (サブディレクトリの再帰 make)
