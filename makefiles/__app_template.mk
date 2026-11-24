@@ -83,16 +83,17 @@ submodule :
 
 .PHONY: default
 default : submodule
-    # 同時にビルドする app の数は make の並列度と同じにする。各 app の make も同じ並列度で動くため、
-    # 同時に動くコンパイルとリンクは最大で並列度の 2 乗になる。メモリが足りない環境では
-    # MAKEFW_APP_BUILD_JOBS で app の数だけを減らせる。
+    # 同時にビルドする app の数の上限は、既定では make の並列度と同じにする (MAKEFW_APP_BUILD_JOBS で変更できる)。
+    # 明示の並列設定がなければ、runner が、使われていないコンパイルの予算を、起動できる app の数で分けて渡す。
+    # 規則の正本は framework/makefw/docs/build-configurations.md の「並列ビルド」を参照する。
 	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
 	app_build_jobs=$${MAKEFW_APP_BUILD_JOBS:-$$jobs}; \
 	if [ -z "$$app_build_jobs" ]; then app_build_jobs=1; fi; \
+	$(call _MAKEFW_APP_BUDGET_SHELL) \
 	MAKEFW_SUBDIR_MAKE="$(MAKEFW_SUBDIR_MAKE_CMD)" "$(SHELL)" \
 		"$(MAKEFW_HOME)/bin_internal/run_ordered_subdir_target.sh" \
 		--app-deps --silent-missing --echo-command --progress \
-		"$$app_build_jobs" default $(SUBDIRS)
+		$$app_budget_args "$$app_build_jobs" default $(SUBDIRS)
 	@$(APP_POST_BUILD_CHECKS)
 
 # with-cov は分析専用とし、prod/coverity.mk を持つ app と、それらが依存する (推移的) app だけを対象にする。
@@ -105,6 +106,7 @@ with-cov : submodule
 	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
 	app_with_cov_jobs="$$jobs"; \
 	if [ -z "$$app_with_cov_jobs" ]; then app_with_cov_jobs=1; fi; \
+	$(call _MAKEFW_APP_BUDGET_SHELL) \
 	with_cov_subdirs="$(_MAKEFW_WITH_COV_SUBDIRS)"; \
 	if [ -z "$$with_cov_subdirs" ]; then \
 		echo "INFO: Skipping with-cov (no app has prod/coverity.mk)"; \
@@ -112,7 +114,7 @@ with-cov : submodule
 		MAKEFW_SUBDIR_MAKE="$(MAKEFW_SUBDIR_MAKE_CMD)" "$(SHELL)" \
 			"$(MAKEFW_HOME)/bin_internal/run_ordered_subdir_target.sh" \
 			--app-deps --silent-missing --echo-command --progress \
-			"$$app_with_cov_jobs" _makefw_with_cov_prod $$with_cov_subdirs; \
+			$$app_budget_args "$$app_with_cov_jobs" _makefw_with_cov_prod $$with_cov_subdirs; \
 	fi
 	@$(APP_POST_BUILD_CHECKS)
 
@@ -153,14 +155,16 @@ clean : submodule
 test quicktest : submodule
     # 各 app の test を依存関係に従って並列ディスパッチしつつ、コンソール出力は
     # SUBDIRS の宣言順に揃える。leaf テスト実行は共有スロットで全体上限を守る。
+    # 明示の並列設定がなければ、コンパイルの予算も各 app へ割り振る (正本: docs/build-configurations.md)。
 	@$(call _MAKEFW_RESOLVE_PARALLEL_SHELL) \
 	if [ "$@" = "quicktest" ]; then export TESTFW_QUICKTEST=1; fi; \
 	app_test_jobs=$${MAKEFW_APP_TEST_JOBS:-$$jobs}; \
 	test_run_jobs=$${MAKEFW_TEST_RUN_JOBS:-$$jobs}; \
+	$(call _MAKEFW_APP_BUDGET_SHELL) \
 	MAKEFW_SUBDIR_MAKE="$(MAKE)" MAKEFW_TEST_RUN_JOBS="$$test_run_jobs" "$(SHELL)" \
 		"$(MAKEFW_HOME)/bin_internal/run_ordered_subdir_target.sh" \
 		--app-deps --silent-missing --echo-command --progress \
-		"$$app_test_jobs" $@ $(SUBDIRS)
+		$$app_budget_args "$$app_test_jobs" $@ $(SUBDIRS)
     # このフォルダー配下の coverage.xml をマージする
 	-python "$(TESTFW_HOME)/bin_internal/cobertura_merge.py" . > /dev/null
 

@@ -1,5 +1,6 @@
 # make とコンパイラに割り当てる並列度を解決する共通処理。
 # recipe 内で評価し、解決した CPU 予算を子 make へ引き継ぐ。
+# 規則の正本は docs/build-configurations.md の「並列ビルド」を参照する。
 #
 # Windows の MSVC は 1 つの app 内で _msvc_compile_c_normal / _msvc_compile_c_test /
 # _msvc_compile_cpp_normal / _msvc_compile_cpp_test の最大 4 サブターゲットが
@@ -9,6 +10,17 @@
 # そのため両 OS とも ceil(CPU / 2) をコンパイル予算とし、
 # make 並列度と /MP・MSBuild -m の積がこの予算に収まるよう配分して、
 # CPU 使用量とピーク時のメモリ圧力を下げている。
+#
+# app 直下の makefile (app/makefile) から並列実行する場合は、GNU make のジョブ サーバーを
+# 採らず、runner が使われていないコンパイル予算を各 app へ割り振って環境変数
+# MAKEFW_APP_COMPILE_BUDGET で渡す。MSVC の /MP と MSBuild の -m はジョブ サーバーの枠に
+# 数えられず、Windows で上限を保証できないためである。
+# see: https://www.gnu.org/software/make/manual/html_node/Job-Slots.html
+# MAKEFW_APP_COMPILE_BUDGET は runner が子の app の make へ渡す内部のコンパイル予算であり、
+# 指定された場合は ceil(CPU / 2) の代わりにこの値をコンパイル予算として使う。
+# _MAKEFW_APP_BUDGET_SHELL は割り振り時に JOBS_EFFECTIVE / MAKEFW_CL_MP_JOBS /
+# MAKEFW_MSBUILD_JOBS の export を外す。外さないと、子の app の make がこれらを
+# 利用者指定とみなし、渡した MAKEFW_APP_COMPILE_BUDGET から並列度を解決し直さないためである。
 # MAKEFW_CL_MP_JOBS を明示指定した場合はその値を優先する。
 
 ifndef _MAKEFW_PARALLEL_MK
@@ -64,6 +76,12 @@ define _MAKEFW_RESOLVE_PARALLEL_SHELL
 			cpu=6 ;; \
 	esac; \
 	compile_budget=$$(((cpu + 1) / 2)); \
+	app_compile_budget="$${MAKEFW_APP_COMPILE_BUDGET:-}"; \
+	case "$$app_compile_budget" in \
+		'') ;; \
+		*[!0-9]*|0) echo "ERROR: MAKEFW_APP_COMPILE_BUDGET must be a positive integer: $$app_compile_budget" >&2; exit 2 ;; \
+		*) compile_budget="$$app_compile_budget" ;; \
+	esac; \
 	if [ -z "$$jobs" ] && [ -z "$$unlimited_parallel" ] && [ -n "$$allow_job_fallback" ]; then \
 		if [ "$(OS)" = "Windows_NT" ]; then \
 			jobs=1; \
@@ -95,8 +113,21 @@ define _MAKEFW_RESOLVE_PARALLEL_SHELL
 	parallel_make_args="MAKEFW_CPU_BUDGET=$$cpu MAKEFW_CL_MP_JOBS=$$cl_jobs MAKEFW_MSBUILD_JOBS=$$msbuild_jobs"; \
 	if [ -n "$$jobs" ]; then parallel_make_args="JOBS_EFFECTIVE=$$jobs $$parallel_make_args"; fi; \
 	if [ -z "$$has_parallel" ] && [ -n "$$jobs" ] && [ -n "$$allow_job_fallback" ]; then parallel_make_args="-j$$jobs $$parallel_make_args"; fi; \
+	parallel_user_explicit=""; \
+	if [ -n "$$has_parallel" ] || [ "$(MAKEFW_HAS_USER_JOBS)" = "1" ] || [ "$(MAKEFW_HAS_USER_JOBS_EFFECTIVE)" = "1" ] || [ "$(MAKEFW_HAS_USER_CL_MP_JOBS)" = "1" ] || [ "$(MAKEFW_HAS_USER_MSBUILD_JOBS)" = "1" ]; then parallel_user_explicit=1; fi; \
 	export MAKEFW_CPU_BUDGET="$$cpu" MAKEFW_CL_MP_JOBS="$$cl_jobs" MAKEFW_MSBUILD_JOBS="$$msbuild_jobs"; \
 	if [ -n "$$jobs" ]; then export JOBS_EFFECTIVE="$$jobs"; fi;
+endef
+
+# 明示の並列設定がない場合に限り、コンパイルの予算を各 app へ割り振る。
+# 割り振る場合は、app 側の解決値の export を外し、各 app の make が、渡された予算から並列度を解決し直すようにする。
+# 規則の正本は docs/build-configurations.md の「並列ビルド」を参照する。
+define _MAKEFW_APP_BUDGET_SHELL
+	app_budget_args=""; \
+	if [ -z "$$parallel_user_explicit" ]; then \
+		app_budget_args="--app-compile-budget $$compile_budget"; \
+		unset JOBS_EFFECTIVE MAKEFW_CL_MP_JOBS MAKEFW_MSBUILD_JOBS; \
+	fi;
 endef
 
 endif

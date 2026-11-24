@@ -370,13 +370,41 @@ make -j4
 GNU Make の `-j` をジョブ数なしで指定した場合、make の並列度に上限がないため、MSVC と MSBuild の並列度は 1 とします。  
 `MAKEFW_CL_MP_JOBS` または `MAKEFW_MSBUILD_JOBS` を明示した場合は、その値を優先します。
 
-app 直下の makefile (`app/makefile`) のビルドは、依存する app のビルドが終わった app を、make の並列度と同じ数まで同時にビルドします。  
-各 app の make も同じ並列度で動くため、同時に動くコンパイルとリンクは、最大で make の並列度の 2 乗になります。  
-メモリが足りずにビルドが止まる環境では、`MAKEFW_APP_BUILD_JOBS` に正の整数を指定して、同時にビルドする app の数だけを減らしてください。  
-各 app の make の並列度は変わりません。未指定の場合は make の並列度を使います。
+app 直下の makefile (`app/makefile`) は、既定の設定においてコンパイルの予算 `B` (`ceil(CPU 数 / 2)`、`MAKEFW_CPU_BUDGET` 指定時はその値) を同時実行中の全 app で共有します。  
+保証の単位は同時に動く make のジョブ (コンパイル、リンク、アーカイブ) の数であり、MSVC は make のジョブ数と `/MP` の積、MSBuild は make のジョブ数と `-m` の積です。  
+GNU make のジョブ サーバーは MSVC の `/MP` と MSBuild の `-m` を枠に数えられず Windows で上限を保証できないため、runner (`bin_internal/run_ordered_subdir_target.sh`) が起動時点で予算を割り振り、環境変数 `MAKEFW_APP_COMPILE_BUDGET` で各 app の make へ渡します。  
+see: [GNU make Manual: Job Slots](https://www.gnu.org/software/make/manual/html_node/Job-Slots.html)
+
+`MAKEFW_APP_BUILD_JOBS` (`test` と `quicktest` は `MAKEFW_APP_TEST_JOBS`、未指定時は make の並列度の既定値) は、同時にビルドする app の数の上限です。  
+`MAKEFW_APP_BUILD_JOBS` が `B` を超えていても、1 つの app へ渡す予算は最小 1 のため、同時に動く app の数は `B` までになります。
+
+runner は使われていない予算 `budget_free` を `B` で初期化し、app の起動のたびに次を計算して各 app の予算を確定します。  
+起動時点で割り振った予算は、その app が成功、失敗、または中断で終了するまで変更せず、終了を確かめた時点で `budget_free` へ戻します (途中で別の app へ譲り渡しません)。
+
+1. 状態が pending で依存先がすべて完了した「起動できる app」の数 `ready` を数えます (依存の失敗で blocked になった app は含めません)。
+2. 空きの並列度 `slots_left = jobs - running` を求めます。
+3. `budget_free >= 1` かつ `slots_left >= 1` かつ `ready >= 1` の間、宣言順に `startable = min(ready, slots_left, budget_free)` として `share = ceil(budget_free / startable)` (`(budget_free + startable - 1) / startable`) を渡し、`budget_free -= share`、`running += 1`、`ready -= 1`、`slots_left -= 1` とします。
+
+端数は先に起動する app へ 1 ずつ多く配分し、単独で動く app は `budget_free` のすべてを使えます。  
+渡された予算 `b` を受け取った各 app の make は、それをコンパイルの予算として並列度 (Linux は `min(b, 8)`、Windows は `min(ceil(sqrt(2 * CPU 数)), 12, b)`、`/MP` と MSBuild `-m` は `floor(b / 並列度)` を 1 から 16 に制限) を解決します。
+
+| B | jobs | 起動できる app の数 | 渡す予算 |
+|---|---:|---:|---|
+| 4 | 4 | 1 (`cplat` の前の単独の区間) | 4 |
+| 4 | 4 | 3 | 2、1、1 |
+| 4 | 4 | 5 | 1、1、1、1 (5 つ目は予算が戻るまで待つ) |
+| 7 | 3 | 3 | 3、2、2 |
+| 2 | 4 | 4 | 1、1 (残りの 2 つは待つ) |
+
+Table: コンパイルの予算 B と起動できる app の数に対する渡す予算の例
+
+この予算の割り振りは、`-j`、`--jobs`、ジョブ サーバー、`JOBS`、`JOBS_EFFECTIVE`、`MAKEFW_CL_MP_JOBS`、`MAKEFW_MSBUILD_JOBS` のいずれも利用者が指定していない既定の設定に限ります。  
+いずれかを指定した場合は割り振りを行わず、指定をそのまま使った従来の動作になります。  
+`MAKEFW_CPU_BUDGET` と `MAKEFW_APP_BUILD_JOBS` (`MAKEFW_APP_TEST_JOBS`) は割り振りの入力であるため、指定しても割り振りの対象です。  
+また、テスト バイナリの実行は共有スロット (`MAKEFW_TEST_RUN_JOBS`、`MAKEFW_TEST_SLOT_DIR`) で全体上限を守るためコンパイルの予算に数えず、`framework` 段階および `gen`、`clean`、`doxy` では割り振りを行いません。
 
 ```bash
-# app を 1 つずつビルドする。各 app の make は自動設定の並列度で動く
+# 同時にビルドする app の上限を 1 にし、各 app は予算の全量を使う
 make MAKEFW_APP_BUILD_JOBS=1
 ```
 

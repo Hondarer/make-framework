@@ -77,13 +77,14 @@ if [ "${1:-}" = "--run-node" ]; then
 fi
 
 usage() {
-    echo "Usage: $0 [--app-deps] [--silent-missing] [--echo-command] [--progress] <jobs> <target> [subdir ...]" >&2
+    echo "Usage: $0 [--app-deps] [--silent-missing] [--echo-command] [--progress] [--app-compile-budget <B>] <jobs> <target> [subdir ...]" >&2
 }
 
 app_deps=0
 silent_missing=0
 echo_command=0
 progress=0
+app_compile_budget=""
 progress_interval=60
 progress_fd_open=0
 script_dir=$(cd "$(dirname "$0")" && pwd)
@@ -106,6 +107,25 @@ while [ "$#" -gt 0 ]; do
             progress=1
             shift
             ;;
+        --app-compile-budget)
+            if [ "$#" -lt 2 ]; then
+                echo "ERROR: --app-compile-budget requires a positive integer." >&2
+                exit 2
+            fi
+            app_compile_budget="$2"
+            case "$app_compile_budget" in
+                ''|*[!0-9]*)
+                    echo "ERROR: --app-compile-budget must be a positive integer: $app_compile_budget" >&2
+                    exit 2
+                    ;;
+            esac
+            if [ "$app_compile_budget" -le 0 ]; then
+                echo "ERROR: --app-compile-budget must be a positive integer: $app_compile_budget" >&2
+                exit 2
+            fi
+            app_compile_budget=$((10#$app_compile_budget))
+            shift 2
+            ;;
         --)
             shift
             break
@@ -119,6 +139,11 @@ while [ "$#" -gt 0 ]; do
             ;;
     esac
 done
+
+if [ -n "$app_compile_budget" ] && [ "$app_deps" -ne 1 ]; then
+    echo "ERROR: --app-compile-budget requires --app-deps." >&2
+    exit 2
+fi
 
 if [ "$#" -lt 2 ]; then
     usage
@@ -687,6 +712,7 @@ status_values=()
 deps_by_index=()
 node_pids=()
 node_started_at=()
+node_budget=()
 count="${#dirs[@]}"
 i=0
 while [ "$i" -lt "$count" ]; do
@@ -695,6 +721,7 @@ while [ "$i" -lt "$count" ]; do
     deps_by_index[$i]=""
     node_pids[$i]=""
     node_started_at[$i]=0
+    node_budget[$i]=0
     i=$((i + 1))
 done
 
@@ -742,6 +769,20 @@ dep_failed() {
     return 1
 }
 
+count_ready_nodes() {
+    local ready_count=0
+    local idx=0
+
+    while [ "$idx" -lt "$count" ]; do
+        if [ "${state[$idx]}" = "pending" ] && deps_done "$idx"; then
+            ready_count=$((ready_count + 1))
+        fi
+        idx=$((idx + 1))
+    done
+
+    printf '%s\n' "$ready_count"
+}
+
 run_ordered_nodes() {
     local next_print=0
     local running=0
@@ -763,9 +804,21 @@ run_ordered_nodes() {
     local running_names
     local pending_names
     local completed_names
+    local budget_free=0
+    local ready=0
+    local slots_left=0
+    local startable=0
+    local share=0
+    local dispatch_msg
+    local wait_msg
+    local -a budget_cmd=()
 
     if [ "$count" -eq 0 ]; then
         return 0
+    fi
+
+    if [ -n "$app_compile_budget" ]; then
+        budget_free="$app_compile_budget"
     fi
 
     start_time=$(now_seconds)
@@ -788,6 +841,10 @@ run_ordered_nodes() {
                     fi
                 fi
                 running=$((running - 1))
+                if [ -n "$app_compile_budget" ]; then
+                    budget_free=$((budget_free + node_budget[i]))
+                    node_budget[$i]=0
+                fi
                 completed=$((completed + 1))
                 pid="${node_pids[$i]}"
                 if [ -n "$pid" ]; then
@@ -810,6 +867,10 @@ run_ordered_nodes() {
                     failed="$status"
                 fi
                 running=$((running - 1))
+                if [ -n "$app_compile_budget" ]; then
+                    budget_free=$((budget_free + node_budget[i]))
+                    node_budget[$i]=0
+                fi
                 completed=$((completed + 1))
                 pid="${node_pids[$i]}"
                 if [ -n "$pid" ]; then
@@ -844,22 +905,54 @@ run_ordered_nodes() {
             i=$((i + 1))
         done
 
+        if [ -n "$app_compile_budget" ]; then
+            ready=$(count_ready_nodes)
+            slots_left=$((jobs - running))
+        fi
         i=0
         while [ "$i" -lt "$count" ] && [ "$running" -lt "$jobs" ] && [ "$abort" -eq 0 ]; do
+            if [ -n "$app_compile_budget" ] && { [ "$budget_free" -lt 1 ] || [ "$slots_left" -lt 1 ] || [ "$ready" -lt 1 ]; }; then
+                break
+            fi
             if [ "${state[$i]}" = "pending" ] && deps_done "$i"; then
                 dir="${dirs[$i]}"
                 leaf="${leaves[$i]}"
                 out_file="$tmp_root/node-$i.out"
                 status_file="$tmp_root/node-$i.status"
                 started=$((started + 1))
-                progress_log "dispatch [$started/$count] $dir"
+                share=""
+                budget_cmd=()
+                dispatch_msg="dispatch [$started/$count] $dir"
+                if [ -n "$app_compile_budget" ]; then
+                    # 割り振りの数式 (正本: docs/build-configurations.md 「並列ビルド」):
+                    #   startable = min(ready, slots_left, budget_free)
+                    #   share = ceil(budget_free / startable) = (budget_free + startable - 1) / startable
+                    startable="$ready"
+                    if [ "$slots_left" -lt "$startable" ]; then
+                        startable="$slots_left"
+                    fi
+                    if [ "$budget_free" -lt "$startable" ]; then
+                        startable="$budget_free"
+                    fi
+                    share=$(((budget_free + startable - 1) / startable))
+                    node_budget[$i]="$share"
+                    budget_free=$((budget_free - share))
+                    ready=$((ready - 1))
+                    slots_left=$((slots_left - 1))
+                    budget_cmd=(env "MAKEFW_APP_COMPILE_BUDGET=$share")
+                    dispatch_msg="$dispatch_msg compile_budget=$share"
+                fi
+                progress_log "$dispatch_msg"
                 if [ "$is_windows" -eq 1 ]; then
                     (
+                        if [ -n "$share" ]; then
+                            export MAKEFW_APP_COMPILE_BUDGET="$share"
+                        fi
                         run_make_node "$dir" "$out_file" "$leaf"
                         printf '%s\n' "$?" > "$status_file"
                     ) &
                 else
-                    setsid --wait "$self_script" --run-node \
+                    "${budget_cmd[@]+"${budget_cmd[@]}"}" setsid --wait "$self_script" --run-node \
                         "$dir" "$out_file" "$leaf" "$status_file" \
                         "$make_cmd" "$target" "$test_run_jobs" "$slot_root" "$echo_command" &
                 fi
@@ -943,7 +1036,11 @@ run_ordered_nodes() {
                 running_names=$(join_dirs_by_state "running")
                 pending_names=$(join_dirs_by_state "pending")
                 completed_names=$(join_dirs_by_state "done failed blocked interrupted")
-                progress_log "waiting elapsed=$elapsed running=$running[$running_names] pending=$pending_count[$pending_names] completed=$completed/$count[$completed_names]"
+                wait_msg="waiting elapsed=$elapsed running=$running[$running_names] pending=$pending_count[$pending_names] completed=$completed/$count[$completed_names]"
+                if [ -n "$app_compile_budget" ]; then
+                    wait_msg="$wait_msg budget_free=$budget_free"
+                fi
+                progress_log "$wait_msg"
                 last_wait_report_at="$current_time"
             fi
 
