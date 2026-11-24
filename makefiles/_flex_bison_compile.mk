@@ -106,6 +106,15 @@ _flex_bison_msvc_compile: $(GENDIR_C) | $(OBJDIR) $(OUTPUT_DIR)
 	$(call _run_msvc_compile,$(CC),$(CFLAGS) /I. /I$(GENDIR) $(MAKEFW_FLEXBISON_WARN_SUPPRESS),$(OBJDIR),\
 		$(GEN_TAB_C) $(GEN_LEX_C),)
 	$(call _run_msvc_compile,$(CC),$(CFLAGS) /I. /I$(GENDIR),$(OBJDIR),$(GENDIR_EXTRA_C),)
+
+# SRCS_C / SRCS_CPP 由来の一括コンパイルを、生成ソースとヘッダーの生成の後に行う。
+# 一括コンパイルは obj ごとの規則を経由しないため、makepart.mk が obj へ付けた
+# 生成ヘッダーへの依存 (例: obj/foo.obj: gen/foo_meta.h) は効かない。この順序づけがないと、
+# 直列の make (-j1) では、生成より先に一括コンパイルが走り、生成ヘッダーを #include する
+# ソースのコンパイルが失敗する (並列の make では、生成が先に終わるかどうかで結果が変わる)。
+# 生成物の更新でソースの再コンパイルを引き起こさないよう、order-only にする
+# (再コンパイルの要否は、一括コンパイルの側が /sourceDependencies で判定する)。
+_msvc_compile_c_normal _msvc_compile_c_test _msvc_compile_cpp_normal _msvc_compile_cpp_test: | $(GENDIR_C) $(GEN_TAB_H)
 endif # PLATFORM_WINDOWS
 
 endif # GENDIR_C
