@@ -1,7 +1,7 @@
 <!--
 生成元: agree-before-implement スキル
 文書種別: 全体管理文書 (overview)
-最終更新日時: 2026-11-26 02:05:00 JST
+最終更新日時: 2026-11-26 03:40:00 JST
 最終更新エージェント: claude code (主セッション session_01KJc53UFydnbt2gLXTJC1ZC)
 稼働 OS: Linux (WSL)
 上流文書: `261120-makefw-inject-source-switch-backlog.md` (BL-001)、`../../../../../app/general/docs/prompts/current/261123-remaining-backlog-items-backlog.md` (BL-002、BL-029、BL-030)。いずれも対策元の残課題一覧です。
@@ -59,7 +59,7 @@
         - ✅ 4.8.3. 承認された修正と、`framework/makefw/bin_test/msvc_pch_selftest.ps1` への再現テストの追加 (Windows 側の Claude Code が実施し、主エージェントが結果を確認) (修正がないため対象外)
     - ✅ 4.9. 正本ドキュメントおよびコード コメントへの永続的知見の反映
     - ✅ 4.10. 局所テストおよび機械的検証 (最終仕様の「検証手順」の Linux の手順、Windows 側への依頼、`text_style_jp.py`) の実施
-    - ⚠️ 4.11. 受入条件への適合確認 (全作業の完了確認) (AC-1、AC-3、AC-5、AC-6、AC-8 と、AC-2・AC-4 の Linux 側は適合。AC-7 は修正がないため対象外。未確認: AC-2・AC-4 の Windows 側。push 後に Windows 側の Claude Code の確認と CI の Windows のビルド・テストで確かめる)
+    - ✅ 4.11. 受入条件への適合確認 (全作業の完了確認) (AC-1 から AC-6、AC-8 に適合。AC-7 は修正がないため対象外。AC-2・AC-4 の Windows 側は、Windows 側の Claude Code の確認 (依頼 4) で適合)
     - ✅ 4.12. 簡易 ADR (`261125-makefw-backlog-lightadr.md`) の最終確認 (各決定が案件終了時点の決定を示し、経緯が時系列にそろっていることの確認)
     - ✅ 4.13. 残課題一覧 (`261125-makefw-backlog-backlog.md`) の再構築と整理 (今回対策しなかった項目の転記、対策元 2 件の最終状態・転記先の確定) (BL-001 から BL-003 の 3 件を残課題とし、整理済みにした。対策元: `261120-makefw-inject-source-switch-backlog.md` の BL-001 は対応済み、`261123-remaining-backlog-items-backlog.md` の BL-029、BL-030 は対応済み、BL-002 は転記済み)
 - 🔄 5. 成果物の承認の受付 (第 3 ゲート)
@@ -186,6 +186,7 @@
 | 2026-11-26 01:15 | BL-001、BL-029、BL-030 の実施の完了 | WBS 4.1 から 4.7、4.9、4.10 を完了。BL-002 (WBS 4.8) は Windows 側の再現結果の待ちのため着手せず、4.8 と 4.11 以降は未着手のまま (Sonnet サブエージェントの実施) |
 | 2026-11-26 01:35 | BL-002 の扱いの確定 | Windows 側の再現結果 (2026-11-25 22:10 頃に受領) を仮説に当てはめ、再現しないと判定。最終仕様の「確定した修正」に追記し、自走の指示により再発時の調査に残す残課題 (BL-003) へ送った。対策元の BL-002 を「転記済み」へ更新 |
 | 2026-11-26 02:05 | Windows の確認での不適合と修正 | Windows 側の確認 (依頼 4) で、`source_classification_selftest.py` が、同名のローカル実体がコピーへ置き換わることの確認で失敗。Windows ではコピーした実体と区別できず、置き換えの強制は最終仕様でも Linux だけのため、テストの Windows の期待値 (外部のソースの更新後に置き換わる) と `makeparts.md` と最終仕様の文面を直した。Linux で再実行して成功 |
+| 2026-11-26 03:40 | Windows 側の確認の完了 | 依頼 4 の結果: `make -C app/cplat` と `make -C app/cplat test` が成功 (gtest の失敗 0 件、成功 2,115 件、所要約 2 時間 10 分)、内容のある `.warn` は 0 件 (makefw d08551f)。`source_classification_selftest.py` は ad04f21 で成功し、`check_source_switch` は `SKIP:`。WBS 4.11 を完了 |
 
 ## 反映と検証の記録
 
@@ -206,8 +207,12 @@
 - `make -C app/cplat test`: 初回は `socketTest` のリンクが失敗 (`Mock_eventfd` が未定義。`framework/testfw/lib/linux_el8_x64/libmock_libc.a` が古かったため。`make -C framework/testfw` で再生成して解消)。次に、`cryptoTest`、`randomTest`、`symLoaderInitTest` のモックが効かず失敗 (`libmock_openssl.a` と `libmock_cjson.a` が古かったため。`make -C app/cjson` と `make -C app/openssl` で再生成して解消し、3 件の個別実行が成功)。いずれも提供元の成果物が古かったことが原因で、この変更とは無関係 (AC-4 の Linux 側)
 - `text_style_jp.py --dry-run`: `makeparts.md` は指摘なし (AC-8)
 
+### 検証結果 (Windows)
+
+- `source_classification_selftest.py` (ad04f21): 成功。分類は `DIRECT=0 COPY=80 LINK=0`、`check_source_switch` は `SKIP:` (AC-2)
+- `make -C app/cplat` と `make -C app/cplat test` (d08551f): 成功。gtest の失敗 0 件、内容のある `.warn` 0 件 (AC-4)
+
 ### 未完了項目
 
 - BL-002 (WBS 4.8): 再現しなかったため、修正はなし。この案件の残課題一覧の BL-003 へ送った
-- Windows 側の検証 (最終仕様の「検証手順」の Windows。AC-2 の Windows 側、AC-4 の Windows 側)
 - WBS 4.11 以降
