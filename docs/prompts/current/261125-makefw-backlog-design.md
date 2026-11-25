@@ -1,7 +1,7 @@
 <!--
 生成元: agree-before-implement スキル
 文書種別: 最終仕様 (design)
-最終更新日時: 2026-11-26 01:35:00 JST
+最終更新日時: 2026-11-26 02:05:00 JST
 最終更新エージェント: claude code (主セッション session_01KJc53UFydnbt2gLXTJC1ZC)
 稼働 OS: Linux (WSL)
 上流文書: `261125-makefw-backlog-overview.md` (全体管理文書)、`261125-makefw-backlog-discussion.md` (検討用 Markdown)、`261125-makefw-backlog-lightadr.md` (簡易 ADR)。いずれも削除されている場合があります。
@@ -130,13 +130,13 @@
 
 ### docs/makeparts.md の変更
 
-- 「外部ソースは配置後も元ソースの更新を追跡します」の節: 「Linux ではローカルの同名実体を優先して」の文を、「外部ソースと同名のローカル実体は、以前の引き込みが残したものとして扱い、Linux ではリンクへ、Windows ではコピーへ、次のビルドで置き換えます」という趣旨に改めます。
+- 「外部ソースは配置後も元ソースの更新を追跡します」の節: 「Linux ではローカルの同名実体を優先して」の文を、「外部ソースと同名のローカル実体は、以前の引き込みが残したものとして扱い、Linux では次のビルドでリンクへ置き換え、Windows ではコピーした実体と区別できないため、外部ソースが更新された次のビルドでコピーへ置き換えます」という趣旨に改めます。
 - 「ビルド システムによるソース ファイルの分類」の表: `DIRECT_SRCS` の条件を「指定したソースがカレント ディレクトリにある」に改めます。
 - 同じ節に、inject ファイルやフィルター ファイルを追加・削除すると、次のビルドで引き込み方が切り替わり、以前のリンクやコピーは自動で置き換わることを追記します。
 
 ### テストの追加 (bin_test/source_classification_selftest.py)
 
-- 既存の末尾の確認 (`native platform local-file precedence`) の Linux の期待値を `DIRECT=0 COPY=0 LINK=80` に改め、`build` の後に、そのファイルがリンクに置き換わったことを確認します。Windows の期待値 (`DIRECT=0 COPY=80 LINK=0`) は変えません。表示は `PASS: local file with an external source name is replaced` などに改めます。
+- 既存の末尾の確認 (`native platform local-file precedence`) の Linux の期待値を `DIRECT=0 COPY=0 LINK=80` に改め、`build` の後に、そのファイルがリンクに置き換わったことを確認します。Windows の期待値 (`DIRECT=0 COPY=80 LINK=0`) は変えません。Windows では、外部のソースの更新時刻を進めた後の `build` で、そのファイルがコピーの内容に置き換わったことを確認します。表示は `PASS: local file with an external source name is replaced` などに改めます。
 - 関数 `check_source_switch(root, home, env)` を追加し、`main()` から呼びます。Windows では `SKIP: 引き込み方の切り替わり (Windows は常にコピーで引き込みます)` を出力して返します。
 - 確認は、ライブラリのテンプレート (`app/probe/prod/libsrc/switch`) と実行体のテンプレート (`app/probe/prod/src/switch`、`main.c` を置く) の 2 つのディレクトリで、それぞれ外部の `a.c` と `b.c` を `ADD_SRCS` で引き込み、次の順に行います。更新時刻の比較が必要な箇所では、既存と同じく `time.sleep(1.1)` を挟みます。
 

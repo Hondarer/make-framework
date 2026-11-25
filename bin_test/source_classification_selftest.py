@@ -177,10 +177,14 @@ def main():
         print("PASS: 80 external sources, repeat build, last-source update and clean")
 
         # 外部のソースと同名のローカル実体は、以前の引き込みの残骸として扱い、両 OS で引き込み直す。
-        # Linux ではリンクへ、Windows ではコピーへ置き換わる。
+        # Linux では次のビルドでリンクへ置き換わる。Windows ではコピーした実体と区別できないため、
+        # 外部のソースが更新された次のビルドでコピーへ置き換わる。
         write(directory / sources[0].name, "int local_override(void) { return 1; }\n")
         result = run(directory, ["classify"], env)
         assert expected in result, result
+        if os.name == "nt":
+            time.sleep(1.1)
+            os.utime(sources[0])
         run(directory, ["build"], env)
         if os.name != "nt":
             assert (directory / sources[0].name).is_symlink(), "local file was not replaced by a link"
