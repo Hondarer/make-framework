@@ -508,7 +508,7 @@ $(eval $(call compile_rule_template,cpp,CXX,CXXFLAGS,SRCS_CPP))
 # シンボリック リンク対象のソース ファイルをシンボリック リンク
 # Create symbolic links for LINK_SRCS
 define generate_link_src_rule
-$(1):
+$(1): $(if $(filter $(1),$(_MAKEFW_FORCED_LINK_TARGETS)),_makefw_force_placement)
 	ln -sf $(2) $(1)
 endef
 
@@ -522,12 +522,27 @@ $(foreach link_src,$(LINK_SRCS), \
     ) \
 )
 
+# 以前の引き込みの残骸 (リンクとコピーの切り替わり) を置き換えるため、配置の規則を必ず実行させる
+# 残骸は解析時に _collect_srcs.mk が検出する。解析時はファイルを変更せず、
+# 置き換えはレシピの中だけで行うため、make -n でファイルは変わらない。
+# Force placement rules to run so that leftovers of an earlier placement (link/copy switch) are replaced.
+# Leftovers are detected at parse time by _collect_srcs.mk; files are changed only in recipes,
+# so make -n never modifies files.
+.PHONY: _makefw_force_placement
+_makefw_force_placement:
+
 # コピー対象のソース ファイルをコピーして
 # 1. フィルター処理をする
 # 2. inject 処理をする
+# 先頭でコピー先を削除する。コピー先が以前の引き込みのリンクの場合に、
+# cp が同じファイルと判定して失敗することと、フィルターのリダイレクトがリンクを辿って
+# コピー元を書き換えることを防ぐ。
 # Copy target source files, then apply filter processing and inject
+# The destination is removed first: if it is a leftover link, cp would fail as "same file" and
+# the filter redirect would follow the link and overwrite the source.
 define generate_cp_src_rule
-$(1): $(2) $(wildcard $(1).filter.sh) $(wildcard $(basename $(1)).inject$(suffix $(1))) $(filter $(1).filter.sh,$(notdir $(LINK_SRCS))) $(filter $(basename $(1)).inject$(suffix $(1)),$(notdir $(LINK_SRCS)))
+$(1): $(2) $(wildcard $(1).filter.sh) $(wildcard $(basename $(1)).inject$(suffix $(1))) $(filter $(1).filter.sh,$(notdir $(LINK_SRCS))) $(filter $(basename $(1)).inject$(suffix $(1)),$(notdir $(LINK_SRCS))) $(if $(filter $(1),$(_MAKEFW_FORCED_COPY_TARGETS)),_makefw_force_placement)
+	@rm -f $(1)
 	@if [ -f "$(1).filter.sh" ]; then \
 		echo "cat $(2) | sh $(1).filter.sh > $(1)"; \
 		cat $(2) | sh -e $(1).filter.sh > $(1) && \

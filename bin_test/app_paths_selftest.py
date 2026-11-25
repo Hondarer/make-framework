@@ -68,8 +68,8 @@ default _test_run clean:
         write(root / "paths.log", "")
         write(root / "children.log", "")
         output = run([*args, goal], app, env, success)
-        assert len((root / "paths.log").read_text().splitlines()) == count, output
-        return (root / "children.log").read_text(), output
+        assert len((root / "paths.log").read_text(encoding="utf-8").splitlines()) == count, output
+        return (root / "children.log").read_text(encoding="utf-8"), output
 
     children, _ = make(count=1)
     assert children.count("SYSTEM_INCLUDE:") == 2, children
@@ -140,7 +140,7 @@ exec bash "$@"
 '''
         run([BASH, "-c", wrapper, "selftest", str(resolver), "--paths-all",
              str(app), "test"], root, env)
-        assert (root / "cygpath.log").read_text().splitlines() == ["call"]
+        assert (root / "cygpath.log").read_text(encoding="utf-8").splitlines() == ["call"]
         for conversion in ("return 9", "printf 'one-path\\n'"):
             wrapper = f'cygpath() {{ {conversion}; }}; export -f cygpath; exec bash "$@"'
             run([BASH, "-c", wrapper, "selftest", str(resolver), "--paths-all",

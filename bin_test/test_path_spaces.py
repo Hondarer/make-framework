@@ -20,6 +20,11 @@ sys.stderr.reconfigure(encoding="utf-8")
 
 MAKEFW = Path(__file__).resolve().parents[1]
 
+# test_environment_sync_preserves_paths が統合ワークスペースから読み取るファイル。
+# 存在の確認と複製で同じ定義を使う。
+SYNC_SCRIPT = "app/general/bin/sync-app-env.sh"
+SYNC_VSCODE_FILES = ("c_cpp_properties.json", ".env.linux", ".env.windows", "settings.json", "pub_markdown.config.yaml")
+
 
 class PathSpacesTest(unittest.TestCase):
     def setUp(self):
@@ -120,7 +125,7 @@ LIB_TYPE := static
         self.make(leaf, "build", "IDENT=1")
         self.assertGreater(obj.stat().st_mtime_ns, initial)
         for warning in (self.root / "framework/fixture").rglob("*.warn"):
-            self.assertEqual(warning.stat().st_size, 0, warning.read_text(errors="replace"))
+            self.assertEqual(warning.stat().st_size, 0, warning.read_text(encoding="utf-8", errors="replace"))
         self.make(leaf, "clean")
         self.assertFalse(obj.exists())
         self.assertTrue(header.is_file())
@@ -153,7 +158,7 @@ LIB_TYPE := static
         self.assertIn(header.as_posix().replace(" ", "\\ ").lower(), dep.lower())
         self.assertEqual(list(output.glob("*.rsp")), [])
         for warning in self.root.rglob("*.warn"):
-            self.assertEqual(warning.stat().st_size, 0, warning.read_text(errors="replace"))
+            self.assertEqual(warning.stat().st_size, 0, warning.read_text(encoding="utf-8", errors="replace"))
 
     @unittest.skipIf(os.name == "nt", "[Linux] ELF version scripts are only used on Linux")
     def test_shared_library_version_script_with_spaces(self):
@@ -171,7 +176,7 @@ OUTPUT_DIR := $(WORKSPACE_DIR)/framework/fixture/prod/lib
         symbols = subprocess.check_output(["readelf", "--dyn-syms", "--wide", str(libraries[0])], encoding="utf-8")
         self.assertIn("example@@EXAMPLE_1", symbols)
         for warning in self.root.rglob("*.warn"):
-            self.assertEqual(warning.stat().st_size, 0, warning.read_text(errors="replace"))
+            self.assertEqual(warning.stat().st_size, 0, warning.read_text(encoding="utf-8", errors="replace"))
 
     def test_app_dependencies_and_source_paths(self):
         leaf = "app/sample/test/src/example"
@@ -244,10 +249,14 @@ inspect:
 
     def test_environment_sync_preserves_paths(self):
         workspace = MAKEFW.parents[1]
+        required = [SYNC_SCRIPT, *(".vscode/" + name for name in SYNC_VSCODE_FILES)]
+        missing = [name for name in required if not (workspace / name).is_file()]
+        if missing:
+            self.skipTest(f"統合ワークスペースのファイルがありません: {missing}")
         shutil.copytree(MAKEFW / "bin", self.home / "bin")
-        script = "app/general/bin/sync-app-env.sh"
+        script = SYNC_SCRIPT
         self.write(script, (workspace / script).read_text(encoding="utf-8"))
-        for name in ("c_cpp_properties.json", ".env.linux", ".env.windows", "settings.json", "pub_markdown.config.yaml"):
+        for name in SYNC_VSCODE_FILES:
             self.write(".vscode/" + name, (workspace / ".vscode" / name).read_text(encoding="utf-8"))
         self.write("app/sample/appdeps.mk", "APP_DEPS := dependency\n")
         self.write("app/dependency/appdeps.mk", "APP_DEPS :=\n")
