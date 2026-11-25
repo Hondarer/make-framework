@@ -36,14 +36,14 @@ CodeBlock: utf8_manifest.manifest
 
 `activeCodePage=UTF-8` の主な効果は次のとおりです。
 
+Table: activeCodePage=UTF-8 指定による影響一覧
+
 | 対象 | 効果 |
 |:-----|:-----|
 | `GetACP()` | `65001` (`CP_UTF8`) を返す |
 | `main(int argc, char *argv[])` | UTF-8 として扱える |
 | CRT narrow API | ACP を参照する API では UTF-8 前提で扱える |
 | Win32 `-A` API | ANSI コード ページが UTF-8 の場合、通常 UTF-8 として動作します。 |
-
-Table: activeCodePage=UTF-8 指定による影響一覧
 
 Microsoft Learn は、Windows 10 1903 以降で `activeCodePage` によりプロセスのコード ページを UTF-8 にできること、また ANSI コード ページが UTF-8 の場合は `-A` API が通常 UTF-8 として動作することを説明しています。
 
@@ -53,12 +53,12 @@ Microsoft Learn は、Windows 10 1903 以降で `activeCodePage` によりプロ
 
 コンソールには、入力コード ページと出力コード ページがあります。これはプロセス ACP とは別の状態です。
 
+Table: コンソール コード ページの種類と役割
+
 | 対象 | 役割 |
 |:-----|:-----|
 | 入力コード ページ | キーボード入力を文字値へ変換します。 |
 | 出力コード ページ | A 系コンソール出力の文字値を表示文字へ変換します。 |
-
-Table: コンソール コード ページの種類と役割
 
 Microsoft Learn の Console Code Pages 文書では、UTF-8 文字列を A 系コンソール API へ送る場合、事前に `SetConsoleCP` と `SetConsoleOutputCP` でコード ページを `65001` (`CP_UTF8`) に設定する、と説明されています。
 
@@ -160,14 +160,14 @@ CodeBlock: dumpbin でマニフェスト リソースを確認
 
 ## まとめ
 
+Table: Windows コンソールの UTF-8 対応策とその役割
+
 | 対処 | 役割 |
 |:-----|:-----|
 | `activeCodePage=UTF-8` マニフェスト | プロセス ACP を UTF-8 にし、`argv`、CRT narrow API、Win32 `-A` API を UTF-8 前提で扱えるようにします。 |
 | `SetConsoleCP(CP_UTF8)` | 接続先コンソールの入力コード ページを UTF-8 にします。 |
 | `SetConsoleOutputCP(CP_UTF8)` | 接続先コンソールの出力コード ページを UTF-8 にします。 |
 | `ENABLE_VIRTUAL_TERMINAL_PROCESSING` | ANSI エスケープ シーケンスによる色やカーソル制御を有効化します。 |
-
-Table: Windows コンソールの UTF-8 対応策とその役割
 
 推奨構成は、`WIN32_MANIFEST = utf8` で UTF-8 マニフェストを埋め込み、コンソール アプリケーションの開始時に `cplat_console_init()` を呼び出すことです。
 

@@ -422,15 +422,17 @@ results/
 
 ## テスト対象ソースの MD5
 
+Table: テスト対象ソースのファイル別の MD5 チェックサム
+
 | MD5 | ファイル |
 | --- | --- |
 | 8701cc7afd102f0c49274762aec99b1a | app/hierarchy-example/prod/libsrc/libhierarchy-example/func.c |
 | c48d4b18f94bc14f48caaaa830509757 | app/hierarchy-example/prod/libsrc/libhierarchy-example/subfolder_a/func_a.c |
 | ad49655e644dfac6440ee8b8cb84488a | app/hierarchy-example/prod/libsrc/libhierarchy-example/subfolder_b/func_b.c |
 
-Table: テスト対象ソースのファイル別の MD5 チェックサム
-
 ## テスト結果
+
+Table: テスト ID 別の判定とパラメーター
 
 | テスト ID | 結果 | パラメーター |
 | --- | --- | --- |
@@ -438,9 +440,9 @@ Table: テスト対象ソースのファイル別の MD5 チェックサム
 | [hierarchy_exampleTest_a.test_func_a](../hierarchy_exampleTest_a.test_func_a/results.md) | PASSED |  |
 | [hierarchy_exampleTest_b.test_func_b](../hierarchy_exampleTest_b.test_func_b/results.md) | PASSED |  |
 
-Table: テスト ID 別の判定とパラメーター
-
 ## 集計
+
+Table: 判定別のテスト件数
 
 | 項目 | 件数 |
 | --- | --- |
@@ -449,9 +451,9 @@ Table: テスト ID 別の判定とパラメーター
 | Warning(s) | 0 |
 | Failed | 0 |
 
-Table: 判定別のテスト件数
-
 ## 確認件数
+
+Table: テスト定義別の正常系と異常系の確認件数
 
 | テスト定義 | 正常系 | 異常系 | 計 |
 | --- | ---: | ---: | ---: |
@@ -460,9 +462,9 @@ Table: 判定別のテスト件数
 | [hierarchy_exampleTest_b.test_func_b](../hierarchy_exampleTest_b.test_func_b/results.md) | 1 | 0 | 1 |
 | 合計 | 3 | 0 | 3 |
 
-Table: テスト定義別の正常系と異常系の確認件数
-
 ## カバレッジ
+
+Table: ソース ファイル別の行とブランチのカバレッジ
 
 | File | Lines | Exec | Cover | Branch | BrCov | Missing |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -470,8 +472,6 @@ Table: テスト定義別の正常系と異常系の確認件数
 | func_a.c | 2 | 2 | 100% | - | - |  |
 | func_b.c | 2 | 2 | 100% | - | - |  |
 | TOTAL | 6 | 6 | 100% | - | - |  |
-
-Table: ソース ファイル別の行とブランチのカバレッジ
 ````
 
 ### 個別テスト結果 (results.md) の内容例
@@ -623,6 +623,8 @@ INCDIR += $(MYAPP_DIR)/prod/src/cmd/sample-app
 
 ## まとめ
 
+Table: サブフォルダー コンパイルの設定要件一覧
+
 | 観点 | 設定ファイル | 設定 | 説明 |
 |------|------------|------|------|
 | ライブラリ | 起点の `makechild.mk` | `NO_LINK = 1` | サブディレクトリではコンパイルのみ、起点でリンク |
@@ -630,5 +632,3 @@ INCDIR += $(MYAPP_DIR)/prod/src/cmd/sample-app
 | テスト | 起点の `makechild.mk` | `NO_LINK = 1` | サブディレクトリではコンパイルのみ、起点でリンク |
 | テスト | 起点と各サブの `makelocal.mk` | `TEST_SRCS` | ディレクトリごとにテスト対象を指定し、全体のカバレッジでは合わせて扱う |
 | テスト レポート | - | `results/` | 個別テスト結果と全体カバレッジを出力 |
-
-Table: サブフォルダー コンパイルの設定要件一覧

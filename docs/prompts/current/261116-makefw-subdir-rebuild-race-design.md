@@ -263,6 +263,8 @@ _makefw_parent_artifact: | $(if $(PLATFORM_WINDOWS),_msvc_compile,$(OBJS))
 `link_objects_selftest.py` と同じく Linux だけで実行します (`BIN_TEST_PLATFORM = "linux"`)。  
 確認する内容は次のとおりです。
 
+Table: subdir_build_selftest.py の確認内容
+
 | 確認 | 内容 |
 | --- | --- |
 | 再実行で再コンパイルしない | 自動 PCH が使われる構成で、変更なしの `make` の再実行がコンパイルもリンクも行わない。 |
@@ -271,19 +273,17 @@ _makefw_parent_artifact: | $(if $(PLATFORM_WINDOWS),_msvc_compile,$(OBJS))
 | 競合しない | オブジェクトが存在しない時間を広げた状態 (コンパイルの前にオブジェクトを消して待つスクリプトを `CC` に指定) で、サブディレクトリのソースを更新した後の `make test` が成功する。 |
 | 成果物が正しい | サブディレクトリのソースの更新、削除、復元の後に、成果物が再リンクされる。サブディレクトリの中で `make -j4` を実行したときも、親の成果物が再リンクされる。 |
 
-Table: subdir_build_selftest.py の確認内容
-
 `test_path_spaces.py` には、起点とサブディレクトリの両方に `TEST_SRCS` がある構成のテストを追加します。  
 既存の `test_sources_collected_from_child` (起点の `TEST_SRCS` が空の構成) と同じ方式で、一時ディレクトリの構成に対して `exec_test_c_cpp.sh` を実際に実行します。  
 Linux と Windows の両方で実行します。確認する内容は次のとおりです。
+
+Table: test_path_spaces.py に追加する確認内容
 
 | 確認 | 内容 |
 | --- | --- |
 | MD5 の表 | `summary.md` の MD5 の表に、起点のソースとサブディレクトリのソースの両方が入る。 |
 | 全体のカバレッジ | `summary.md` のカバレッジの表と `results/all_tests/` の `*.gcov.md` に、両方のソースが入る。 |
 | 並び | 起点のソースが先で、サブディレクトリのソースが後に並ぶ。 |
-
-Table: test_path_spaces.py に追加する確認内容
 
 Windows の `--sources` の変更により、既存の `test_sources_collected_from_child` の前提 (サブディレクトリが指定したソースを、起点のディレクトリでコンパイルしている) が成り立たなくなる場合は、ソースを実際の取り込み先でコンパイルする構成へ直します。
 
@@ -308,6 +308,8 @@ Windows の `--sources` の変更により、既存の `test_sources_collected_f
 例は、架空の名前 `app/hierarchy-example` を維持します。  
 framework の文書は架空の名前を使い、実在する app のパスを正本にしない規範に従うためです。
 
+Table: subfolder-compilation.md の見直しの内容
+
 | 番号 | 対象の箇所 | 直す内容 |
 | --- | --- | --- |
 | 1 | 「再帰的 make 処理」の `makemain.mk` の引用 | 現在の実装に合わせます。`SUBDIRS` を明示した場合の直列の処理、OS による除外、`test` の 2 フェーズ (`_test_build`、`_test_run`)、`_gen` を説明します。 |
@@ -316,8 +318,6 @@ framework の文書は架空の名前を使い、実在する app のパスを�
 | 4 | 架空の例に混ざった実在の名前 | マクロ (`SUBFOLDER_SAMPLE_EXPORTS`、`SUBFOLDER_SAMPLE_API`)、テスト クラス (`subfolder_sampleTest`) などを、架空の名前にそろえます。`docs/makeparts.md` の「例 3」の説明文の `libsubfolder-sample/` も、同じ例のコード ブロックの名前にそろえます。 |
 | 5 | 例の中の不整合 | コマンドの出力先を、実際の出力先にそろえます。テストの起点の `TEST_SRCS` の置き場所を、`makelocal.mk` にそろえます。 |
 | 6 | 「テスト レポートの構造」の出力例 | `results/` のディレクトリ構造、`summary.md`、`results.md`、`*.gcov.md` の例を、実際の出力と照合して直します。 |
-
-Table: subfolder-compilation.md の見直しの内容
 
 - 実装の引用は、動作の説明に必要な数行の抜粋に絞ります。残りは文章で説明し、正確な内容は実装のファイルを見るよう案内します。
 - 6 番の照合に使う実際の出力は、修正後の makefw と testfw を WSL の一時複製に置き、サブディレクトリを持つテストの `make test` を実行して得ます。出力例の名前は、架空の名前に置き換えます。
@@ -377,6 +377,8 @@ Linux と Windows の確認は、同時には実行しません。
 
 ## 知見の反映計画
 
+Table: 知見と反映先
+
 | 知見 | 反映先 |
 | --- | --- |
 | 自動 PCH の依存の追記で `.d` をオブジェクトより新しくしてはならない理由 | `gcc_pch.py` の `record()` のコメント、`build-configurations.md` |
@@ -385,8 +387,6 @@ Linux と Windows の確認は、同時には実行しません。
 | Windows のコンパイルは `_msvc_compile` が行うため、オブジェクトを前提にする箇所は OS で切り替える必要があること | 2 つのテンプレートの `_test_build` のコメント |
 | サブディレクトリの中での `make` では、親の成果物の更新をコンパイルの完了後に行う必要があること | 2 つのテンプレートの `_makefw_parent_artifact` のコメント |
 | 全体のカバレッジの対象は、起点とサブディレクトリの `TEST_SRCS` を合わせたものであること。Windows の計測対象は、ソースが取り込まれたディレクトリで指定すること | `exec_test_c_cpp.sh` のコメント、`subfolder-compilation.md` |
-
-Table: 知見と反映先
 
 ## 作業上の条件
 

@@ -11,13 +11,13 @@
 
 同期元は先頭行の識別子に応じて切り替わります。
 
+Table: 先頭行の識別子に応じたテンプレート同期元ファイル
+
 | 先頭行 | 同期元 |
 |-------|--------|
 | `# app 配下 makefile テンプレート` | `framework/makefw/makefiles/__template.mk` |
 | `# 各 app 直下 makefile テンプレート` | `framework/makefw/makefiles/__each_app_template.mk` |
 | `# app 直下 makefile テンプレート` | `framework/makefw/makefiles/__app_template.mk` |
-
-Table: 先頭行の識別子に応じたテンプレート同期元ファイル
 
 この先頭行は「この `makefile` はテンプレートの実体コピーであり、内容差分を持たせない」という識別子として扱います。
 

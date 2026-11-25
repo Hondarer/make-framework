@@ -33,13 +33,13 @@ make -C app/example/test CONFIG=Debug test
 
 ## 構成ごとの用途
 
+Table: ビルド構成別の用途およびコンパイラ フラグ一覧
+
 | 構成 | 用途 | Linux の主なフラグ | MSVC の主なフラグ |
 |---|---|---|---|
 | `Debug` | ステップ実行とデバッグを優先 | `-O0 -g -D_DEBUG` | `/Od /RTC1 /Zi /D_DEBUG` |
 | `RelWithDebInfo` | 性能と調査しやすさのバランス | `-O2 -g -fno-omit-frame-pointer -DNDEBUG` | `/O2 /Ob2 /Zi /DNDEBUG` |
 | `Release` | 配布・性能測定向け | `-O2 -g -flto -DNDEBUG` | `/O2 /Ob2 /Oy /Zi /GL /DNDEBUG` |
-
-Table: ビルド構成別の用途およびコンパイラ フラグ一覧
 
 `RelWithDebInfo` は、通常開発・テスト・性能調査の既定構成です。  
 最適化を有効にしつつデバッグ情報を生成し、Linux ではフレーム ポインターを保持してスタック トレースやプロファイリングを安定させます。
@@ -178,13 +178,13 @@ make gen
 
 生成ソースの種類ごとの扱いは、次のとおりです。
 
+Table: 生成ソースの種類と make gen での扱い
+
 | 種類 | 例 | `make gen` での扱い |
 | --- | --- | --- |
 | `makepart.mk` がパース時にスクリプトで生成する | 配布アーカイブの展開、定義ファイルからの生成 | `prod/` 配下の makefile をパースした時点で生成される |
 | ツールだけで生成する規則 | flex / bison、Windows の mc.exe | 生成物を作る。コンパイルは行わない |
 | app が自前でビルドした生成器で生成する | `GENDIR_EXTRA_C` の規則が `prod/cbin/` の実行体を前提にする | app の宣言に従い、`prod/` を通常どおりビルドする |
-
-Table: 生成ソースの種類と make gen での扱い
 
 生成ソースは、生成物の置き場所 `$(GENDIR)` (`gen/`) に置きます。  
 makefw の生成規則 (flex / bison、mc.exe) は、この場所へ出力します。app が独自の規則で生成する場合も、同じ場所へ出力してください。  
@@ -334,14 +334,14 @@ Windows では make の外側の並列度を増やしつつ、1 つの `cl.exe` 
 
 代表的な論理 CPU 数での自動設定は次のとおりです。
 
+Table: OS および論理 CPU 数別の並列ビルド設定一覧
+
 | OS | CPU 数 | make | GCC | MSVC | MSBuild |
 |---|---:|---:|---:|---:|---:|
 | Linux | 8 | `-j4` | make の並列度を使用 | - | `-m:1` |
 | Linux | 72 | `-j8` | make の並列度を使用 | - | `-m:4` |
 | Windows | 8 | `-j4` | - | `/MP1` | `-m:1` |
 | Windows | 72 | `-j12` | - | `/MP3` | `-m:3` |
-
-Table: OS および論理 CPU 数別の並列ビルド設定一覧
 
 引数なし、`default`、`build`、`clean`、`rebuild`、`test` では自動設定を使用します。  
 `make test` は内部で 2 フェーズに分かれます。Phase 1 (ビルド フェーズ、ターゲット `_test_build`) はテスト バイナリのコンパイルとリンクのみを自動設定の並列度で実行し、Phase 2 (実行フェーズ、ターゲット `_test_run`) はテストの実行順を維持するため `-j1` で実行します。  
@@ -388,6 +388,8 @@ runner は使われていない予算 `budget_free` を `B` で初期化し、ap
 端数は先に起動する app へ 1 ずつ多く配分し、単独で動く app は `budget_free` のすべてを使えます。  
 渡された予算 `b` を受け取った各 app の make は、それをコンパイルの予算として並列度 (Linux は `min(b, 8)`、Windows は `min(ceil(sqrt(2 * CPU 数)), 12, b)`、`/MP` と MSBuild `-m` は `floor(b / 並列度)` を 1 から 16 に制限) を解決します。
 
+Table: コンパイルの予算 B と起動できる app の数に対する渡す予算の例
+
 | B | jobs | 起動できる app の数 | 渡す予算 |
 |---|---:|---:|---|
 | 4 | 4 | 1 (`cplat` の前の単独の区間) | 4 |
@@ -395,8 +397,6 @@ runner は使われていない予算 `budget_free` を `B` で初期化し、ap
 | 4 | 4 | 5 | 1、1、1、1 (5 つ目は予算が戻るまで待つ) |
 | 7 | 3 | 3 | 3、2、2 |
 | 2 | 4 | 4 | 1、1 (残りの 2 つは待つ) |
-
-Table: コンパイルの予算 B と起動できる app の数に対する渡す予算の例
 
 この予算の割り振りは、`-j`、`--jobs`、ジョブ サーバー、`JOBS`、`JOBS_EFFECTIVE`、`MAKEFW_CL_MP_JOBS`、`MAKEFW_MSBUILD_JOBS` のいずれも利用者が指定していない既定の設定に限ります。  
 いずれかを指定した場合は割り振りを行わず、指定をそのまま使った従来の動作になります。  

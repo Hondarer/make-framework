@@ -5,14 +5,14 @@
 makefw フレームワークでは、ビルド設定のカスタマイズに 3 種類の設定ファイルを提供しています。  
 これらのファイルにより、最終階層の makefile を一切編集することなく、プロジェクト固有の設定を柔軟に管理できます。
 
+Table: makefw 設定ファイルの種類とスコープ
+
 | ファイル | スコープ | 適用対象 |
 |---------|---------|---------|
 | `makepart.mk` | 階層継承 (親→子に伝播) | 自ディレクトリ + 子階層すべて |
 | `makechild.mk` | 子階層限定 (自身は除く) | 子階層以降のみ (自ディレクトリは除く) |
 | `makelocal.mk` | 自ディレクトリ限定 | 自ディレクトリのみ |
 | `appdeps.mk` | app 直下の省略可能な依存・公開ヘッダー分類 | 自 app と依存 app の `prod/include` / `prod/lib` / `test/include` / `test/include_override` / `test/lib` 自動解決 |
-
-Table: makefw 設定ファイルの種類とスコープ
 
 これらのファイルは、記述する内容がある場合にだけ作成すれば十分です。  
 設定が不要なときは、空のファイルを作成する必要はありません。
@@ -69,6 +69,8 @@ MAKE_INCLUDE_MK += $(wildcard $(CURDIR)/makepart.mk)
 
 ### 主な設定項目
 
+Table: makepart.mk の主な設定項目と記述例
+
 | 変数 | 説明 | 例 |
 |------|------|-----|
 | `LIBS` | リンクするライブラリ | `LIBS += calcbase` |
@@ -85,8 +87,6 @@ MAKE_INCLUDE_MK += $(wildcard $(CURDIR)/makepart.mk)
 | `LINK_TEST` | テスト フレームワーク リンク | `LINK_TEST = 1` |
 | `TEST_SRCS` | テスト対象ソース ファイル | `TEST_SRCS := $(MYAPP_DIR)/prod/.../add.c` |
 | `ADD_SRCS` | テスト対象の依存実装など、カバレッジ対象外の追加ソース ファイル | `ADD_SRCS := $(MYAPP_DIR)/prod/.../result.c` |
-
-Table: makepart.mk の主な設定項目と記述例
 
 `appdeps.mk` により、自 app と依存 app の `prod/lib` は `LIBSDIR` へ自動的に追加されます。  
 `LIBSDIR` を明示するのは、依存関係の解決対象に含まれない外部ライブラリの検索パスだけです。
@@ -364,21 +364,21 @@ prod/
 
 `prod/myapp/libsrc/mylib/` でビルドを実行した場合:
 
+Table: mylib ディレクトリでの makechild.mk 適用判定
+
 | ファイル | 適用されるか |
 |---------|------------|
 | `prod/makechild.mk` (A) | **適用される** (`mylib/` は `prod/` の子孫) |
 | `prod/myapp/makechild.mk` (B) | **適用される** (`mylib/` は `myapp/` の子孫) |
 
-Table: mylib ディレクトリでの makechild.mk 適用判定
-
 `prod/myapp/` でビルドを実行した場合:
+
+Table: myapp ディレクトリでの makechild.mk 適用判定
 
 | ファイル | 適用されるか |
 |---------|------------|
 | `prod/makechild.mk` (A) | **適用される** (`myapp/` は `prod/` の子) |
 | `prod/myapp/makechild.mk` (B) | **適用されない** (自ディレクトリは除く) |
-
-Table: myapp ディレクトリでの makechild.mk 適用判定
 
 ### 実装
 
@@ -497,6 +497,8 @@ SUBDIRS := \
 
 ### 有効範囲
 
+Table: 場所別の MYAPP_DIR および APP_DIR の有効範囲
+
 | 場所 | MYAPP_DIR | APP_DIR | 説明 |
 |------|:---:|:---:|------|
 | `app/example/makepart.mk` | ✓ | ✓ | `MYAPP_DIR=/path/to/workspace/app/example`, `APP_DIR=/path/to/workspace/app` |
@@ -505,8 +507,6 @@ SUBDIRS := \
 | `app/makepart.mk` | ✗ | ✗ | app/ 直下 — `$(WORKSPACE_DIR)` を使用 |
 | `makepart.mk` (ルート) | ✗ | ✗ | ルート — `$(WORKSPACE_DIR)` を使用 |
 | `framework/` 配下 | ✗ | ✗ | フレームワーク — 対象外 |
-
-Table: 場所別の MYAPP_DIR および APP_DIR の有効範囲
 
 無効範囲で `$(MYAPP_DIR)` または `$(APP_DIR)` を参照すると、Make の `$(error ...)` により明示的なエラーが発生します。
 
@@ -593,6 +593,8 @@ INCDIR += $(call _makefw_escape_path,$(FOO_SDK_DIR))/include
 
 ## 配置の指針
 
+Table: 設定項目ごとの設定ファイル配置指針
+
 | 設定項目 | 配置先 | 理由 |
 |---------|--------|------|
 | `LIBS`, `LIBSDIR` | makepart.mk | 自ディレクトリ含む子階層に継承させたい |
@@ -605,8 +607,6 @@ INCDIR += $(call _makefw_escape_path,$(FOO_SDK_DIR))/include
 | フック ターゲット | makelocal.mk | 自ディレクトリのみに限定 |
 | ローカル変数 | makelocal.mk | 継承させたくない設定 |
 | `SUBDIRS` の順序指定 | makelocal.mk | 走査順を自ディレクトリだけで変えたい |
-
-Table: 設定項目ごとの設定ファイル配置指針
 
 ## 併用例
 
@@ -685,13 +685,13 @@ ADD_SRCS := \
 
 `TEST_SRCS` と `ADD_SRCS` に指定したソース ファイルは、`make test` 時に `_collect_srcs.mk` が次の 3 種類に自動分類し、テストのビルド ディレクトリへ取り込みます。
 
+Table: テスト実行時におけるソース ファイルの分類区分
+
 | 分類 | 説明 | 条件 |
 |------|------|------|
 | `DIRECT_SRCS` | テスト フォルダーに既存の実体ファイル | カレント ディレクトリに実ファイルが存在し、かつシンボリック リンクでない |
 | `LINK_SRCS` | シンボリック リンクで引き込むファイル | Linux 環境で、inject ファイルおよびフィルター ファイルがない場合 |
 | `CP_SRCS` | コピーで引き込むファイル | Windows 環境の場合、または inject / フィルター ファイルが存在する場合 |
-
-Table: テスト実行時におけるソース ファイルの分類区分
 
 通常の関数単体テスト (Linux 環境、inject なし) では `TEST_SRCS` に指定したファイルは `LINK_SRCS` として処理され、テスト ビルド ディレクトリ内の当該ファイル名は `prod/` にある実体ファイルへのシンボリック リンクになります。
 
