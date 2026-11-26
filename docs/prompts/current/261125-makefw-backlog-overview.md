@@ -1,8 +1,8 @@
 <!--
 生成元: agree-before-implement スキル
 文書種別: 全体管理文書 (overview)
-最終更新日時: 2026-11-26 03:40:00 JST
-最終更新エージェント: claude code (主セッション session_01KJc53UFydnbt2gLXTJC1ZC)
+最終更新日時: 2026-11-26 23:34:09 JST
+最終更新エージェント: agy (gemini-4-hydrogen-medium、主セッション session_01KJc53RTnwmpzd7VMLf1qR9)
 稼働 OS: Linux (WSL)
 上流文書: `261120-makefw-inject-source-switch-backlog.md` (BL-001)、`../../../../../app/general/docs/prompts/current/261123-remaining-backlog-items-backlog.md` (BL-002、BL-029、BL-030)。いずれも対策元の残課題一覧です。
 下流文書: `261125-makefw-backlog-discussion.md` (検討用 Markdown)、`261125-makefw-backlog-lightadr.md` (簡易 ADR)、`261125-makefw-backlog-design.md` (最終仕様)、`261125-makefw-backlog-backlog.md` (残課題一覧)。未作成の場合や、削除されている場合があります。
@@ -21,7 +21,7 @@
 
 検討用 Markdown の版: 3
 
-状態: 作業の実施中 (第 2 ゲート通過済み)
+状態: 完了 (第 3 ゲートの承認を受領)
 
 ## 作業 WBS と進捗管理
 
@@ -29,7 +29,7 @@
 
 凡例: ⏸️ 未着手、🔄 実施中、🚫 ブロック中、⚠️ 要注意、✅ 完了。現在取り組んでいる項目の末尾に `← **CURRENT**` を付けます。
 
-- 🔄 1. 検討用 Markdown のための情報収集と質問の実施
+- ✅ 1. 検討用 Markdown のための情報収集と質問の実施
     - ✅ 1.1. 前提条件と要求事項の調査 (対策元 `261120-makefw-inject-source-switch-backlog.md` の BL-001、`261123-remaining-backlog-items-backlog.md` の BL-002、BL-029、BL-030 を「検討中」へ更新し、継続案件の開始を記録)
     - ✅ 1.2. 課題・論点の抽出と明確化のための確認項目 ([Q-001](261125-makefw-backlog-discussion.md#q-001-今回の案件で対策する残課題の範囲) から [Q-008](261125-makefw-backlog-discussion.md#q-008-bl-002-の対策の到達点)) の作成
     - ✅ 1.3. Q&A ターンごとのユーザー回答の受付と記録 (Q-001 から Q-008 の回答。回答者 Tetsuo Honda、2026-11-25 20:44:45 JST)
@@ -45,7 +45,7 @@
     - ✅ 3.1. `261125-makefw-backlog-design.md` の作成 (対策元 `backlog.md` の確定方針・状態を随時反映。BL-001、BL-002、BL-029、BL-030 を「対応中」へ更新)
     - ✅ 3.2. 最終仕様における受入条件と整合性の確認 (LADR-001 から LADR-008 との一致、受入条件 AC-1 から AC-8 と検証手順の対応)
     - ✅ 3.3. 対話セッションにおける最終仕様 (design.md) の承認の受付 (第 2 ゲート: 作業着手の合意) (2026-11-25 21:48 頃のユーザーの指示「ユーザーの確認なく継続的に自走すること」「6. は他の案件同様 main へのコミットを事前許可する」により承認済みとして扱う。BL-002 の具体的な修正は承認の対象外で、Windows 側の結果の受領後に WBS 4.8.2 で追記して別途承認を受ける)
-- 🔄 4. 承認された最終仕様に従った作業の実施
+- ✅ 4. 承認された最終仕様に従った作業の実施
     - ✅ 4.1. `framework/makefw/makefiles/_collect_srcs.mk` の分類の変更 (外部のソースと同名のローカル実体の両 OS 共通の除外、置き換えを強制する名前の一覧の算出。BL-001、LADR-002、LADR-008)
     - ✅ 4.2. `framework/makefw/makefiles/makesrc_c_cpp.mk` の `generate_link_src_rule` と `generate_cp_src_rule` の変更 (BL-001)
     - ✅ 4.3. `framework/makefw/makefiles/makelibsrc_c_cpp.mk` の `generate_link_src_rule` と `generate_cp_src_rule` へ同じ変更 (BL-001)
@@ -62,9 +62,9 @@
     - ✅ 4.11. 受入条件への適合確認 (全作業の完了確認) (AC-1 から AC-6、AC-8 に適合。AC-7 は修正がないため対象外。AC-2・AC-4 の Windows 側は、Windows 側の Claude Code の確認 (依頼 4) で適合)
     - ✅ 4.12. 簡易 ADR (`261125-makefw-backlog-lightadr.md`) の最終確認 (各決定が案件終了時点の決定を示し、経緯が時系列にそろっていることの確認)
     - ✅ 4.13. 残課題一覧 (`261125-makefw-backlog-backlog.md`) の再構築と整理 (今回対策しなかった項目の転記、対策元 2 件の最終状態・転記先の確定) (BL-001 から BL-003 の 3 件を残課題とし、整理済みにした。対策元: `261120-makefw-inject-source-switch-backlog.md` の BL-001 は対応済み、`261123-remaining-backlog-items-backlog.md` の BL-029、BL-030 は対応済み、BL-002 は転記済み)
-- 🔄 5. 成果物の承認の受付 (第 3 ゲート)
-    - 🔄 5.1. 成果物・検証結果・残課題の提示 ← **CURRENT**
-    - ⏸️ 5.2. 対話セッションにおける成果物の承認の受付 (「承認」または「完了」の受領によるスキル完了)
+- ✅ 5. 成果物の承認の受付 (第 3 ゲート)
+    - ✅ 5.1. 成果物・検証結果・残課題の提示
+    - ✅ 5.2. 対話セッションにおける成果物の承認の受付 (「承認」または「完了」の受領によるスキル完了) (2026-11-26 23:34 JST の対話で、ユーザーが「第3ゲート待ちの全案件を承認します。」と発言し承認)
 
 ## 対象と参照資料
 
@@ -187,6 +187,7 @@
 | 2026-11-26 01:35 | BL-002 の扱いの確定 | Windows 側の再現結果 (2026-11-25 22:10 頃に受領) を仮説に当てはめ、再現しないと判定。最終仕様の「確定した修正」に追記し、自走の指示により再発時の調査に残す残課題 (BL-003) へ送った。対策元の BL-002 を「転記済み」へ更新 |
 | 2026-11-26 02:05 | Windows の確認での不適合と修正 | Windows 側の確認 (依頼 4) で、`source_classification_selftest.py` が、同名のローカル実体がコピーへ置き換わることの確認で失敗。Windows ではコピーした実体と区別できず、置き換えの強制は最終仕様でも Linux だけのため、テストの Windows の期待値 (外部のソースの更新後に置き換わる) と `makeparts.md` と最終仕様の文面を直した。Linux で再実行して成功 |
 | 2026-11-26 03:40 | Windows 側の確認の完了 | 依頼 4 の結果: `make -C app/cplat` と `make -C app/cplat test` が成功 (gtest の失敗 0 件、成功 2,115 件、所要約 2 時間 10 分)、内容のある `.warn` は 0 件 (makefw d08551f)。`source_classification_selftest.py` は ad04f21 で成功し、`check_source_switch` は `SKIP:`。WBS 4.11 を完了 |
+| 2026-11-26 23:34 | 第 3 ゲートの通過 | 2026-11-26 23:34 JST の対話で、ユーザーが「第3ゲート待ちの全案件を承認します。」と発言し承認。作業 WBS 5.1、5.2、5 を完了 |
 
 ## 反映と検証の記録
 
