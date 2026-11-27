@@ -28,7 +28,7 @@
 **Context**
 
 - **経緯と背景**: 「消化可能なバックログを消化していきたい」という依頼 (2026-11-25 の対話) に基づき、`framework/makefw` に関係する 4 件を 1 つの案件にまとめました。対策元は次の 2 つの残課題一覧にまたがります。
-    - [261120-makefw-inject-source-switch-backlog.md](261120-makefw-inject-source-switch-backlog.md) の BL-001 (リンクからコピーへの切り替えで古いリンクが残り、`cp` が失敗する)
+    - [261120-makefw-inject-source-switch-backlog.md](../past/261120-makefw-inject-source-switch-backlog.md) の BL-001 (リンクからコピーへの切り替えで古いリンクが残り、`cp` が失敗する)
     - [261123-remaining-backlog-items-backlog.md](../../../../../app/general/docs/prompts/current/261123-remaining-backlog-items-backlog.md) の BL-029 (`bin_test` の Python の文字コード指定漏れ)、BL-030 (`bin_test` が統合ワークスペースの外で動かない)、BL-002 (mock ヘッダー変更後の MSVC の差分ビルドで古いオブジェクトが残る)
 - **各課題の性質**:
     - BL-001: 原因はコードの読解で特定済みです。方針の分岐が [Q-002](#q-002-bl-001-古いリンクへの対処方式) から [Q-004](#q-004-bl-001-の再現テストの置き場所) にあります。
